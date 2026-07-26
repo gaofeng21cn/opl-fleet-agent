@@ -5,9 +5,9 @@ namespace CodexTPS.Windows.Tests;
 public sealed class TaskbarReadoutAppearanceTests
 {
     [Theory]
-    [InlineData((int)TaskbarEdge.Bottom, 96, 24)]
-    [InlineData((int)TaskbarEdge.Bottom, 144, 36)]
-    [InlineData((int)TaskbarEdge.Top, 192, 48)]
+    [InlineData((int)TaskbarEdge.Bottom, 96, 16)]
+    [InlineData((int)TaskbarEdge.Bottom, 144, 24)]
+    [InlineData((int)TaskbarEdge.Top, 192, 32)]
     [InlineData((int)TaskbarEdge.Left, 96, 11)]
     [InlineData((int)TaskbarEdge.Right, 192, 22)]
     public void FontPixelSizeScalesWithTaskbarDpi(
@@ -24,7 +24,7 @@ public sealed class TaskbarReadoutAppearanceTests
     public void InvalidDpiFallsBackToNinetySix()
     {
         Assert.Equal(
-            24,
+            16,
             TaskbarReadoutAppearance.FontPixelSize(TaskbarEdge.Bottom, 0));
     }
 
@@ -66,7 +66,7 @@ public sealed class TaskbarReadoutAppearanceTests
     public void RenderKeepsBackgroundTransparentAndClickTargetPresent()
     {
         using var bitmap = TaskbarReadoutAppearance.Render(
-            new Size(152, 40),
+            new Size(128, 32),
             "12.5K t/s",
             TaskbarEdge.Bottom,
             96,

@@ -17,7 +17,7 @@ public sealed class TaskbarPlacementTests
 
         Assert.True(placement.IsVisible);
         Assert.Equal(TaskbarEdge.Bottom, placement.Edge);
-        Assert.Equal(new Rectangle(1422, 1042, 152, 36), placement.Bounds);
+        Assert.Equal(new Rectangle(1446, 1044, 128, 32), placement.Bounds);
         Assert.False(placement.Bounds.IntersectsWith(notification));
     }
 
@@ -33,7 +33,7 @@ public sealed class TaskbarPlacementTests
 
         Assert.True(placement.IsVisible);
         Assert.Equal(TaskbarEdge.Top, placement.Edge);
-        Assert.Equal(new Rectangle(2042, 4, 152, 40), placement.Bounds);
+        Assert.Equal(new Rectangle(2066, 8, 128, 32), placement.Bounds);
     }
 
     [Theory]
@@ -98,7 +98,7 @@ public sealed class TaskbarPlacementTests
             AutoHide: false));
 
         Assert.True(placement.IsVisible);
-        Assert.Equal(new Rectangle(-836, 1352, 304, 80), placement.Bounds);
+        Assert.Equal(new Rectangle(-788, 1360, 256, 64), placement.Bounds);
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public sealed class TaskbarPlacementTests
 
         Assert.Equal(new Rectangle(1518, 1032, 402, 48), occupied);
         Assert.True(placement.IsVisible);
-        Assert.Equal(new Rectangle(1360, 1036, 152, 40), placement.Bounds);
+        Assert.Equal(new Rectangle(1384, 1040, 128, 32), placement.Bounds);
         Assert.False(placement.Bounds.IntersectsWith(trafficMonitor));
     }
 

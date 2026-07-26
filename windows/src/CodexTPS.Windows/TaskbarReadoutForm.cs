@@ -345,7 +345,7 @@ internal static class TaskbarReadoutAppearance
 {
     internal const byte TransparentHitTestAlpha = 1;
     private const string Indicator = "∿";
-    private const float HorizontalFontLogicalPixels = 24f;
+    private const float HorizontalFontLogicalPixels = 16f;
     private const float VerticalFontLogicalPixels = 11f;
 
     public static FontStyle TextFontStyle => FontStyle.Regular;

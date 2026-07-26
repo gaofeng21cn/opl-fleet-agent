@@ -22,10 +22,10 @@ internal readonly record struct TaskbarPlacement(
     bool IsVisible)
 {
     private const int HiddenEdgeLogicalPixels = 8;
-    private const int HorizontalWidthLogicalPixels = 152;
-    private const int HorizontalHeightLogicalPixels = 40;
-    private const int HorizontalMinimumWidthLogicalPixels = 128;
-    private const int HorizontalMinimumHeightLogicalPixels = 32;
+    private const int HorizontalWidthLogicalPixels = 128;
+    private const int HorizontalHeightLogicalPixels = 32;
+    private const int HorizontalMinimumWidthLogicalPixels = 112;
+    private const int HorizontalMinimumHeightLogicalPixels = 28;
     private const int VerticalWidthLogicalPixels = 42;
     private const int VerticalHeightLogicalPixels = 52;
     private const int VerticalMinimumWidthLogicalPixels = 28;
