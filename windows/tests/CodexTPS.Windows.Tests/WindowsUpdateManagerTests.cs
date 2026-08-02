@@ -10,13 +10,17 @@ public sealed class WindowsUpdateManagerTests
     {
         using var fixture = new UpdateManagerFixture(
             HttpStatusCode.OK,
-            ReleaseJson("v0.2.20"),
+            "v0.2.20",
             new SemanticVersion(0, 2, 19));
 
         await fixture.Manager.CheckForUpdatesAsync();
 
         Assert.Equal(AppUpdateKind.Available, fixture.Manager.State.Kind);
         Assert.Equal("v0.2.20", fixture.Manager.State.Release?.TagName);
+        Assert.Equal(HttpMethod.Head, fixture.Handler.LastMethod);
+        Assert.Equal(
+            "https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest",
+            fixture.Handler.LastUri?.AbsoluteUri);
     }
 
     [Fact]
@@ -24,7 +28,7 @@ public sealed class WindowsUpdateManagerTests
     {
         using var fixture = new UpdateManagerFixture(
             HttpStatusCode.OK,
-            ReleaseJson("v0.2.20"),
+            "v0.2.20",
             new SemanticVersion(0, 2, 20));
 
         await fixture.Manager.CheckForUpdatesAsync();
@@ -38,35 +42,18 @@ public sealed class WindowsUpdateManagerTests
     {
         using var manualFixture = new UpdateManagerFixture(
             HttpStatusCode.ServiceUnavailable,
-            string.Empty,
+            null,
             new SemanticVersion(0, 2, 19));
         await manualFixture.Manager.CheckForUpdatesAsync(manual: true);
         Assert.Equal(AppUpdateKind.Failed, manualFixture.Manager.State.Kind);
 
         using var automaticFixture = new UpdateManagerFixture(
             HttpStatusCode.ServiceUnavailable,
-            string.Empty,
+            null,
             new SemanticVersion(0, 2, 19));
         await automaticFixture.Manager.CheckForUpdatesAsync(manual: false);
         Assert.Equal(AppUpdateKind.Idle, automaticFixture.Manager.State.Kind);
     }
-
-    private static string ReleaseJson(string tag) =>
-        $$"""
-        {
-          "tag_name": "{{tag}}",
-          "assets": [
-            {
-              "name": "Codex-TPS-Windows-win-x64-Setup.exe",
-              "browser_download_url": "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/{{tag}}/Codex-TPS-Windows-win-x64-Setup.exe"
-            },
-            {
-              "name": "Codex-TPS-Windows-win-x64-Setup.exe.sha256",
-              "browser_download_url": "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/{{tag}}/Codex-TPS-Windows-win-x64-Setup.exe.sha256"
-            }
-          ]
-        }
-        """;
 
     private sealed class UpdateManagerFixture : IDisposable
     {
@@ -76,10 +63,11 @@ public sealed class WindowsUpdateManagerTests
 
         public UpdateManagerFixture(
             HttpStatusCode statusCode,
-            string content,
+            string? releaseTag,
             SemanticVersion currentVersion)
         {
-            client = new HttpClient(new StubHandler(statusCode, content));
+            Handler = new StubHandler(statusCode, releaseTag);
+            client = new HttpClient(Handler);
             var executable = Path.Combine(directory.FullName, "CodexTPS.exe");
             File.WriteAllText(executable, "test executable");
             Manager = new WindowsUpdateManager(
@@ -92,6 +80,8 @@ public sealed class WindowsUpdateManagerTests
 
         public WindowsUpdateManager Manager { get; }
 
+        public StubHandler Handler { get; }
+
         public void Dispose()
         {
             Manager.Dispose();
@@ -100,16 +90,27 @@ public sealed class WindowsUpdateManagerTests
         }
     }
 
-    private sealed class StubHandler(HttpStatusCode statusCode, string content)
+    private sealed class StubHandler(HttpStatusCode statusCode, string? releaseTag)
         : HttpMessageHandler
     {
+        public HttpMethod? LastMethod { get; private set; }
+
+        public Uri? LastUri { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(statusCode)
+            CancellationToken cancellationToken)
+        {
+            LastMethod = request.Method;
+            LastUri = request.RequestUri;
+            var finalUri = releaseTag is null
+                ? request.RequestUri
+                : new Uri(
+                    $"https://github.com/gaofeng21cn/opl-fleet-agent/releases/tag/{releaseTag}");
+            return Task.FromResult(new HttpResponseMessage(statusCode)
             {
-                Content = new StringContent(content),
-                RequestMessage = request,
+                RequestMessage = new HttpRequestMessage(request.Method, finalUri),
             });
+        }
     }
 }

@@ -7,6 +7,7 @@ internal sealed class DashboardForm : RoundedPopupForm
 {
     private const int BaseClientHeight = 408;
     private const int UpdateRowHeight = 42;
+    private const int WindowMargin = 12;
     private static readonly Color Background = Color.White;
     private static readonly Color Primary = Color.FromArgb(36, 36, 38);
     private static readonly Color Secondary = Color.FromArgb(128, 128, 132);
@@ -42,6 +43,9 @@ internal sealed class DashboardForm : RoundedPopupForm
     private readonly RowStyle updateRowStyle = new(SizeType.Absolute, 0);
     private readonly RowStyle updateSeparatorStyle = new(SizeType.Absolute, 0);
     private readonly TableLayoutPanel root;
+    private readonly float layoutScale;
+    private readonly int scaledBaseClientHeight;
+    private readonly int scaledUpdateRowHeight;
     private UsageSnapshot lastSnapshot = UsageSnapshot.Empty(
         DateTimeOffset.Now,
         CollectionStatus.SessionsDirectoryMissing);
@@ -141,7 +145,12 @@ internal sealed class DashboardForm : RoundedPopupForm
                 eventArgs.Handled = true;
             }
         };
-        ApplyInitialDpiScale();
+        var workingArea = Screen.FromPoint(Cursor.Position).WorkingArea;
+        layoutScale = ApplyInitialDpiScale(CalculateLayoutScale(
+            workingArea.Size,
+            DeviceDpi / 96f));
+        scaledBaseClientHeight = ClientSize.Height;
+        scaledUpdateRowHeight = ScaleLogical(UpdateRowHeight, layoutScale);
     }
 
     public event EventHandler? SettingsRequested;
@@ -152,6 +161,15 @@ internal sealed class DashboardForm : RoundedPopupForm
     public event EventHandler? ExitRequested;
     public event Action<int>? RefreshCadenceChanged;
     public event Action<bool>? StartupChanged;
+
+    internal static float CalculateLayoutScale(Size workingArea, float nativeScale)
+    {
+        var availableWidth = Math.Max(1, workingArea.Width - (WindowMargin * 2));
+        var availableHeight = Math.Max(1, workingArea.Height - (WindowMargin * 2));
+        var widthScale = availableWidth / 380f;
+        var heightScale = availableHeight / (BaseClientHeight + UpdateRowHeight + 1f);
+        return Math.Max(0.1f, Math.Min(nativeScale, Math.Min(widthScale, heightScale)));
+    }
 
     public void UpdateSnapshot(
         UsageSnapshot snapshot,
@@ -254,8 +272,8 @@ internal sealed class DashboardForm : RoundedPopupForm
         }
         var workingArea = Screen.FromPoint(Cursor.Position).WorkingArea;
         Location = new Point(
-            workingArea.Right - Width - 12,
-            workingArea.Bottom - Height - 12);
+            workingArea.Right - Width - WindowMargin,
+            workingArea.Bottom - Height - WindowMargin);
         BringToFront();
         Activate();
     }
@@ -308,7 +326,8 @@ internal sealed class DashboardForm : RoundedPopupForm
             12.5f,
             Primary,
             "Segoe UI Semibold",
-            text: "OPL Fleet Agent · Codex TPS");
+            text: "OPL Fleet Agent");
+        title.AccessibleName = "应用名称";
         title.Margin = Padding.Empty;
         titles.Controls.Add(title, 0, 0);
         var status = new FlowLayoutPanel
@@ -669,7 +688,7 @@ internal sealed class DashboardForm : RoundedPopupForm
 
     private void SetUpdateRowVisible(bool visible)
     {
-        var nextHeight = visible ? UpdateRowHeight : 0;
+        var nextHeight = visible ? scaledUpdateRowHeight : 0;
         if ((int)updateRowStyle.Height == nextHeight)
         {
             return;
@@ -677,16 +696,25 @@ internal sealed class DashboardForm : RoundedPopupForm
 
         var anchoredBottom = Bottom;
         updateRowStyle.Height = nextHeight;
-        updateSeparatorStyle.Height = visible ? 1 : 0;
+        updateSeparatorStyle.Height = visible ? ScaleLogical(1) : 0;
         ClientSize = new Size(
             ClientSize.Width,
-            BaseClientHeight + (visible ? UpdateRowHeight + 1 : 0));
+            scaledBaseClientHeight + (visible ? scaledUpdateRowHeight + ScaleLogical(1) : 0));
         if (Visible)
         {
             Top = anchoredBottom - Height;
         }
         root.PerformLayout();
     }
+
+    private int ScaleLogical(int value) => ScaleLogical(value, layoutScale);
+
+    private static int ScaleLogical(int value, float scale) =>
+        value == 0
+            ? 0
+            : Math.Max(
+                1,
+                (int)Math.Round(value * scale, MidpointRounding.AwayFromZero));
 
     private static string CollectionLabel(UsageSnapshot snapshot) => snapshot.Status switch
     {

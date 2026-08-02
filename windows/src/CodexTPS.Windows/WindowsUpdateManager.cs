@@ -6,8 +6,10 @@ namespace CodexTPS.WindowsApp;
 
 internal sealed class WindowsUpdateManager : IDisposable
 {
-    private static readonly Uri LatestReleaseApi = new(
-        "https://api.github.com/repos/gaofeng21cn/opl-fleet-agent/releases/latest");
+    private static readonly Uri LatestReleasePage = new(
+        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest");
+    private static readonly Uri ReleaseDownloadRoot = new(
+        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/");
     private readonly HttpClient httpClient;
     private readonly bool ownsHttpClient;
     private readonly SemaphoreSlim operationLock = new(1, 1);
@@ -224,14 +226,41 @@ internal sealed class WindowsUpdateManager : IDisposable
 
     private async Task<AppRelease> FetchLatestReleaseAsync(CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseApi);
+        using var request = new HttpRequestMessage(HttpMethod.Head, LatestReleasePage);
         using var response = await httpClient.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
         response.EnsureSuccessStatusCode();
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return GitHubReleaseParser.Parse(json);
+        return ReleaseFromPage(response.RequestMessage?.RequestUri);
+    }
+
+    private static AppRelease ReleaseFromPage(Uri? pageUri)
+    {
+        const string releasePagePrefix = "/gaofeng21cn/opl-fleet-agent/releases/tag/";
+        if (pageUri is null ||
+            pageUri.Scheme != Uri.UriSchemeHttps ||
+            !string.Equals(pageUri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
+            !pageUri.AbsolutePath.StartsWith(releasePagePrefix, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("GitHub 返回了无效的版本信息。");
+        }
+
+        var tagName = pageUri.AbsolutePath[releasePagePrefix.Length..];
+        if (tagName.Length == 0 ||
+            tagName.Contains('/') ||
+            !SemanticVersion.TryParse(tagName, out var version))
+        {
+            throw new InvalidDataException("GitHub 返回了无效的版本信息。");
+        }
+
+        var releaseRoot = new Uri(ReleaseDownloadRoot, $"{tagName}/");
+        const string installerName = "Codex-TPS-Windows-win-x64-Setup.exe";
+        return new AppRelease(
+            tagName,
+            version,
+            new Uri(releaseRoot, installerName),
+            new Uri(releaseRoot, installerName + ".sha256"));
     }
 
     private async Task<string> DownloadTextAsync(

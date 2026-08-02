@@ -40,29 +40,40 @@ internal abstract class RoundedPopupForm : Form
         };
     }
 
-    protected void ApplyInitialDpiScale()
+    protected float ApplyInitialDpiScale(float maximumScale = float.PositiveInfinity)
     {
         _ = Handle;
-        var scale = DeviceDpi / 96f;
-        if (Math.Abs(scale - 1f) < 0.01f)
+        var nativeScale = DeviceDpi / 96f;
+        var scale = Math.Min(nativeScale, maximumScale);
+        if (scale == 1f)
         {
-            return;
+            return 1f;
         }
 
         SuspendLayout();
         try
         {
             var logicalClientSize = ClientSize;
-            ScaleLayoutTree(this, scale, scaleBounds: false);
+            ScaleLayoutTree(
+                this,
+                scale,
+                fontScale: scale / nativeScale,
+                scaleBounds: false);
             ClientSize = ScaleSize(logicalClientSize, scale);
         }
         finally
         {
             ResumeLayout(performLayout: true);
         }
+
+        return scale;
     }
 
-    private static void ScaleLayoutTree(Control control, float scale, bool scaleBounds)
+    private static void ScaleLayoutTree(
+        Control control,
+        float scale,
+        float fontScale,
+        bool scaleBounds)
     {
         control.Padding = ScalePadding(control.Padding, scale);
         control.Margin = ScalePadding(control.Margin, scale);
@@ -99,7 +110,20 @@ internal abstract class RoundedPopupForm : Form
 
         foreach (Control child in control.Controls)
         {
-            ScaleLayoutTree(child, scale, scaleBounds: true);
+            ScaleLayoutTree(child, scale, fontScale, scaleBounds: true);
+        }
+
+        // Walk children before changing an inherited font so every control is
+        // compacted exactly once when the screen cannot fit native DPI scaling.
+        if (Math.Abs(fontScale - 1f) >= 0.01f)
+        {
+            control.Font = new Font(
+                control.Font.FontFamily,
+                Math.Max(1f, control.Font.Size * fontScale),
+                control.Font.Style,
+                control.Font.Unit,
+                control.Font.GdiCharSet,
+                control.Font.GdiVerticalFont);
         }
     }
 

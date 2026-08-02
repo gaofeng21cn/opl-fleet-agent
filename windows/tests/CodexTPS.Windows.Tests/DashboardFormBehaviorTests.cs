@@ -46,6 +46,29 @@ public sealed class DashboardFormBehaviorTests
     }
 
     [Fact]
+    public void HeaderUsesUntruncatedFleetAgentBrand()
+    {
+        RunOnStaThread(() =>
+        {
+            using var form = new DashboardForm(string.Empty);
+            var title = Assert.IsAssignableFrom<Label>(
+                FindByAccessibleName(form, "应用名称"));
+
+            Assert.Equal("OPL Fleet Agent", title.Text);
+        });
+    }
+
+    [Fact]
+    public void LayoutScaleFitsUpdateStateInsideSmallWorkingArea()
+    {
+        var workingArea = new Size(640, 360);
+        var scale = DashboardForm.CalculateLayoutScale(workingArea, nativeScale: 2f);
+
+        Assert.True((int)Math.Ceiling(380 * scale) <= workingArea.Width - 24);
+        Assert.True((int)Math.Ceiling(451 * scale) <= workingArea.Height - 24);
+    }
+
+    [Fact]
     public void HeaderProvidesManualUpdateCheckAndAvailableReleaseAction()
     {
         RunOnStaThread(() =>
