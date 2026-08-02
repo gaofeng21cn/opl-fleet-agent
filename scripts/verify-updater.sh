@@ -17,8 +17,9 @@ TEST_ROOT="$(
 )"
 TEST_BIN="$TEST_ROOT/bin"
 TARGET_ROOT="$TEST_ROOT/target"
-TARGET_APP="$TARGET_ROOT/Codex TPS.app"
-OTHER_APP="$TEST_ROOT/other/Codex TPS.app"
+TARGET_APP="$TARGET_ROOT/OPL Fleet Agent.app"
+LEGACY_TARGET_APP="$TARGET_ROOT/Codex TPS.app"
+OTHER_APP="$TEST_ROOT/other/OPL Fleet Agent.app"
 DIRECT_OPEN="$TEST_ROOT/direct-open"
 FAKE_OPEN="$TEST_ROOT/fake-open"
 FAIL_ROLLBACK_OPEN="$TEST_ROOT/fail-rollback-open"
@@ -126,6 +127,7 @@ cleanup() {
   local exit_status=$?
 
   stop_app_processes "$TARGET_APP" || true
+  stop_app_processes "$LEGACY_TARGET_APP" || true
   stop_app_processes "$OTHER_APP" || true
   /usr/bin/chflags -R nouchg "$TEST_ROOT" 2>/dev/null || true
   rm -rf "$TEST_ROOT"
@@ -229,11 +231,11 @@ EOF
 chmod 755 "$TEST_BIN/pgrep"
 
 mkdir -p "$TARGET_ROOT"
-make_stub_app "$TARGET_APP" "original"
+make_stub_app "$LEGACY_TARGET_APP" "original"
 make_stub_app "$OTHER_APP" "unrelated"
-start_stub_app "$TARGET_APP"
+start_stub_app "$LEGACY_TARGET_APP"
 OLD_PID="$STARTED_PID"
-start_stub_app "$TARGET_APP"
+start_stub_app "$LEGACY_TARGET_APP"
 SECOND_OLD_PID="$STARTED_PID"
 start_stub_app "$OTHER_APP"
 OTHER_PID="$STARTED_PID"
@@ -244,7 +246,7 @@ if [[ "$VERIFY_MODE" == "adhoc" ]]; then
     CODEX_TPS_CHECKSUM_URL="file://$CHECKSUM_PATH" \
     CODEX_TPS_INSTALL_DIR="/Applications" \
     CODEX_TPS_RUNNING_PID="$OLD_PID" \
-    CODEX_TPS_RUNNING_APP="$TARGET_APP" \
+    CODEX_TPS_RUNNING_APP="$LEGACY_TARGET_APP" \
     CODEX_TPS_OPEN_COMMAND="$DIRECT_OPEN" \
     "$INSTALLER" >"$TEST_ROOT/unsafe-test-root.log" 2>&1
   then
@@ -258,7 +260,7 @@ if [[ "$VERIFY_MODE" == "adhoc" ]]; then
 fi
 
 if CODEX_TPS_RUNNING_PID="not-a-pid" \
-  CODEX_TPS_RUNNING_APP="$TARGET_APP" \
+  CODEX_TPS_RUNNING_APP="$LEGACY_TARGET_APP" \
   CODEX_TPS_INSTALL_DIR="$TARGET_ROOT" \
   CODEX_TPS_DMG_URL="file:///does-not-exist" \
   CODEX_TPS_CHECKSUM_URL="file:///does-not-exist" \
@@ -275,7 +277,7 @@ if ! kill -0 "$OLD_PID" 2>/dev/null || ! kill -0 "$SECOND_OLD_PID" 2>/dev/null; 
   exit 1
 fi
 
-if run_installer "$OTHER_PID" "$TARGET_APP" "$DIRECT_OPEN" >"$TEST_ROOT/wrong-process.log" 2>&1; then
+if run_installer "$OTHER_PID" "$LEGACY_TARGET_APP" "$DIRECT_OPEN" >"$TEST_ROOT/wrong-process.log" 2>&1; then
   echo "Updater verification accepted a process from another app." >&2
   exit 1
 fi
@@ -290,13 +292,18 @@ then
   exit 1
 fi
 
-run_installer "$OLD_PID" "$TARGET_APP" "$DIRECT_OPEN" "$OLD_PID"
+run_installer "$OLD_PID" "$LEGACY_TARGET_APP" "$DIRECT_OPEN" "$OLD_PID"
 if ! wait_for_exit "$OLD_PID" || ! wait_for_exit "$SECOND_OLD_PID"; then
   echo "Updater verification left an old target process running." >&2
   exit 1
 fi
 if ! kill -0 "$OTHER_PID" 2>/dev/null; then
-  echo "Updater verification stopped an unrelated Codex TPS process." >&2
+  echo "Updater verification stopped an unrelated OPL Fleet Agent process." >&2
+  exit 1
+fi
+
+if [[ -e "$LEGACY_TARGET_APP" ]]; then
+  echo "Updater verification left the legacy Codex TPS.app path in place." >&2
   exit 1
 fi
 
@@ -309,7 +316,7 @@ INSTALLED_VERSION="$(
   plutil -extract CFBundleShortVersionString raw "$TARGET_APP/Contents/Info.plist"
 )"
 if [[ "$INSTALLED_VERSION" != "$EXPECTED_VERSION" ]]; then
-  echo "Expected Codex TPS $EXPECTED_VERSION, got $INSTALLED_VERSION." >&2
+  echo "Expected OPL Fleet Agent $EXPECTED_VERSION, got $INSTALLED_VERSION." >&2
   exit 1
 fi
 
@@ -370,7 +377,7 @@ if [[ -z "$ROLLBACK_PID" || "$ROLLBACK_PID" == "$ROLLBACK_OLD_PID" ]]; then
   exit 1
 fi
 if ! kill -0 "$OTHER_PID" 2>/dev/null; then
-  echo "Rollback verification stopped an unrelated Codex TPS process." >&2
+  echo "Rollback verification stopped an unrelated OPL Fleet Agent process." >&2
   exit 1
 fi
 ROLLBACK_SUCCESS_OLD_PID="$ROLLBACK_OLD_PID"
@@ -406,12 +413,13 @@ if ! wait_for_exit "$ROLLBACK_OLD_PID"; then
   echo "Failed-file rollback verification left the old process running." >&2
   exit 1
 fi
-if ! grep -q "backup remains" "$TEST_ROOT/rollback-file-failure.log"; then
+if ! grep -Eq "backups? remain" "$TEST_ROOT/rollback-file-failure.log"; then
+  cat "$TEST_ROOT/rollback-file-failure.log" >&2
   echo "Updater verification failed for the wrong rollback-file reason." >&2
   exit 1
 fi
 BACKUP_APP="$(
-  find "$TARGET_ROOT" -maxdepth 1 -type d -name '.Codex TPS.app.backup.*' -print -quit
+  find "$TARGET_ROOT" -maxdepth 1 -type d -name '.OPL Fleet Agent.app.backup.*' -print -quit
 )"
 if [[ -z "$BACKUP_APP" || ! -f "$BACKUP_APP/Contents/test-marker" ]]; then
   echo "Updater verification did not preserve the backup after rollback failure." >&2
@@ -426,10 +434,10 @@ rm -rf "$TARGET_APP"
 mv "$BACKUP_APP" "$TARGET_APP"
 
 if [[ "$(preferences_digest)" != "$PREFERENCES_BEFORE" ]]; then
-  echo "Updater verification changed the real Codex TPS preferences." >&2
+  echo "Updater verification changed the real OPL Fleet Agent preferences." >&2
   exit 1
 fi
 
-echo "Verified updater handoff $OLD_PID,$SECOND_OLD_PID -> $NEW_PID for Codex TPS $INSTALLED_VERSION."
+echo "Verified legacy-path migration and updater handoff $OLD_PID,$SECOND_OLD_PID -> $NEW_PID for OPL Fleet Agent $INSTALLED_VERSION."
 echo "Verified failed-launch rollback $ROLLBACK_SUCCESS_OLD_PID -> $ROLLBACK_PID."
 echo "Verified failed rollback file operation preserved the previous app backup."

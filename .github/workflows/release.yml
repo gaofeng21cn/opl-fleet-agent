@@ -39,6 +39,8 @@ jobs:
           xcrun swift-format lint --recursive Sources Tests Package.swift
           bash -n scripts/install-release.sh
           bash -n scripts/verify-updater.sh
+          zsh -n scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/verify-release.sh
+          ./Tests/notarize-dmg.test.sh
       - name: Test
         run: swift test
 
@@ -79,10 +81,10 @@ jobs:
           security find-identity -v -p codesigning "$keychain" | grep -F "$CODEX_TPS_SIGNING_IDENTITY"
           echo "CODEX_TPS_NOTARY_KEYCHAIN=$keychain" >>"$GITHUB_ENV"
 
-      - name: Build signed universal DMG
-        run: ./scripts/build-dmg.sh
+      - name: Build signed universal app
+        run: ./scripts/build-app.sh
 
-      - name: Notarize, staple, and verify release bytes
+      - name: Notarize app and DMG, staple both, and verify release bytes
         env:
           CODEX_TPS_EXPECTED_VERSION: ${{ github.ref_name }}
         shell: bash
@@ -153,7 +155,7 @@ jobs:
           }
 
           $installer = Resolve-Path $assets[1]
-          $install = Join-Path $env:RUNNER_TEMP "Codex TPS release"
+          $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent release"
           $arguments = @(
             "/VERYSILENT",
             "/SUPPRESSMSGBOXES",
@@ -217,11 +219,11 @@ jobs:
           cat >release-notes.md <<'EOF'
           ## macOS
 
-          Version 0.2.30 keeps macOS on the canonical `opl-fleet-agent` release chain and advances the Fleet telemetry version alongside Windows. The existing Bundle ID, asset names, installer, `_codex-tps._tcp` Direct provider, and user-confirmed update behavior remain unchanged. `Codex-TPS.dmg` remains Developer ID signed, notarized, stapled, and checksum verified.
+          Version 0.2.31 completes the visible product rename to `OPL Fleet Agent`, adds the OPL-family app icon, and migrates the legacy `/Applications/Codex TPS.app` path during a guarded install. The existing Bundle ID, executable, `_codex-tps._tcp` Direct provider, and `Codex-TPS.dmg` asset name remain compatibility identities for old clients. The DMG carries both app names so 0.2.30 and earlier updaters remain functional, and remains Developer ID signed, notarized, stapled, and checksum verified.
 
           ## Windows
 
-          The Windows updater now resolves the public latest-release redirect instead of the rate-limited anonymous GitHub REST API. The dashboard preserves DPI-scaled heights when update state appears, compacts to the screen working area, and shows the complete `OPL Fleet Agent` title on low-height or high-scaling displays. The install directory, package identity, asset names, and user-confirmed update action remain unchanged. The Direct LAN server is not enabled on Windows in this release. The installer is still not Authenticode-signed and may show an unknown-publisher warning; verify the published SHA-256 before running it.
+          Windows now displays only `OPL Fleet Agent` in the installer, Start menu, desktop shortcut, tray, dashboard, settings, and update messages. New installs use `%LOCALAPPDATA%\Programs\OPL Fleet Agent`; the fixed AppId, `CodexTPS.exe`, settings directory, and legacy release asset names remain compatible with old clients. Startup registration migrates from the legacy value automatically. The installer is still not Authenticode-signed and may show an unknown-publisher warning; verify the published SHA-256 before running it.
           EOF
           gh release create "$GITHUB_REF_NAME" \
             release-assets/Codex-TPS.dmg \
@@ -231,6 +233,6 @@ jobs:
             release-assets/Codex-TPS-Windows-win-x64-Setup.exe \
             release-assets/Codex-TPS-Windows-win-x64-Setup.exe.sha256 \
             --repo "$GITHUB_REPOSITORY" \
-            --title "OPL Fleet Agent · Codex TPS $GITHUB_REF_NAME" \
+            --title "OPL Fleet Agent $GITHUB_REF_NAME" \
             --notes-file release-notes.md \
             --verify-tag

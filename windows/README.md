@@ -1,6 +1,6 @@
-# Codex TPS for Windows
+# OPL Fleet Agent for Windows
 
-OPL Fleet Agent · Codex TPS for Windows is a native .NET 8 WinForms tray application. It reads
+OPL Fleet Agent for Windows is a native .NET 8 WinForms tray application. It reads
 the token accounting events already written under the current Windows user's
 Codex home and can send aggregate metrics to Ambient Ops on the local network.
 
@@ -26,7 +26,7 @@ and session activity as TPS values. Cached input remains a subset of input, and
 reasoning remains a subset of output; neither is added twice.
 
 Windows 11 may initially place a new tray icon under the `^` overflow menu.
-Windows owns that preference, so pin Codex TPS once in Taskbar settings when the
+Windows owns that preference, so pin OPL Fleet Agent once in Taskbar settings when the
 live TPS icon should remain in the primary notification area.
 
 ## Privacy contract
@@ -72,10 +72,11 @@ Start-Process $installer -Wait
 
 The standard installer is self-contained and does not require a separate .NET
 runtime. It installs for the current user under
-`%LOCALAPPDATA%\Programs\Codex TPS`, adds a Start-menu shortcut, supports
-in-place upgrades, and registers a normal Windows uninstaller. Uninstalling the
-app preserves `%LOCALAPPDATA%\Codex TPS\settings.json`; it removes an enabled
-Codex TPS login-startup registry value so Windows does not retain a dead path.
+`%LOCALAPPDATA%\Programs\OPL Fleet Agent`, adds a Start-menu shortcut, supports
+in-place upgrades, and registers a normal Windows uninstaller. The fixed AppId keeps
+upgrades compatible with earlier Codex TPS releases. Uninstalling the app preserves
+the legacy `%LOCALAPPDATA%\Codex TPS\settings.json` settings authority; it removes
+both the current and legacy login-startup registry values.
 
 After launch, the app checks the latest GitHub Release and repeats the check
 every six hours. It never installs silently without user confirmation. After
@@ -112,7 +113,7 @@ windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
 To build the standard installer, also install Inno Setup 6 and run:
 
 ```powershell
-pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.30
+pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.31
 ```
 
 This additionally creates:
@@ -143,7 +144,8 @@ pwsh ./windows/scripts/install.ps1 `
 ```
 
 The PowerShell installer stages and verifies the archive before replacing
-`%LOCALAPPDATA%\Programs\Codex TPS`, restoring the previous directory if the
+`%LOCALAPPDATA%\Programs\OPL Fleet Agent`. When the default legacy directory exists,
+it is migrated in the same guarded replacement transaction and restored if the
 replacement fails. The sibling `.sha256` file is mandatory and checked before
 extraction. Neither installation route enables startup automatically; use the
 checkbox in Settings.
@@ -152,7 +154,7 @@ checkbox in Settings.
 
 Native Windows Codex sessions use `%USERPROFILE%\.codex`. If Codex runs inside
 WSL, select an accessible UNC Codex home such as
-`\\wsl.localhost\Ubuntu\home\<user>\.codex`. Codex TPS does not launch Codex,
+`\\wsl.localhost\Ubuntu\home\<user>\.codex`. OPL Fleet Agent does not launch Codex,
 change its execution environment, or silently switch between native Windows
 and WSL stores.
 
@@ -168,7 +170,7 @@ local-network firewall consent and discovery, sleep/network recovery, and an
 actual Ambient Ops accepted push.
 
 With Ambient Ops v0.1.4+, first discovery creates a device key locally, opens the
-server approval page once, and shows the same six-digit code in Codex TPS. After
+server approval page once, and shows the same six-digit code in OPL Fleet Agent. After
 approval, signed pushes resume automatically across application restarts. The
 settings file must contain `ProtectedDevicePrivateKey`, never a plaintext private
 key. The **Compatible token** field is only for older Ambient Ops servers.

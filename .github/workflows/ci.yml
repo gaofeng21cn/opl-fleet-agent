@@ -59,15 +59,15 @@ jobs:
           }
           Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
       - name: Test and build Windows packages
-        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.30
+        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.31
       - name: Verify portable package
         run: |
           $archive = "./windows/dist/Codex-TPS-Windows-win-x64.zip"
-          $install = Join-Path $env:RUNNER_TEMP "Codex TPS portable"
+          $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent portable"
           ./windows/scripts/install.ps1 -ArchivePath $archive -InstallDirectory $install -NoLaunch
           $executable = Get-Item (Join-Path $install "CodexTPS.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.30")) {
-            throw "Expected Windows product version 0.2.30, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.31")) {
+            throw "Expected Windows product version 0.2.31, got $($executable.VersionInfo.ProductVersion)."
           }
           Write-Output "Verified $($executable.FullName) $($executable.VersionInfo.ProductVersion)"
       - name: Verify Windows installer and uninstaller
@@ -78,7 +78,7 @@ jobs:
           $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
           if ($expected -ne $actual) { throw "Windows installer checksum mismatch." }
 
-          $install = Join-Path $env:RUNNER_TEMP "Codex TPS setup"
+          $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent setup"
           $arguments = @(
             "/VERYSILENT",
             "/SUPPRESSMSGBOXES",
@@ -90,8 +90,8 @@ jobs:
           if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
 
           $executable = Get-Item (Join-Path $install "CodexTPS.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.30")) {
-            throw "Expected installed version 0.2.30, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.31")) {
+            throw "Expected installed version 0.2.31, got $($executable.VersionInfo.ProductVersion)."
           }
           $uninstaller = Join-Path $install "unins000.exe"
           $result = Start-Process $uninstaller `

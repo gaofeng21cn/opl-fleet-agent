@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <img src="Resources/AppIcon.png" width="128" alt="Codex TPS app icon">
+  <img src="Resources/AppIcon.png" width="128" alt="OPL Fleet Agent app icon">
 </p>
 
-<h1 align="center">OPL Fleet Agent · Codex TPS</h1>
+<h1 align="center">OPL Fleet Agent</h1>
 
 <p align="center"><strong>A quiet menu-bar and system-tray view of local Codex token throughput</strong></p>
 <p align="center">macOS menu bar · Windows system tray · Ambient Ops Gateway integration</p>
@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-black.svg" alt="macOS 13 or later">
 </p>
 
-![Codex TPS panel](docs/assets/codex-tps-panel.png)
+![OPL Fleet Agent panel](docs/assets/codex-tps-panel.png)
 
 <table>
   <tr>
@@ -37,13 +37,13 @@
   </tr>
 </table>
 
-> Codex TPS is operational telemetry, not billing data. It reports usage visible in local Codex logs and cannot prove which API key was charged or replace the server-side bill.
+> OPL Fleet Agent is operational telemetry, not billing data. It reports usage visible in local Codex logs and cannot prove which API key was charged or replace the server-side bill.
 
 ## For Users
 
 ### What it is
 
-OPL Fleet Agent · Codex TPS is a local-first desktop utility. It incrementally reads token-usage events
+OPL Fleet Agent is a local-first desktop utility. It incrementally reads token-usage events
 already written under the Codex `sessions` directory and turns them into a compact
 macOS menu bar or Windows system-tray readout.
 
@@ -66,7 +66,7 @@ completion-time throughput rather than per-streaming-chunk speed.
 
 ### Install on macOS
 
-Requirements: macOS 13 Ventura or later. Codex TPS needs no API key of its own.
+Requirements: macOS 13 Ventura or later. OPL Fleet Agent needs no API key of its own.
 
 Install the latest release:
 
@@ -80,8 +80,8 @@ With Homebrew:
 brew install --cask gaofeng21cn/codex-tps/codex-tps
 ```
 
-The Homebrew tap keeps its existing name so installed casks and update commands
-remain compatible with earlier releases.
+The Homebrew tap and `Codex-TPS.dmg` release filename keep their legacy names so
+existing casks and in-app update commands remain compatible with earlier releases.
 
 You can also download `Codex-TPS.dmg` from the
 [latest release](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest), open it,
@@ -110,8 +110,9 @@ Download both files from the
 - `Codex-TPS-Windows-win-x64-Setup.exe`
 - `Codex-TPS-Windows-win-x64-Setup.exe.sha256`
 
-The current-user installer targets `%LOCALAPPDATA%\Programs\Codex TPS` and supports
-in-place upgrades and normal uninstall. It is not yet Authenticode-signed, so Windows
+New installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent`; upgrades preserve the
+Windows AppId, settings, and executable identity while replacing legacy shortcuts and
+startup entries. It is not yet Authenticode-signed, so Windows
 may show an unknown-publisher or SmartScreen warning. GitHub Release provenance,
 SHA-256, and CI receipts do not replace Windows code-signing trust.
 
@@ -146,7 +147,8 @@ accessible WSL UNC path such as `\\wsl.localhost\Ubuntu\home\<user>\.codex`.
 state from multiple computers with trusted-LAN network telemetry for browser and
 Android ambient displays.
 
-On macOS, Codex TPS publishes `_codex-tps._tcp.local` and a read-only local status
+On macOS, OPL Fleet Agent publishes the compatibility service name
+`_codex-tps._tcp.local` and a read-only local status
 endpoint so Ambient Ops can display this Mac without a separate Gateway. The Direct
 provider exposes only aggregate TPS, active sessions, host CPU and network throughput,
 and the selected pet asset. Windows does not publish the Direct provider yet.
@@ -298,9 +300,9 @@ swift run codex-tps-snapshot --json
 ./scripts/build-dmg.sh
 ```
 
-Codex TPS is available under the [MIT License](LICENSE). Its accounting semantics were
+OPL Fleet Agent is available under the [MIT License](LICENSE). Its accounting semantics were
 informed by the public [Tokscale](https://github.com/junhoyeo/tokscale) project, but
-Codex TPS is an independent implementation and does not embed Tokscale.
+OPL Fleet Agent is an independent implementation and does not embed Tokscale.
 
-Codex TPS is an unofficial community project and is not affiliated with, endorsed by,
+OPL Fleet Agent is an unofficial community project and is not affiliated with, endorsed by,
 or sponsored by OpenAI.

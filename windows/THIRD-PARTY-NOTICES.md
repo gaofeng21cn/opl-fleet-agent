@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Codex TPS for Windows includes the following third-party software.
+OPL Fleet Agent for Windows includes the following third-party software.
 
 ## Zeroconf
 

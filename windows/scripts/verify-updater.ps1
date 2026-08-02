@@ -126,8 +126,12 @@ try {
     }
 
     $installedVersion = (Get-Item $targetExecutable).VersionInfo.ProductVersion
+    $installedProductName = (Get-Item $targetExecutable).VersionInfo.ProductName
     if (-not $installedVersion.StartsWith($Version)) {
         throw "Expected updated version $Version, got $installedVersion."
+    }
+    if ($installedProductName -ne "OPL Fleet Agent") {
+        throw "Expected product name OPL Fleet Agent, got $installedProductName."
     }
 
     $deadline = (Get-Date).AddSeconds(15)
@@ -147,7 +151,7 @@ try {
         }
     } while (-not $newProcess -and (Get-Date) -lt $deadline)
     if (-not $newProcess -or $newProcess.HasExited) {
-        throw "Updated Codex TPS process was not running after handoff."
+        throw "Updated OPL Fleet Agent process was not running after handoff."
     }
 
     Write-Output (

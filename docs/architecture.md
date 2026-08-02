@@ -66,8 +66,9 @@ affecting local collection.
 
 ## OPL Fleet Agent boundary
 
-Codex TPS is presented to users as `OPL Fleet Agent · Codex TPS` while preserving
-the existing bundle ID, repository URL, discovery service, and upgrade chain.
+The product is presented to users only as `OPL Fleet Agent`. The existing bundle ID,
+`CodexTPS` executable, settings location, `_codex-tps._tcp` discovery service, and
+legacy release asset names remain compatibility identities for the upgrade chain.
 The `oplFleet` extension is a versioned, aggregate-only envelope. It describes
 the local Agent's observation, doctor, execution-constraint, and sanitized-receipt
 capabilities across Local, Direct, and Fleet modes. The Agent can constrain and

@@ -134,8 +134,8 @@ internal static class WindowsUpdateWorker
             }
 
             MessageBox.Show(
-                $"Codex TPS 更新失败，且无法自动恢复启动。\n\n{error.Message}",
-                "Codex TPS 更新失败",
+                $"OPL Fleet Agent 更新失败，且无法自动恢复启动。\n\n{error.Message}",
+                "OPL Fleet Agent 更新失败",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             return 2;
@@ -230,7 +230,7 @@ internal static class WindowsUpdateWorker
         {
             UseShellExecute = true,
             ArgumentList = { "--background" },
-        }) ?? throw new InvalidOperationException("无法重新启动 Codex TPS。");
+        }) ?? throw new InvalidOperationException("无法重新启动 OPL Fleet Agent。");
         if (process.WaitForExit((int)TimeSpan.FromSeconds(2).TotalMilliseconds))
         {
             throw new InvalidOperationException(

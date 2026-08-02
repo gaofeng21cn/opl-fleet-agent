@@ -28,7 +28,7 @@ internal sealed class TaskbarReadoutForm : Form
 
     public TaskbarReadoutForm(ContextMenuStrip contextMenu)
     {
-        AccessibleName = "OPL Fleet Agent · Codex TPS 任务栏读数";
+        AccessibleName = "OPL Fleet Agent 任务栏读数";
         ContextMenuStrip = contextMenu;
         Cursor = Cursors.Hand;
         FormBorderStyle = FormBorderStyle.None;

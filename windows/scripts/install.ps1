@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$ArchivePath,
-    [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA "Programs/Codex TPS"),
+    [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA "Programs/OPL Fleet Agent"),
     [switch]$NoLaunch
 )
 
@@ -21,12 +21,20 @@ if ($expected -ne $actual) {
 }
 $running = Get-Process -Name "CodexTPS" -ErrorAction SilentlyContinue
 if ($running) {
-    throw "Exit Codex TPS from its tray menu before installing an update."
+    throw "Exit OPL Fleet Agent from its tray menu before installing an update."
 }
 
 $stageParent = Join-Path ([System.IO.Path]::GetTempPath()) ("codex-tps-install-" + [guid]::NewGuid())
 $stage = Join-Path $stageParent "app"
 $backup = "$InstallDirectory.backup-" + [guid]::NewGuid()
+$defaultInstallDirectory = Join-Path $env:LOCALAPPDATA "Programs/OPL Fleet Agent"
+$legacyInstallDirectory = Join-Path $env:LOCALAPPDATA "Programs/Codex TPS"
+$migrateLegacy = [string]::Equals(
+    [System.IO.Path]::GetFullPath($InstallDirectory),
+    [System.IO.Path]::GetFullPath($defaultInstallDirectory),
+    [System.StringComparison]::OrdinalIgnoreCase
+)
+$legacyBackup = "$legacyInstallDirectory.backup-" + [guid]::NewGuid()
 New-Item -ItemType Directory -Force $stage | Out-Null
 try {
     Expand-Archive -Path $resolvedArchive -DestinationPath $stage -Force
@@ -40,6 +48,9 @@ try {
     if (Test-Path $InstallDirectory) {
         Move-Item $InstallDirectory $backup
     }
+    if ($migrateLegacy -and (Test-Path $legacyInstallDirectory)) {
+        Move-Item $legacyInstallDirectory $legacyBackup
+    }
     try {
         Move-Item $stage $InstallDirectory
     }
@@ -47,10 +58,16 @@ try {
         if (Test-Path $backup) {
             Move-Item $backup $InstallDirectory
         }
+        if (Test-Path $legacyBackup) {
+            Move-Item $legacyBackup $legacyInstallDirectory
+        }
         throw
     }
     if (Test-Path $backup) {
         Remove-Item -Recurse -Force $backup
+    }
+    if (Test-Path $legacyBackup) {
+        Remove-Item -Recurse -Force $legacyBackup
     }
 
     if (-not $NoLaunch) {
@@ -58,7 +75,7 @@ try {
             (Join-Path $InstallDirectory "CodexTPS.exe") `
             -ArgumentList "--background"
     }
-    Write-Output "Installed Codex TPS to $InstallDirectory"
+    Write-Output "Installed OPL Fleet Agent to $InstallDirectory"
 }
 finally {
     if (Test-Path $stageParent) {

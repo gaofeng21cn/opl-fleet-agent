@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="${0:A:h:h}"
-APP_NAME="Codex TPS.app"
+APP_NAME="OPL Fleet Agent.app"
 DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$DIST_DIR/$APP_NAME"
 SIGNING_IDENTITY="${CODEX_TPS_SIGNING_IDENTITY:--}"

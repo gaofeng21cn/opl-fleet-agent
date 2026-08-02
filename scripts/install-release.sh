@@ -15,11 +15,14 @@ TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-tps-install.XXXXXX")"
 DMG_PATH="$TEMP_DIR/Codex-TPS.dmg"
 CHECKSUM_PATH="$TEMP_DIR/Codex-TPS.dmg.sha256"
 MOUNT_POINT=""
-DEST_APP="$INSTALL_DIR/Codex TPS.app"
-STAGED_APP="$INSTALL_DIR/.Codex TPS.app.update.$$"
-BACKUP_APP="$INSTALL_DIR/.Codex TPS.app.backup.$$"
+DEST_APP="$INSTALL_DIR/OPL Fleet Agent.app"
+LEGACY_APP="$INSTALL_DIR/Codex TPS.app"
+STAGED_APP="$INSTALL_DIR/.OPL Fleet Agent.app.update.$$"
+BACKUP_APP="$INSTALL_DIR/.OPL Fleet Agent.app.backup.$$"
+LEGACY_BACKUP_APP="$INSTALL_DIR/.Codex TPS.app.backup.$$"
 REPLACEMENT_STARTED=0
 HAD_EXISTING_APP=0
+HAD_LEGACY_APP=0
 NEW_PID=""
 ROLLBACK_PID=""
 ALLOW_AD_HOC_TEST=0
@@ -37,6 +40,7 @@ cleanup() {
   rm -rf "$STAGED_APP"
   if [[ "$exit_status" -eq 0 ]]; then
     rm -rf "$BACKUP_APP"
+    rm -rf "$LEGACY_BACKUP_APP"
   fi
   rm -rf "$TEMP_DIR"
 }
@@ -56,7 +60,7 @@ verify_app() {
   actual_team_id="$(sed -n 's/^TeamIdentifier=//p' <<<"$signature_details")"
   actual_bundle_id="$(sed -n 's/^Identifier=//p' <<<"$signature_details")"
   if [[ "$actual_bundle_id" != "$EXPECTED_BUNDLE_ID" ]]; then
-    echo "Codex TPS bundle ID verification failed." >&2
+    echo "OPL Fleet Agent bundle ID verification failed." >&2
     return 1
   fi
   if [[ "$ALLOW_AD_HOC_TEST" -eq 1 ]]; then
@@ -64,7 +68,7 @@ verify_app() {
     return
   fi
   if [[ "$actual_team_id" != "$EXPECTED_TEAM_ID" ]]; then
-    echo "Codex TPS Team ID verification failed." >&2
+    echo "OPL Fleet Agent Team ID verification failed." >&2
     return 1
   fi
   grep -q '^Authority=Developer ID Application:' <<<"$signature_details"
@@ -78,38 +82,38 @@ configure_updater_test_trust() {
 
   [[ -n "$UPDATER_TEST_ROOT" ]] || return 0
   if [[ ! -d "$UPDATER_TEST_ROOT" || ! -d "$INSTALL_DIR" ]]; then
-    echo "Codex TPS updater test trust mode requires existing test directories." >&2
+    echo "OPL Fleet Agent updater test trust mode requires existing test directories." >&2
     return 1
   fi
   resolved_test_root="$(cd "$UPDATER_TEST_ROOT" && /bin/pwd -P)"
   resolved_install_dir="$(cd "$INSTALL_DIR" && /bin/pwd -P)"
   if [[ "$resolved_test_root" == "/" ]]; then
-    echo "Codex TPS updater test trust mode received an unsafe test root." >&2
+    echo "OPL Fleet Agent updater test trust mode received an unsafe test root." >&2
     return 1
   fi
   case "$resolved_install_dir/" in
     "$resolved_test_root"/*) ;;
     *)
-      echo "Codex TPS updater test trust mode is restricted to its test root." >&2
+      echo "OPL Fleet Agent updater test trust mode is restricted to its test root." >&2
       return 1
       ;;
   esac
   case "$RUNNING_APP/" in
     "$resolved_test_root"/*) ;;
     *)
-      echo "Codex TPS updater test trust mode requires a test app path." >&2
+      echo "OPL Fleet Agent updater test trust mode requires a test app path." >&2
       return 1
       ;;
   esac
   case "$OPEN_COMMAND" in
     "$resolved_test_root"/*) ;;
     *)
-      echo "Codex TPS updater test trust mode requires a test launch command." >&2
+      echo "OPL Fleet Agent updater test trust mode requires a test launch command." >&2
       return 1
       ;;
   esac
   if [[ "$DMG_URL" != file://* || "$CHECKSUM_URL" != file://* ]]; then
-    echo "Codex TPS updater test trust mode accepts only local artifacts." >&2
+    echo "OPL Fleet Agent updater test trust mode accepts only local artifacts." >&2
     return 1
   fi
   ALLOW_AD_HOC_TEST=1
@@ -145,7 +149,7 @@ stop_process() {
     return 0
   fi
   if ! process_matches_app "$pid" "$app_path"; then
-    echo "Codex TPS updater refused to stop an unexpected process." >&2
+    echo "OPL Fleet Agent updater refused to stop an unexpected process." >&2
     return 1
   fi
 
@@ -155,7 +159,7 @@ stop_process() {
   fi
 
   if ! process_matches_app "$pid" "$app_path"; then
-    echo "Codex TPS process identity changed while stopping it." >&2
+    echo "OPL Fleet Agent process identity changed while stopping it." >&2
     return 1
   fi
   kill -KILL "$pid" 2>/dev/null || true
@@ -163,7 +167,7 @@ stop_process() {
     return 0
   fi
 
-  echo "Codex TPS process $pid could not be stopped for the update." >&2
+  echo "OPL Fleet Agent process $pid could not be stopped for the update." >&2
   return 1
 }
 
@@ -187,23 +191,23 @@ validate_running_process_contract() {
     return 0
   fi
   if [[ -z "$RUNNING_PID" || -z "$RUNNING_APP" ]]; then
-    echo "Codex TPS updater requires both the running process ID and app path." >&2
+    echo "OPL Fleet Agent updater requires both the running process ID and app path." >&2
     return 1
   fi
   if [[ ! "$RUNNING_PID" =~ ^[0-9]+$ ]]; then
-    echo "Codex TPS updater received an invalid process ID." >&2
+    echo "OPL Fleet Agent updater received an invalid process ID." >&2
     return 1
   fi
-  if [[ "$RUNNING_APP" != "$DEST_APP" ]]; then
-    echo "Codex TPS updater refused to replace a different app path." >&2
+  if [[ "$RUNNING_APP" != "$DEST_APP" && "$RUNNING_APP" != "$LEGACY_APP" ]]; then
+    echo "OPL Fleet Agent updater refused to replace a different app path." >&2
     return 1
   fi
   if ! kill -0 "$RUNNING_PID" 2>/dev/null; then
-    echo "Codex TPS running process is no longer available." >&2
+    echo "OPL Fleet Agent running process is no longer available." >&2
     return 1
   fi
   if ! process_matches_app "$RUNNING_PID" "$RUNNING_APP"; then
-    echo "Codex TPS updater refused an unexpected running process." >&2
+    echo "OPL Fleet Agent updater refused an unexpected running process." >&2
     return 1
   fi
 }
@@ -213,10 +217,17 @@ stop_running_app() {
     validate_running_process_contract
     stop_process "$RUNNING_PID" "$RUNNING_APP"
     stop_processes_for_app "$RUNNING_APP"
+    if [[ "$RUNNING_APP" != "$DEST_APP" ]]; then
+      stop_processes_for_app "$DEST_APP"
+    fi
+    if [[ "$RUNNING_APP" != "$LEGACY_APP" ]]; then
+      stop_processes_for_app "$LEGACY_APP"
+    fi
     return
   fi
 
   stop_processes_for_app "$DEST_APP"
+  stop_processes_for_app "$LEGACY_APP"
 }
 
 running_process_for_app() {
@@ -264,70 +275,84 @@ launch_app_and_wait() {
 
 rollback_replacement() {
   if ! stop_processes_for_app "$DEST_APP"; then
-    echo "Codex TPS could not safely stop the replacement; the backup remains at $BACKUP_APP." >&2
+    echo "OPL Fleet Agent could not safely stop the replacement; backups remain at $BACKUP_APP and $LEGACY_BACKUP_APP." >&2
+    return 1
+  fi
+  if ! stop_processes_for_app "$LEGACY_APP"; then
+    echo "OPL Fleet Agent could not safely stop the legacy app; backups remain at $BACKUP_APP and $LEGACY_BACKUP_APP." >&2
     return 1
   fi
 
+  if ! rm -rf "$DEST_APP"; then
+    echo "OPL Fleet Agent could not remove the failed replacement; backups remain at $BACKUP_APP and $LEGACY_BACKUP_APP." >&2
+    return 1
+  fi
   if [[ -d "$BACKUP_APP" ]]; then
-    if ! rm -rf "$DEST_APP"; then
-      echo "Codex TPS could not remove the failed replacement; the backup remains at $BACKUP_APP." >&2
-      return 1
-    fi
     if ! mv "$BACKUP_APP" "$DEST_APP"; then
-      echo "Codex TPS could not restore the backup at $BACKUP_APP." >&2
+      echo "OPL Fleet Agent could not restore the backup at $BACKUP_APP." >&2
       return 1
     fi
-  elif [[ "$HAD_EXISTING_APP" -eq 0 ]]; then
-    if ! rm -rf "$DEST_APP"; then
-      echo "Codex TPS could not remove the failed new installation." >&2
+  elif [[ "$HAD_EXISTING_APP" -eq 1 ]]; then
+    echo "OPL Fleet Agent backup is missing; automatic rollback is unavailable." >&2
+    return 1
+  fi
+  if [[ -d "$LEGACY_BACKUP_APP" ]]; then
+    if ! mv "$LEGACY_BACKUP_APP" "$LEGACY_APP"; then
+      echo "OPL Fleet Agent could not restore the legacy backup at $LEGACY_BACKUP_APP." >&2
       return 1
     fi
-  else
-    echo "Codex TPS backup is missing; automatic rollback is unavailable." >&2
+  elif [[ "$HAD_LEGACY_APP" -eq 1 ]]; then
+    echo "The legacy Codex TPS backup is missing; automatic rollback is unavailable." >&2
     return 1
   fi
   REPLACEMENT_STARTED=0
 
-  if [[ "$HAD_EXISTING_APP" -eq 1 && "${CODEX_TPS_NO_LAUNCH:-0}" != "1" ]]; then
-    if ! ROLLBACK_PID="$(launch_app_and_wait "$DEST_APP" "$RUNNING_PID")"; then
-      echo "Codex TPS was restored but could not be relaunched." >&2
+  if [[ "$HAD_EXISTING_APP" -eq 1 || "$HAD_LEGACY_APP" -eq 1 ]] \
+    && [[ "${CODEX_TPS_NO_LAUNCH:-0}" != "1" ]]
+  then
+    local rollback_app="$DEST_APP"
+    if [[ "$RUNNING_APP" == "$LEGACY_APP" || "$HAD_EXISTING_APP" -eq 0 ]]; then
+      rollback_app="$LEGACY_APP"
+    fi
+    if ! ROLLBACK_PID="$(launch_app_and_wait "$rollback_app" "$RUNNING_PID")"; then
+      echo "OPL Fleet Agent was restored but could not be relaunched." >&2
       return 1
     fi
-    echo "Restored the previous Codex TPS as process $ROLLBACK_PID." >&2
+    echo "Restored the previous OPL Fleet Agent as process $ROLLBACK_PID." >&2
   fi
 }
 
 configure_updater_test_trust
 validate_running_process_contract
 if [[ "${CODEX_TPS_NO_LAUNCH:-0}" != "1" && ! -x "$OPEN_COMMAND" ]]; then
-  echo "Codex TPS launch command is unavailable." >&2
+  echo "OPL Fleet Agent launch command is unavailable." >&2
   exit 1
 fi
 
-echo "Downloading the latest Codex TPS release..."
+echo "Downloading the latest OPL Fleet Agent release..."
 download "$DMG_URL" "$DMG_PATH"
 download "$CHECKSUM_URL" "$CHECKSUM_PATH"
 
 EXPECTED_HASH="$(awk 'NR == 1 { print $1 }' "$CHECKSUM_PATH" | tr '[:upper:]' '[:lower:]')"
 ACTUAL_HASH="$(shasum -a 256 "$DMG_PATH" | awk '{ print $1 }')"
 if [[ ! "$EXPECTED_HASH" =~ ^[0-9a-f]{64}$ ]] || [[ "$ACTUAL_HASH" != "$EXPECTED_HASH" ]]; then
-  echo "Codex TPS DMG checksum verification failed." >&2
+  echo "OPL Fleet Agent DMG checksum verification failed." >&2
   exit 1
 fi
 
 ATTACH_OUTPUT="$(hdiutil attach "$DMG_PATH" -readonly -nobrowse)"
 MOUNT_POINT="$(printf '%s\n' "$ATTACH_OUTPUT" | awk -F '\t' '$NF ~ /^\/Volumes\// { print $NF; exit }')"
-SOURCE_APP="$MOUNT_POINT/Codex TPS.app"
+SOURCE_APP="$MOUNT_POINT/OPL Fleet Agent.app"
 
 if [[ -z "$MOUNT_POINT" ]] || [[ ! -d "$SOURCE_APP" ]]; then
-  echo "Codex TPS.app was not found in the mounted DMG." >&2
+  echo "OPL Fleet Agent.app was not found in the mounted DMG." >&2
   exit 1
 fi
 
 verify_app "$SOURCE_APP"
 VERSION="$(plutil -extract CFBundleShortVersionString raw "$SOURCE_APP/Contents/Info.plist")"
 if [[ -n "${CODEX_TPS_EXPECTED_VERSION:-}" && "$VERSION" != "$CODEX_TPS_EXPECTED_VERSION" ]]; then
-  echo "Expected Codex TPS $CODEX_TPS_EXPECTED_VERSION, but the DMG contains $VERSION." >&2
+  echo "Expected OPL Fleet Agent $CODEX_TPS_EXPECTED_VERSION, but the DMG contains $VERSION." >&2
   exit 1
 fi
 
@@ -338,7 +363,7 @@ if [[ ! -w "$INSTALL_DIR" ]]; then
   exit 1
 fi
 
-rm -rf "$STAGED_APP" "$BACKUP_APP"
+rm -rf "$STAGED_APP" "$BACKUP_APP" "$LEGACY_BACKUP_APP"
 ditto "$SOURCE_APP" "$STAGED_APP"
 verify_app "$STAGED_APP"
 
@@ -347,29 +372,36 @@ stop_running_app
 if [[ -d "$DEST_APP" ]]; then
   HAD_EXISTING_APP=1
 fi
+if [[ -d "$LEGACY_APP" ]]; then
+  HAD_LEGACY_APP=1
+fi
 REPLACEMENT_STARTED=1
 if [[ "$HAD_EXISTING_APP" -eq 1 ]]; then
   mv "$DEST_APP" "$BACKUP_APP"
+fi
+if [[ "$HAD_LEGACY_APP" -eq 1 ]]; then
+  mv "$LEGACY_APP" "$LEGACY_BACKUP_APP"
 fi
 mv "$STAGED_APP" "$DEST_APP"
 verify_app "$DEST_APP"
 
 if [[ "${CODEX_TPS_NO_LAUNCH:-0}" != "1" ]]; then
   if ! NEW_PID="$(launch_app_and_wait "$DEST_APP" "$RUNNING_PID")"; then
-    echo "Codex TPS was installed but did not relaunch." >&2
+    echo "OPL Fleet Agent was installed but did not relaunch." >&2
     exit 1
   fi
 fi
 
 REPLACEMENT_STARTED=0
 rm -rf "$BACKUP_APP"
+rm -rf "$LEGACY_BACKUP_APP"
 if [[ -n "${CODEX_TPS_UPDATE_LOG:-}" ]]; then
   rm -f "$CODEX_TPS_UPDATE_LOG" || true
 fi
 
-echo "Installed Codex TPS $VERSION at $DEST_APP"
+echo "Installed OPL Fleet Agent $VERSION at $DEST_APP"
 if [[ -n "$NEW_PID" ]]; then
-  echo "Launched Codex TPS as process $NEW_PID."
+  echo "Launched OPL Fleet Agent as process $NEW_PID."
 fi
 if [[ "$ALLOW_AD_HOC_TEST" -eq 1 ]]; then
   echo "The app passed isolated ad-hoc updater verification."

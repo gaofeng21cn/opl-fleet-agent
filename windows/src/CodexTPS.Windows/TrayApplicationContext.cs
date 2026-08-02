@@ -62,7 +62,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         trayIcon = new NotifyIcon
         {
             Icon = applicationIcon,
-            Text = "OPL Fleet Agent · Codex TPS",
+            Text = "OPL Fleet Agent",
             Visible = true,
             ContextMenuStrip = trayMenu,
         };
@@ -185,8 +185,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     ? lastSnapshot.OneMinute.TokensPerSecond
                     : null);
             trayIcon.Text = lastSnapshot.Status == CollectionStatus.Ready
-                ? $"OPL Fleet Agent · Codex TPS · {Compact(lastSnapshot.OneMinute.TokensPerSecond)} t/s"
-                : "OPL Fleet Agent · Codex TPS · sessions unavailable";
+                ? $"OPL Fleet Agent · {Compact(lastSnapshot.OneMinute.TokensPerSecond)} t/s"
+                : "OPL Fleet Agent · sessions unavailable";
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -273,7 +273,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             notifiedUpdateTag = available.TagName;
             trayIcon.ShowBalloonTip(
                 5_000,
-                "OPL Fleet Agent · Codex TPS 有新版本",
+                "OPL Fleet Agent 有新版本",
                 $"已发现 {available.TagName}，打开面板即可更新。",
                 ToolTipIcon.Info);
         }
@@ -281,7 +281,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             trayIcon.ShowBalloonTip(
                 5_000,
-                "OPL Fleet Agent · Codex TPS 更新失败",
+                "OPL Fleet Agent 更新失败",
                 message,
                 ToolTipIcon.Warning);
         }

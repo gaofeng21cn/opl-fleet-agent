@@ -15,14 +15,15 @@ internal static class Program
         if (!created)
         {
             MessageBox.Show(
-                "OPL Fleet Agent · Codex TPS is already running.",
-                "OPL Fleet Agent · Codex TPS",
+                "OPL Fleet Agent is already running.",
+                "OPL Fleet Agent",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             return;
         }
 
         ApplicationConfiguration.Initialize();
+        StartupRegistration.MigrateLegacyRegistration();
         var background = args.Contains("--background", StringComparer.OrdinalIgnoreCase);
         Application.Run(new TrayApplicationContext(showDashboard: !background));
     }

@@ -34,17 +34,25 @@ spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG
 
 hdiutil attach "$DMG_PATH" -readonly -nobrowse -mountpoint "$MOUNT_POINT" -quiet
 ATTACHED=1
-APP_PATH="$MOUNT_POINT/Codex TPS.app"
+APP_PATH="$MOUNT_POINT/OPL Fleet Agent.app"
+LEGACY_APP_PATH="$MOUNT_POINT/Codex TPS.app"
 if [[ ! -d "$APP_PATH" ]]; then
-  echo "Codex TPS.app is missing from the DMG." >&2
+  echo "OPL Fleet Agent.app is missing from the DMG." >&2
+  exit 1
+fi
+if [[ ! -d "$LEGACY_APP_PATH" ]]; then
+  echo "The Codex TPS.app compatibility payload is missing from the DMG." >&2
   exit 1
 fi
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+codesign --verify --deep --strict --verbose=2 "$LEGACY_APP_PATH"
+xcrun stapler validate "$APP_PATH"
 SIGNATURE_DETAILS="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
 ACTUAL_TEAM_ID="$(sed -n 's/^TeamIdentifier=//p' <<<"$SIGNATURE_DETAILS")"
 ACTUAL_BUNDLE_ID="$(sed -n 's/^Identifier=//p' <<<"$SIGNATURE_DETAILS")"
 ACTUAL_VERSION="$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Contents/Info.plist")"
+DISPLAY_NAME="$(plutil -extract CFBundleDisplayName raw "$APP_PATH/Contents/Info.plist")"
 
 if [[ "$ACTUAL_TEAM_ID" != "$EXPECTED_TEAM_ID" ]]; then
   echo "Expected Team ID $EXPECTED_TEAM_ID, got ${ACTUAL_TEAM_ID:-none}." >&2
@@ -58,6 +66,11 @@ if [[ -n "$EXPECTED_VERSION" && "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]]; the
   echo "Expected version $EXPECTED_VERSION, got $ACTUAL_VERSION." >&2
   exit 1
 fi
+if [[ "$DISPLAY_NAME" != "OPL Fleet Agent" ]]; then
+  echo "Expected display name OPL Fleet Agent, got $DISPLAY_NAME." >&2
+  exit 1
+fi
+cmp "$APP_PATH/Contents/MacOS/CodexTPS" "$LEGACY_APP_PATH/Contents/MacOS/CodexTPS"
 
 grep -q '^Authority=Developer ID Application:' <<<"$SIGNATURE_DETAILS"
 grep -q 'flags=.*runtime' <<<"$SIGNATURE_DETAILS"
@@ -65,4 +78,4 @@ grep -q '^Timestamp=' <<<"$SIGNATURE_DETAILS"
 spctl --assess --type execute --verbose=4 "$APP_PATH"
 lipo "$APP_PATH/Contents/MacOS/CodexTPS" -verify_arch arm64 x86_64
 
-echo "Verified notarized Codex TPS $ACTUAL_VERSION for Team $ACTUAL_TEAM_ID."
+echo "Verified notarized OPL Fleet Agent $ACTUAL_VERSION for Team $ACTUAL_TEAM_ID with legacy updater payload."

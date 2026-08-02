@@ -73,7 +73,7 @@ public sealed class AmbientOpsTests
         Assert.DoesNotContain("sessionId", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sessionsRoot", json, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(3, payload.SchemaVersion);
-        Assert.Equal("OPL Fleet Agent · Codex TPS", payload.OplFleet!.Product);
+        Assert.Equal("OPL Fleet Agent", payload.OplFleet!.Product);
         Assert.Equal("windows-pc", payload.OplFleet.StableNodeId);
         Assert.Equal("node_agent", payload.OplFleet.Authority);
         var envelope = document.RootElement.GetProperty("oplFleet");

@@ -15,16 +15,16 @@
 
 [Setup]
 AppId={{F83F1225-9AFB-4C72-AD2B-80E43AF81672}
-AppName=Codex TPS
+AppName=OPL Fleet Agent
 AppVersion={#AppVersion}
-AppVerName=Codex TPS {#AppVersion}
+AppVerName=OPL Fleet Agent {#AppVersion}
 AppPublisher=Feng Gao
 AppPublisherURL=https://github.com/gaofeng21cn/opl-fleet-agent
 AppSupportURL=https://github.com/gaofeng21cn/opl-fleet-agent/issues
 AppUpdatesURL=https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest
 VersionInfoVersion={#AppVersionQuad}
-DefaultDirName={localappdata}\Programs\Codex TPS
-DefaultGroupName=Codex TPS
+DefaultDirName={localappdata}\Programs\OPL Fleet Agent
+DefaultGroupName=OPL Fleet Agent
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
 OutputBaseFilename=Codex-TPS-Windows-win-x64-Setup
@@ -52,16 +52,24 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Codex TPS"; Filename: "{app}\CodexTPS.exe"; WorkingDir: "{app}"
-Name: "{autodesktop}\Codex TPS"; Filename: "{app}\CodexTPS.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\OPL Fleet Agent"; Filename: "{app}\CodexTPS.exe"; WorkingDir: "{app}"
+Name: "{autodesktop}\OPL Fleet Agent"; Filename: "{app}\CodexTPS.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[InstallDelete]
+Type: files; Name: "{autoprograms}\Codex TPS.lnk"
+Type: files; Name: "{autodesktop}\Codex TPS.lnk"
 
 [Run]
-Filename: "{app}\CodexTPS.exe"; Parameters: "--background"; Description: "{cm:LaunchProgram,Codex TPS}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\CodexTPS.exe"; Parameters: "--background"; Description: "{cm:LaunchProgram,OPL Fleet Agent}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
+    RegDeleteValue(
+      HKCU,
+      'Software\Microsoft\Windows\CurrentVersion\Run',
+      'OPL Fleet Agent');
     RegDeleteValue(
       HKCU,
       'Software\Microsoft\Windows\CurrentVersion\Run',

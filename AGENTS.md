@@ -1,4 +1,4 @@
-# Codex TPS Repository Guide
+# OPL Fleet Agent Repository Guide
 
 This repository owns local-only macOS menu bar and Windows tray monitors for
 Codex token throughput. They read Codex session JSONL files and never upload

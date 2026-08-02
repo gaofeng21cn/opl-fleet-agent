@@ -10,7 +10,10 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>CodexTPS</AssemblyName>
     <RootNamespace>CodexTPS.WindowsApp</RootNamespace>
-    <Version>0.2.30</Version>
+    <Product>OPL Fleet Agent</Product>
+    <AssemblyTitle>OPL Fleet Agent</AssemblyTitle>
+    <Description>Private local telemetry agent for OPL Fleet Cockpit.</Description>
+    <Version>0.2.31</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

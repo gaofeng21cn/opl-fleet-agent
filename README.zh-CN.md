@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <img src="Resources/AppIcon.png" width="128" alt="Codex TPS 应用图标">
+  <img src="Resources/AppIcon.png" width="128" alt="OPL Fleet Agent 应用图标">
 </p>
 
-<h1 align="center">OPL Fleet Agent · Codex TPS</h1>
+<h1 align="center">OPL Fleet Agent</h1>
 
 <p align="center"><strong>在菜单栏或系统托盘中，安静地查看本机 Codex Token 吞吐</strong></p>
 <p align="center">macOS 菜单栏 · Windows 系统托盘 · Ambient Ops Gateway 协同</p>
@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-black.svg" alt="macOS 13 或更高版本">
 </p>
 
-![Codex TPS 面板](docs/assets/codex-tps-panel.png)
+![OPL Fleet Agent 面板](docs/assets/codex-tps-panel.png)
 
 <table>
   <tr>
@@ -37,13 +37,13 @@
   </tr>
 </table>
 
-> Codex TPS 是运行观察工具，不是账单系统。它展示本机 Codex 日志中可见的用量，不能证明具体由哪个 API Key 计费，也不等同于服务端账单。
+> OPL Fleet Agent 是运行观察工具，不是账单系统。它展示本机 Codex 日志中可见的用量，不能证明具体由哪个 API Key 计费，也不等同于服务端账单。
 
 ## 给用户
 
 ### 这是什么
 
-OPL Fleet Agent · Codex TPS 是一个本机优先的桌面小工具。它增量读取 Codex 已经写入
+OPL Fleet Agent 是一个本机优先的桌面小工具。它增量读取 Codex 已经写入
 `sessions` 目录的 Token 用量事件，把最近一段时间的吞吐显示在 macOS 菜单栏
 或 Windows 系统托盘中。
 
@@ -80,7 +80,8 @@ curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/sc
 brew install --cask gaofeng21cn/codex-tps/codex-tps
 ```
 
-Homebrew Tap 保留原名称，以兼容既有安装和更新命令。
+Homebrew Tap 和 `Codex-TPS.dmg` 发布文件名保留兼容名称，以保证老版本的安装与
+应用内更新命令继续可用。
 
 也可以从[最新发布版本](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest)
 下载 `Codex-TPS.dmg`，打开后拖入“应用程序”。
@@ -106,8 +107,9 @@ Windows 版是基于 .NET 8 WinForms 的 Windows 11 原生系统托盘应用。�
 - `Codex-TPS-Windows-win-x64-Setup.exe`
 - `Codex-TPS-Windows-win-x64-Setup.exe.sha256`
 
-安装器会按当前用户安装到 `%LOCALAPPDATA%\Programs\Codex TPS`，支持原位升级和
-标准卸载。当前安装器尚未使用 Authenticode 签名，因此 Windows 可能显示未知发布者
+新安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`；升级时保留 Windows AppId、
+设置和可执行文件身份，并迁移旧快捷方式与开机启动项。当前安装器尚未使用
+Authenticode 签名，因此 Windows 可能显示未知发布者
 或 SmartScreen 提示；发布页、SHA-256 和持续集成记录可以证明仓库来源，但不能替代
 Windows 代码签名信任。
 
@@ -141,7 +143,7 @@ WSL UNC 路径，例如 `\\wsl.localhost\Ubuntu\home\<user>\.codex`。
 [Ambient Ops](https://github.com/gaofeng21cn/opl-fleet-cockpit) 用于把多台电脑上的 Codex
 汇总指标和局域网网络状态集中显示在浏览器或 Android 常驻屏上。
 
-macOS 版 Codex TPS 会发布 `_codex-tps._tcp.local` 和只读本机状态端点，Ambient
+macOS 版 OPL Fleet Agent 会继续发布兼容服务名 `_codex-tps._tcp.local` 和只读本机状态端点，Ambient
 Ops 无需单独部署 Gateway 即可显示这台 Mac。Direct 只提供汇总 TPS、活跃会话数、
 主机 CPU、网络吞吐以及所选 Pet 资源；Windows 本版尚未发布 Direct 服务。
 
@@ -283,7 +285,7 @@ swift run codex-tps-snapshot --json
 ```
 
 项目采用 [MIT License](LICENSE)。统计口径参考了公开的
-[Tokscale](https://github.com/junhoyeo/tokscale) 项目，但 Codex TPS 是独立实现，
+[Tokscale](https://github.com/junhoyeo/tokscale) 项目，但 OPL Fleet Agent 是独立实现，
 不包含 Tokscale 代码。
 
-Codex TPS 是非官方社区项目，与 OpenAI 不存在隶属、赞助或背书关系。
+OPL Fleet Agent 是非官方社区项目，与 OpenAI 不存在隶属、赞助或背书关系。
