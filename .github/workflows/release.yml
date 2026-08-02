@@ -219,7 +219,7 @@ jobs:
           cat >release-notes.md <<'EOF'
           ## macOS
 
-          Version 0.2.31 completes the visible product rename to `OPL Fleet Agent`, adds the OPL-family app icon, and migrates the legacy `/Applications/Codex TPS.app` path during a guarded install. The existing Bundle ID, executable, `_codex-tps._tcp` Direct provider, and `Codex-TPS.dmg` asset name remain compatibility identities for old clients. The DMG carries both app names so 0.2.30 and earlier updaters remain functional, and remains Developer ID signed, notarized, stapled, and checksum verified.
+          Version 0.2.32 completes the visible product rename to `OPL Fleet Agent`, adds the OPL-family app icon, and migrates the legacy `/Applications/Codex TPS.app` path during a guarded install. The existing Bundle ID, executable, `_codex-tps._tcp` Direct provider, and `Codex-TPS.dmg` asset name remain compatibility identities for old clients. The DMG carries both app names so 0.2.30 and earlier updaters remain functional, and its universal binary, Developer ID signature, notarization ticket, staple, and checksum are all verified before publication.
 
           ## Windows
 
