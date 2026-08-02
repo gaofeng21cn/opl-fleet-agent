@@ -87,3 +87,7 @@ fi
 
 [[ -s "$SANDBOX/dist/Codex-TPS.dmg.sha256" ]]
 echo "Verified OPL Fleet Agent app-first notarization and dual stapling sequence."
+
+grep -Fq 'CODEX_TPS_ARCHS="arm64 x86_64" ./scripts/build-app.sh' \
+  "$ROOT_DIR/.github/workflows/release.yml"
+echo "Verified the release workflow requests a universal macOS binary."
