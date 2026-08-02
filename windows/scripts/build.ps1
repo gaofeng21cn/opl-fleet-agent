@@ -3,7 +3,7 @@ param(
     [string]$Runtime = "win-x64",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$Version = "0.2.29",
+    [string]$Version = "0.2.30",
     [switch]$SkipTests
 )
 

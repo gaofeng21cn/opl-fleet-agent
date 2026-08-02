@@ -10,7 +10,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>CodexTPS</AssemblyName>
     <RootNamespace>CodexTPS.WindowsApp</RootNamespace>
-    <Version>0.2.29</Version>
+    <Version>0.2.30</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

@@ -59,15 +59,15 @@ jobs:
           }
           Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
       - name: Test and build Windows packages
-        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.29
+        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.30
       - name: Verify portable package
         run: |
           $archive = "./windows/dist/Codex-TPS-Windows-win-x64.zip"
           $install = Join-Path $env:RUNNER_TEMP "Codex TPS portable"
           ./windows/scripts/install.ps1 -ArchivePath $archive -InstallDirectory $install -NoLaunch
           $executable = Get-Item (Join-Path $install "CodexTPS.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.29")) {
-            throw "Expected Windows product version 0.2.29, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.30")) {
+            throw "Expected Windows product version 0.2.30, got $($executable.VersionInfo.ProductVersion)."
           }
           Write-Output "Verified $($executable.FullName) $($executable.VersionInfo.ProductVersion)"
       - name: Verify Windows installer and uninstaller
@@ -90,8 +90,8 @@ jobs:
           if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
 
           $executable = Get-Item (Join-Path $install "CodexTPS.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.29")) {
-            throw "Expected installed version 0.2.29, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.30")) {
+            throw "Expected installed version 0.2.30, got $($executable.VersionInfo.ProductVersion)."
           }
           $uninstaller = Join-Path $install "unins000.exe"
           $result = Start-Process $uninstaller `

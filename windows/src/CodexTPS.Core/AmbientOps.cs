@@ -208,7 +208,7 @@ public static class OplFleetAgentProtocol
 {
     public const string Schema = "opl_fleet_agent_telemetry.v1";
     public const string ProductName = "OPL Fleet Agent · Codex TPS";
-    public const string AgentVersion = "0.2.29";
+    public const string AgentVersion = "0.2.30";
     public static readonly string[] Modes = ["local", "direct", "fleet"];
     public static readonly string[] Capabilities =
     [
