@@ -39,6 +39,8 @@ jobs:
           xcrun swift-format lint --recursive Sources Tests Package.swift
           bash -n scripts/install-release.sh
           bash -n scripts/verify-updater.sh
+          zsh -n scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/verify-release.sh
+          ./Tests/notarize-dmg.test.sh
       - name: Test
         run: swift test
 
@@ -79,10 +81,10 @@ jobs:
           security find-identity -v -p codesigning "$keychain" | grep -F "$CODEX_TPS_SIGNING_IDENTITY"
           echo "CODEX_TPS_NOTARY_KEYCHAIN=$keychain" >>"$GITHUB_ENV"
 
-      - name: Build signed universal DMG
-        run: ./scripts/build-dmg.sh
+      - name: Build signed universal app
+        run: ./scripts/build-app.sh
 
-      - name: Notarize, staple, and verify release bytes
+      - name: Notarize app and DMG, staple both, and verify release bytes
         env:
           CODEX_TPS_EXPECTED_VERSION: ${{ github.ref_name }}
         shell: bash

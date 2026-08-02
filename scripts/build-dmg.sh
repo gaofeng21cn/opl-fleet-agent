@@ -8,6 +8,7 @@ DMG_NAME="${CODEX_TPS_DMG_NAME:-Codex-TPS.dmg}"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 CHECKSUM_PATH="$DMG_PATH.sha256"
 SIGNING_IDENTITY="${CODEX_TPS_SIGNING_IDENTITY:--}"
+SKIP_APP_BUILD="${CODEX_TPS_SKIP_APP_BUILD:-0}"
 STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-tps-dmg.XXXXXX")"
 
 cleanup() {
@@ -15,8 +16,15 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-CODEX_TPS_ARCHS="${CODEX_TPS_ARCHS:-arm64 x86_64}" \
-  "$ROOT_DIR/scripts/build-app.sh"
+if [[ "$SKIP_APP_BUILD" == "1" ]]; then
+  if [[ ! -d "$DIST_DIR/$APP_NAME" ]]; then
+    echo "Prebuilt app not found: $DIST_DIR/$APP_NAME" >&2
+    exit 1
+  fi
+else
+  CODEX_TPS_ARCHS="${CODEX_TPS_ARCHS:-arm64 x86_64}" \
+    "$ROOT_DIR/scripts/build-app.sh"
+fi
 
 ditto "$DIST_DIR/$APP_NAME" "$STAGING_DIR/$APP_NAME"
 ln -s /Applications "$STAGING_DIR/Applications"
