@@ -1,3 +1,5 @@
+using CodexTPS.WindowsApp;
+
 namespace CodexTPS.Windows.Tests;
 
 public sealed class StartupRegistrationTests
