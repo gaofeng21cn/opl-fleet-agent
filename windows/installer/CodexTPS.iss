@@ -66,15 +66,17 @@ Filename: "{app}\OPLFleetAgent.exe"; Parameters: "--background"; Description: "{
 var
   LegacyBridgePath: string;
 
-function PrepareToInstall(var NeedsRestart: Boolean): String;
+procedure InitializeWizard;
+var
+  CurrentInstallDirectory: string;
 begin
   LegacyBridgePath := '';
-  if FileExists(ExpandConstant('{app}\CodexTPS.exe')) then
+  CurrentInstallDirectory := WizardForm.DirEdit.Text;
+  if FileExists(AddBackslash(CurrentInstallDirectory) + 'CodexTPS.exe') then
   begin
-    LegacyBridgePath := ExpandConstant('{app}\CodexTPS.exe');
+    LegacyBridgePath := AddBackslash(CurrentInstallDirectory) + 'CodexTPS.exe';
     WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\Programs\OPL Fleet Agent');
   end;
-  Result := '';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

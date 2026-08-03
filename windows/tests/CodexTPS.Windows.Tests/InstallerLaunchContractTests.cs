@@ -24,10 +24,13 @@ public sealed class InstallerLaunchContractTests
         Assert.Contains("OutputBaseFilename=OPL-Fleet-Agent-Windows-win-x64-Setup", definition);
         Assert.Contains("CloseApplicationsFilter=OPLFleetAgent.exe;CodexTPS.exe", definition);
         Assert.Contains("LegacyBridgePath", definition);
+        Assert.Contains("procedure InitializeWizard;", definition);
         Assert.Contains("WizardForm.DirEdit.Text", definition);
-        Assert.Contains("FileExists(ExpandConstant('{app}\\CodexTPS.exe'))", definition);
-        Assert.Contains("LegacyBridgePath := ExpandConstant('{app}\\CodexTPS.exe')", definition);
+        Assert.Contains("CurrentInstallDirectory := WizardForm.DirEdit.Text", definition);
+        Assert.Contains("FileExists(AddBackslash(CurrentInstallDirectory) + 'CodexTPS.exe')", definition);
+        Assert.Contains("LegacyBridgePath := AddBackslash(CurrentInstallDirectory) + 'CodexTPS.exe'", definition);
         Assert.Contains("WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\\Programs\\OPL Fleet Agent')", definition);
+        Assert.DoesNotContain("function PrepareToInstall", definition);
     }
 
     [Fact]
