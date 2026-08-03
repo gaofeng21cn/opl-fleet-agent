@@ -5,6 +5,7 @@ namespace CodexTPS.WindowsApp;
 internal static class LegacyExecutableBridge
 {
     public const string CleanupArgument = "--cleanup-legacy";
+    private const int HandoffGracePeriodMilliseconds = 3_000;
 
     public static bool TryRun(string[] args)
     {
@@ -29,16 +30,12 @@ internal static class LegacyExecutableBridge
         var child = StartCanonical(canonicalPath, args);
         StartCleanupWorker(canonicalPath, currentPath);
 
-        if (child is null || child.WaitForExit((int)TimeSpan.FromSeconds(2).TotalMilliseconds))
-        {
-            // Keep the legacy process alive long enough for the old updater to
-            // observe a successful handoff when the canonical app was already running.
-            Thread.Sleep((int)TimeSpan.FromSeconds(3).TotalMilliseconds);
-        }
-        else
-        {
-            child.WaitForExit();
-        }
+        // Keep the bridge alive just long enough for the old updater to observe
+        // a successful handoff. The canonical process owns the app lifetime;
+        // waiting for it here would prevent the cleanup worker from deleting
+        // this one-time compatibility executable.
+        _ = child;
+        Thread.Sleep(HandoffGracePeriodMilliseconds);
 
         return true;
     }

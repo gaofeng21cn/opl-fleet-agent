@@ -67,6 +67,16 @@ public sealed class InstallerLaunchContractTests
             buildScript);
     }
 
+    [Fact]
+    public void LegacyBridgeUsesBoundedHandoffBeforeCleanup()
+    {
+        var bridge = ReadContract("LegacyExecutableBridge.cs");
+
+        Assert.Contains("HandoffGracePeriodMilliseconds", bridge);
+        Assert.Contains("Thread.Sleep(HandoffGracePeriodMilliseconds)", bridge);
+        Assert.DoesNotContain("child.WaitForExit();", bridge);
+    }
+
     private static string ReadContract(string name) =>
         Normalize(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "LaunchContracts", name)));
 
