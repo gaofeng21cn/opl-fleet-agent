@@ -25,12 +25,27 @@ public sealed class InstallerLaunchContractTests
         Assert.Contains("CloseApplicationsFilter=OPLFleetAgent.exe;CodexTPS.exe", definition);
         Assert.Contains("LegacyBridgePath", definition);
         Assert.Contains("procedure InitializeWizard;", definition);
+        Assert.Contains("{param:LEGACYBRIDGEPATH|}", definition);
+        Assert.Contains("ExtractFileName(LegacyBridgePath), 'CodexTPS.exe'", definition);
         Assert.Contains("WizardForm.DirEdit.Text", definition);
         Assert.Contains("CurrentInstallDirectory := WizardForm.DirEdit.Text", definition);
         Assert.Contains("FileExists(AddBackslash(CurrentInstallDirectory) + 'CodexTPS.exe')", definition);
         Assert.Contains("LegacyBridgePath := AddBackslash(CurrentInstallDirectory) + 'CodexTPS.exe'", definition);
         Assert.Contains("WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\\Programs\\OPL Fleet Agent')", definition);
         Assert.DoesNotContain("function PrepareToInstall", definition);
+    }
+
+    [Fact]
+    public void LegacyUpdaterRoutesInstallerToCanonicalDirectory()
+    {
+        var worker = ReadContract("WindowsUpdateWorker.cs");
+
+        Assert.Contains(
+            "WindowsProductIdentity.InstallDirectoryName",
+            worker);
+        Assert.Contains(
+            "startInfo.ArgumentList.Add($\"/LEGACYBRIDGEPATH={legacyBridgePath}\")",
+            worker);
     }
 
     [Fact]

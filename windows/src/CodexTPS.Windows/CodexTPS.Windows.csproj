@@ -13,7 +13,7 @@
     <Product>OPL Fleet Agent</Product>
     <AssemblyTitle>OPL Fleet Agent</AssemblyTitle>
     <Description>Private local telemetry agent for OPL Fleet Cockpit.</Description>
-    <Version>0.2.34</Version>
+    <Version>0.2.35</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

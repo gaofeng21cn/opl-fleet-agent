@@ -35,5 +35,8 @@
     <None Include="..\..\src\CodexTPS.Windows\LegacyExecutableBridge.cs"
           Link="LaunchContracts\LegacyExecutableBridge.cs"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\CodexTPS.Windows\WindowsUpdateWorker.cs"
+          Link="LaunchContracts\WindowsUpdateWorker.cs"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

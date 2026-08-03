@@ -232,7 +232,7 @@ jobs:
           cat >release-notes.md <<'EOF'
           ## macOS
 
-          Version 0.2.34 completes the visible Windows executable rename to `OPLFleetAgent.exe`; the macOS product remains `OPL Fleet Agent` with the existing compatibility Bundle ID and Direct provider.
+          Version 0.2.35 completes the visible Windows executable rename to `OPLFleetAgent.exe`; the macOS product remains `OPL Fleet Agent` with the existing compatibility Bundle ID and Direct provider.
 
           ## Windows
 

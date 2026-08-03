@@ -186,18 +186,34 @@ internal static class WindowsUpdateWorker
     private static void RunInstaller(UpdateWorkerRequest request)
     {
         var logPath = Path.Combine(request.StagingDirectory, "installer.log");
-        using var installer = Process.Start(new ProcessStartInfo(request.InstallerPath)
+        var installerDirectory = request.InstallDirectory;
+        string? legacyBridgePath = null;
+        if (WindowsProductIdentity.IsLegacyExecutable(request.CurrentExecutablePath))
+        {
+            var installParent = Path.GetDirectoryName(Path.GetFullPath(request.InstallDirectory))
+                ?? throw new InvalidDataException("旧版安装目录无效。");
+            installerDirectory = Path.Combine(
+                installParent,
+                WindowsProductIdentity.InstallDirectoryName);
+            legacyBridgePath = request.CurrentExecutablePath;
+        }
+
+        var startInfo = new ProcessStartInfo(request.InstallerPath)
         {
             UseShellExecute = false,
-            ArgumentList =
-            {
-                "/VERYSILENT",
-                "/SUPPRESSMSGBOXES",
-                "/NORESTART",
-                $"/DIR={request.InstallDirectory}",
-                $"/LOG={logPath}",
-            },
-        }) ?? throw new InvalidOperationException("无法启动 Windows 安装包。");
+        };
+        startInfo.ArgumentList.Add("/VERYSILENT");
+        startInfo.ArgumentList.Add("/SUPPRESSMSGBOXES");
+        startInfo.ArgumentList.Add("/NORESTART");
+        startInfo.ArgumentList.Add($"/DIR={installerDirectory}");
+        if (legacyBridgePath is not null)
+        {
+            startInfo.ArgumentList.Add($"/LEGACYBRIDGEPATH={legacyBridgePath}");
+        }
+        startInfo.ArgumentList.Add($"/LOG={logPath}");
+
+        using var installer = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("无法启动 Windows 安装包。");
         installer.WaitForExit();
         if (installer.ExitCode != 0)
         {

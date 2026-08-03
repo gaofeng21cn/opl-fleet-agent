@@ -70,7 +70,16 @@ procedure InitializeWizard;
 var
   CurrentInstallDirectory: string;
 begin
-  LegacyBridgePath := '';
+  LegacyBridgePath := ExpandConstant('{param:LEGACYBRIDGEPATH|}');
+  if LegacyBridgePath <> '' then
+  begin
+    if CompareText(ExtractFileName(LegacyBridgePath), 'CodexTPS.exe') <> 0 then
+      RaiseException('The legacy upgrade bridge path is invalid.');
+    if not FileExists(LegacyBridgePath) then
+      RaiseException('The legacy upgrade executable does not exist.');
+    exit;
+  end;
+
   CurrentInstallDirectory := WizardForm.DirEdit.Text;
   if FileExists(AddBackslash(CurrentInstallDirectory) + 'CodexTPS.exe') then
   begin

@@ -59,15 +59,15 @@ jobs:
           }
           Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
       - name: Test and build Windows packages
-        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.34
+        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.35
       - name: Verify portable package
         run: |
           $archive = "./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip"
           $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent portable"
           ./windows/scripts/install.ps1 -ArchivePath $archive -InstallDirectory $install -NoLaunch
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.34")) {
-            throw "Expected Windows product version 0.2.34, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.35")) {
+            throw "Expected Windows product version 0.2.35, got $($executable.VersionInfo.ProductVersion)."
           }
           if (Test-Path (Join-Path $install "CodexTPS.exe")) {
             throw "Portable install must not contain CodexTPS.exe."
@@ -93,8 +93,8 @@ jobs:
           if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
 
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.34")) {
-            throw "Expected installed version 0.2.34, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.35")) {
+            throw "Expected installed version 0.2.35, got $($executable.VersionInfo.ProductVersion)."
           }
           if (Test-Path (Join-Path $install "CodexTPS.exe")) {
             throw "Fresh installer must not contain CodexTPS.exe."
@@ -109,10 +109,9 @@ jobs:
           if ($result.ExitCode -ne 0) { throw "Uninstaller exited with $($result.ExitCode)." }
           if (Test-Path $executable.FullName) { throw "OPLFleetAgent.exe remains after uninstall." }
           Write-Output "Verified installer, version, checksum, and uninstall."
-      # The end-to-end updater handoff is release-only. It installs a prior
-      # release and relaunches the app, so it belongs to release.yml where the
-      # published asset is authoritative. Keeping it out of every branch CI
-      # run prevents a hosted-runner failure from blocking routine validation.
+      - name: Verify Windows in-app updater handoff
+        if: github.ref == 'refs/heads/main'
+        run: ./windows/scripts/verify-updater.ps1 -Version 0.2.35
       - uses: actions/upload-artifact@v7
         with:
           name: codex-tps-windows-win-x64
