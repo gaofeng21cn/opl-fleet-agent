@@ -54,9 +54,15 @@ internal static class WindowsProductIdentity
     public static string? FindCanonicalExecutable(string legacyExecutablePath)
     {
         var installDirectory = Path.GetDirectoryName(legacyExecutablePath);
+        var installParent = installDirectory is null
+            ? null
+            : Path.GetDirectoryName(installDirectory);
         var candidates = new[]
         {
             installDirectory is null ? null : CanonicalExecutablePath(installDirectory),
+            installParent is null
+                ? null
+                : CanonicalExecutablePath(Path.Combine(installParent, InstallDirectoryName)),
             CanonicalExecutablePath(DefaultInstallDirectory),
         };
 

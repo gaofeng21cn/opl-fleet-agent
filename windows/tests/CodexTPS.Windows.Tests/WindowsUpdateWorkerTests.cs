@@ -5,6 +5,35 @@ namespace CodexTPS.Windows.Tests;
 public sealed class WindowsUpdateWorkerTests
 {
     [Fact]
+    public void LegacyBridgeFindsCanonicalExecutableInSiblingInstallDirectory()
+    {
+        var root = Directory.CreateTempSubdirectory("opl-fleet-agent-bridge-test-");
+        try
+        {
+            var legacyDirectory = Directory.CreateDirectory(
+                Path.Combine(root.FullName, WindowsProductIdentity.LegacyInstallDirectoryName));
+            var canonicalDirectory = Directory.CreateDirectory(
+                Path.Combine(root.FullName, WindowsProductIdentity.InstallDirectoryName));
+            var legacyExecutable = Path.Combine(
+                legacyDirectory.FullName,
+                WindowsProductIdentity.LegacyExecutableName);
+            var canonicalExecutable = Path.Combine(
+                canonicalDirectory.FullName,
+                WindowsProductIdentity.ExecutableName);
+            File.WriteAllBytes(legacyExecutable, []);
+            File.WriteAllBytes(canonicalExecutable, []);
+
+            Assert.Equal(
+                canonicalExecutable,
+                WindowsProductIdentity.FindCanonicalExecutable(legacyExecutable));
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public void UpdateRequestRoundTripsWithoutLosingTransactionIdentity()
     {
         var directory = Directory.CreateTempSubdirectory("codex-tps-worker-test-");
