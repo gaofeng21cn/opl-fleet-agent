@@ -24,6 +24,10 @@ public sealed class InstallerLaunchContractTests
         Assert.Contains("OutputBaseFilename=OPL-Fleet-Agent-Windows-win-x64-Setup", definition);
         Assert.Contains("CloseApplicationsFilter=OPLFleetAgent.exe;CodexTPS.exe", definition);
         Assert.Contains("LegacyBridgePath", definition);
+        Assert.Contains("WizardForm.DirEdit.Text", definition);
+        Assert.Contains("FileExists(ExpandConstant('{app}\\CodexTPS.exe'))", definition);
+        Assert.Contains("LegacyBridgePath := ExpandConstant('{app}\\CodexTPS.exe')", definition);
+        Assert.Contains("WizardDirValue := ExpandConstant('{localappdata}\\Programs\\OPL Fleet Agent')", definition);
     }
 
     [Fact]
@@ -45,6 +49,22 @@ public sealed class InstallerLaunchContractTests
         Assert.Contains(
             "Programs/Codex TPS",
             script);
+        Assert.Contains(
+            "The archive must not include CodexTPS.exe.",
+            script);
+    }
+
+    [Fact]
+    public void NewPayloadCannotCarryLegacyExecutable()
+    {
+        var buildScript = ReadContract("build.ps1");
+        var installerScript = ReadContract("build-installer.ps1");
+
+        Assert.Contains("Published payload must not include CodexTPS.exe.", buildScript);
+        Assert.Contains("Published payload must not include CodexTPS.exe.", installerScript);
+        Assert.DoesNotContain(
+            "Copy-Item (Join-Path $publishRoot \"OPLFleetAgent.exe\") (Join-Path $publishRoot \"CodexTPS.exe\")",
+            buildScript);
     }
 
     private static string ReadContract(string name) =>

@@ -69,12 +69,11 @@ var
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   LegacyBridgePath := '';
-  if CompareText(
-       ExpandConstant('{app}'),
-       ExpandConstant('{localappdata}\Programs\Codex TPS')) = 0 then
+  if FileExists(ExpandConstant('{app}\CodexTPS.exe')) and
+     not FileExists(ExpandConstant('{app}\OPLFleetAgent.exe')) then
   begin
-    LegacyBridgePath := ExpandConstant('{localappdata}\Programs\Codex TPS\CodexTPS.exe');
-    WizardDirValue := ExpandConstant('{localappdata}\Programs\OPL Fleet Agent');
+    LegacyBridgePath := ExpandConstant('{app}\CodexTPS.exe');
+    WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\Programs\OPL Fleet Agent');
   end;
   Result := '';
 end;
@@ -84,10 +83,11 @@ begin
   if (CurStep = ssPostInstall) and (LegacyBridgePath <> '') then
   begin
     ForceDirectories(ExtractFileDir(LegacyBridgePath));
-    FileCopy(
-      ExpandConstant('{app}\OPLFleetAgent.exe'),
-      LegacyBridgePath,
-      False);
+    if not FileCopy(
+        ExpandConstant('{app}\OPLFleetAgent.exe'),
+        LegacyBridgePath,
+        False) then
+      RaiseException('Unable to create the one-time Codex TPS upgrade bridge.');
   end;
 end;
 
