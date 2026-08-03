@@ -69,8 +69,7 @@ var
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   LegacyBridgePath := '';
-  if FileExists(ExpandConstant('{app}\CodexTPS.exe')) and
-     not FileExists(ExpandConstant('{app}\OPLFleetAgent.exe')) then
+  if FileExists(ExpandConstant('{app}\CodexTPS.exe')) then
   begin
     LegacyBridgePath := ExpandConstant('{app}\CodexTPS.exe');
     WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\Programs\OPL Fleet Agent');

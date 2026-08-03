@@ -75,8 +75,10 @@ runtime. It installs for the current user under
 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`, adds a Start-menu shortcut, supports
 in-place upgrades, and registers a normal Windows uninstaller. The fixed AppId keeps
 upgrades compatible with earlier Codex TPS releases. New builds run as
-`OPLFleetAgent.exe`; a transitional `CodexTPS.exe` bridge is included only to let
-old clients finish their in-app upgrade, then it is removed. Uninstalling the app preserves
+`OPLFleetAgent.exe`, and new payloads do not contain `CodexTPS.exe`. Only an installer
+that detects an existing legacy installation creates a transitional bridge in the old
+directory so the old client can finish one in-app upgrade; the bridge then removes itself.
+Uninstalling the app preserves
 the legacy `%LOCALAPPDATA%\Codex TPS\settings.json` settings authority; it removes
 both the current and legacy login-startup registry values.
 

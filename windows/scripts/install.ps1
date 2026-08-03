@@ -51,6 +51,9 @@ try {
     if (-not (Test-Path $executable)) {
         throw "OPLFleetAgent.exe is missing from the archive."
     }
+    if (Test-Path (Join-Path $stage "CodexTPS.exe")) {
+        throw "The archive must not include CodexTPS.exe."
+    }
 
     $installParent = Split-Path -Parent $InstallDirectory
     New-Item -ItemType Directory -Force $installParent | Out-Null

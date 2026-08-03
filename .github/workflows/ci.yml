@@ -69,6 +69,9 @@ jobs:
           if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.33")) {
             throw "Expected Windows product version 0.2.33, got $($executable.VersionInfo.ProductVersion)."
           }
+          if (Test-Path (Join-Path $install "CodexTPS.exe")) {
+            throw "Portable install must not contain CodexTPS.exe."
+          }
           Write-Output "Verified $($executable.FullName) $($executable.VersionInfo.ProductVersion)"
       - name: Verify Windows installer and uninstaller
         run: |
@@ -92,6 +95,9 @@ jobs:
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
           if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.33")) {
             throw "Expected installed version 0.2.33, got $($executable.VersionInfo.ProductVersion)."
+          }
+          if (Test-Path (Join-Path $install "CodexTPS.exe")) {
+            throw "Fresh installer must not contain CodexTPS.exe."
           }
           Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue

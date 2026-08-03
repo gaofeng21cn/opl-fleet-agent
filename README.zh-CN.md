@@ -108,7 +108,7 @@ Windows 版是基于 .NET 8 WinForms 的 Windows 11 原生系统托盘应用。�
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
 新安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`；升级时保留 Windows AppId、
-设置和可执行文件身份，并迁移旧快捷方式与开机启动项。当前安装器尚未使用
+设置和旧版更新兼容链，同时迁移旧快捷方式、开机启动项和主程序文件名。当前安装器尚未使用
 Authenticode 签名，因此 Windows 可能显示未知发布者
 或 SmartScreen 提示；发布页、SHA-256 和持续集成记录可以证明仓库来源，但不能替代
 Windows 代码签名信任。

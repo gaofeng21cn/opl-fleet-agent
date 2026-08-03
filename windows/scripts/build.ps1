@@ -61,7 +61,10 @@ if ($LASTEXITCODE -ne 0) { throw "Windows publish failed." }
 if (-not (Test-Path (Join-Path $publishRoot "OPLFleetAgent.exe"))) {
     throw "Published OPLFleetAgent.exe is missing."
 }
-Copy-Item (Join-Path $publishRoot "OPLFleetAgent.exe") (Join-Path $publishRoot "CodexTPS.exe") -Force
+$legacyExecutable = Join-Path $publishRoot "CodexTPS.exe"
+if (Test-Path $legacyExecutable) {
+    throw "Published payload must not include CodexTPS.exe."
+}
 Copy-Item (Join-Path $repositoryRoot "LICENSE") (Join-Path $publishRoot "LICENSE.txt")
 Copy-Item (Join-Path $windowsRoot "THIRD-PARTY-NOTICES.md") $publishRoot
 Copy-Item (Join-Path $windowsRoot "src/CodexTPS.Windows/app.ico") $publishRoot

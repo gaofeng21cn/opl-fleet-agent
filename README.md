@@ -111,8 +111,8 @@ Download both files from the
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
 New installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent`; upgrades preserve the
-Windows AppId, settings, and executable identity while replacing legacy shortcuts and
-startup entries. It is not yet Authenticode-signed, so Windows
+Windows AppId, settings, and legacy updater compatibility chain while replacing old
+shortcuts, startup entries, and the main executable name. It is not yet Authenticode-signed, so Windows
 may show an unknown-publisher or SmartScreen warning. GitHub Release provenance,
 SHA-256, and CI receipts do not replace Windows code-signing trust.
 

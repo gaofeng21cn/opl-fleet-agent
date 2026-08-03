@@ -27,7 +27,7 @@ public sealed class InstallerLaunchContractTests
         Assert.Contains("WizardForm.DirEdit.Text", definition);
         Assert.Contains("FileExists(ExpandConstant('{app}\\CodexTPS.exe'))", definition);
         Assert.Contains("LegacyBridgePath := ExpandConstant('{app}\\CodexTPS.exe')", definition);
-        Assert.Contains("WizardDirValue := ExpandConstant('{localappdata}\\Programs\\OPL Fleet Agent')", definition);
+        Assert.Contains("WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\\Programs\\OPL Fleet Agent')", definition);
     }
 
     [Fact]

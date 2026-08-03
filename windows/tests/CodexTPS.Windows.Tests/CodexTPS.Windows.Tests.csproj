@@ -26,5 +26,11 @@
     <None Include="..\..\scripts\install.ps1"
           Link="LaunchContracts\install.ps1"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\scripts\build.ps1"
+          Link="LaunchContracts\build.ps1"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\scripts\build-installer.ps1"
+          Link="LaunchContracts\build-installer.ps1"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
-    [string]$PreviousVersion = "0.2.20",
+    [string]$PreviousVersion = "0.2.32",
     [string]$Runtime = "win-x64"
 )
 

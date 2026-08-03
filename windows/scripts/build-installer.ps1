@@ -36,6 +36,10 @@ $executable = Join-Path $publishRoot "OPLFleetAgent.exe"
 if (-not (Test-Path $executable)) {
     throw "Published OPLFleetAgent.exe is missing."
 }
+$legacyExecutable = Join-Path $publishRoot "CodexTPS.exe"
+if (Test-Path $legacyExecutable) {
+    throw "Published payload must not include CodexTPS.exe."
+}
 
 $compilerCandidates = @(
     (Get-Command ISCC.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source),
