@@ -90,8 +90,6 @@ internal readonly record struct SemanticVersion(int Major, int Minor, int Patch)
 
 internal static class GitHubReleaseParser
 {
-    private const string InstallerName = "Codex-TPS-Windows-win-x64-Setup.exe";
-    private const string ChecksumName = InstallerName + ".sha256";
     private static readonly string[] AllowedRepositories =
     [
         "opl-fleet-agent",
@@ -111,8 +109,10 @@ internal static class GitHubReleaseParser
             throw new InvalidDataException("GitHub 返回了无效的版本信息。");
         }
 
-        Uri? installerUri = null;
-        Uri? checksumUri = null;
+        Uri? canonicalInstallerUri = null;
+        Uri? legacyInstallerUri = null;
+        Uri? canonicalChecksumUri = null;
+        Uri? legacyChecksumUri = null;
         foreach (var asset in assets.EnumerateArray())
         {
             if (!asset.TryGetProperty("name", out var nameElement) ||
@@ -124,16 +124,36 @@ internal static class GitHubReleaseParser
                 continue;
             }
 
-            if (name == InstallerName && IsAllowedAsset(uri, tagName, InstallerName))
+            if (name == WindowsProductIdentity.InstallerAssetName &&
+                IsAllowedAsset(uri, tagName, name))
             {
-                installerUri = uri;
+                canonicalInstallerUri = uri;
             }
-            else if (name == ChecksumName && IsAllowedAsset(uri, tagName, ChecksumName))
+            else if (name == WindowsProductIdentity.LegacyInstallerAssetName &&
+                IsAllowedAsset(uri, tagName, name))
             {
-                checksumUri = uri;
+                legacyInstallerUri = uri;
+            }
+            else if (name == WindowsProductIdentity.InstallerAssetName + ".sha256" &&
+                IsAllowedAsset(uri, tagName, name))
+            {
+                canonicalChecksumUri = uri;
+            }
+            else if (name == WindowsProductIdentity.LegacyInstallerAssetName + ".sha256" &&
+                IsAllowedAsset(uri, tagName, name))
+            {
+                legacyChecksumUri = uri;
             }
         }
 
+        var installerUri = canonicalInstallerUri is not null && canonicalChecksumUri is not null
+            ? canonicalInstallerUri
+            : legacyInstallerUri;
+        var checksumUri = canonicalInstallerUri is not null && canonicalChecksumUri is not null
+            ? canonicalChecksumUri
+            : legacyInstallerUri is not null && legacyChecksumUri is not null
+                ? legacyChecksumUri
+                : null;
         if (installerUri is null || checksumUri is null)
         {
             throw new InvalidDataException("最新版缺少 Windows 安装包或校验文件。");

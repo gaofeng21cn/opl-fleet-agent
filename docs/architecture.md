@@ -66,8 +66,9 @@ affecting local collection.
 
 ## OPL Fleet Agent boundary
 
-The product is presented to users only as `OPL Fleet Agent`. The existing bundle ID,
-`CodexTPS` executable, settings location, `_codex-tps._tcp` discovery service, and
+The product is presented to users only as `OPL Fleet Agent`. Windows now uses the
+`OPLFleetAgent.exe` executable and branded release assets; the one-time
+`CodexTPS.exe` bridge, settings location, `_codex-tps._tcp` discovery service, and
 legacy release asset names remain compatibility identities for the upgrade chain.
 The `oplFleet` extension is a versioned, aggregate-only envelope. It describes
 the local Agent's observation, doctor, execution-constraint, and sanitized-receipt

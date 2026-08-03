@@ -19,16 +19,25 @@ $actual = (Get-FileHash -Algorithm SHA256 $resolvedArchive).Hash.ToLowerInvarian
 if ($expected -ne $actual) {
     throw "Archive SHA-256 does not match $checksumPath."
 }
-$running = Get-Process -Name "CodexTPS" -ErrorAction SilentlyContinue
+$running = Get-Process -Name @("OPLFleetAgent", "CodexTPS") -ErrorAction SilentlyContinue
 if ($running) {
     throw "Exit OPL Fleet Agent from its tray menu before installing an update."
 }
 
-$stageParent = Join-Path ([System.IO.Path]::GetTempPath()) ("codex-tps-install-" + [guid]::NewGuid())
+$stageParent = Join-Path ([System.IO.Path]::GetTempPath()) ("opl-fleet-agent-install-" + [guid]::NewGuid())
 $stage = Join-Path $stageParent "app"
-$backup = "$InstallDirectory.backup-" + [guid]::NewGuid()
+$requestedInstallDirectory = $InstallDirectory
 $defaultInstallDirectory = Join-Path $env:LOCALAPPDATA "Programs/OPL Fleet Agent"
 $legacyInstallDirectory = Join-Path $env:LOCALAPPDATA "Programs/Codex TPS"
+$requestedLegacyDirectory = [string]::Equals(
+    [System.IO.Path]::GetFullPath($requestedInstallDirectory),
+    [System.IO.Path]::GetFullPath($legacyInstallDirectory),
+    [System.StringComparison]::OrdinalIgnoreCase
+)
+if ($requestedLegacyDirectory) {
+    $InstallDirectory = $defaultInstallDirectory
+}
+$backup = "$InstallDirectory.backup-" + [guid]::NewGuid()
 $migrateLegacy = [string]::Equals(
     [System.IO.Path]::GetFullPath($InstallDirectory),
     [System.IO.Path]::GetFullPath($defaultInstallDirectory),
@@ -38,9 +47,9 @@ $legacyBackup = "$legacyInstallDirectory.backup-" + [guid]::NewGuid()
 New-Item -ItemType Directory -Force $stage | Out-Null
 try {
     Expand-Archive -Path $resolvedArchive -DestinationPath $stage -Force
-    $executable = Join-Path $stage "CodexTPS.exe"
+    $executable = Join-Path $stage "OPLFleetAgent.exe"
     if (-not (Test-Path $executable)) {
-        throw "CodexTPS.exe is missing from the archive."
+        throw "OPLFleetAgent.exe is missing from the archive."
     }
 
     $installParent = Split-Path -Parent $InstallDirectory
@@ -72,7 +81,7 @@ try {
 
     if (-not $NoLaunch) {
         Start-Process `
-            (Join-Path $InstallDirectory "CodexTPS.exe") `
+            (Join-Path $InstallDirectory "OPLFleetAgent.exe") `
             -ArgumentList "--background"
     }
     Write-Output "Installed OPL Fleet Agent to $InstallDirectory"

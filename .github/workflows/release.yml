@@ -145,6 +145,8 @@ jobs:
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
           $assets = @(
+            "./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip",
+            "./windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe",
             "./windows/dist/Codex-TPS-Windows-win-x64.zip",
             "./windows/dist/Codex-TPS-Windows-win-x64-Setup.exe"
           )
@@ -166,17 +168,19 @@ jobs:
           $result = Start-Process $installer -ArgumentList $arguments -Wait -PassThru
           if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
 
-          $executable = Get-Item (Join-Path $install "CodexTPS.exe")
+          $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
           if (-not $executable.VersionInfo.ProductVersion.StartsWith($version)) {
             throw "Expected installed version $version, got $($executable.VersionInfo.ProductVersion)."
           }
+          Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
           $uninstaller = Join-Path $install "unins000.exe"
           $result = Start-Process $uninstaller `
             -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
             -Wait `
             -PassThru
           if ($result.ExitCode -ne 0) { throw "Uninstaller exited with $($result.ExitCode)." }
-          if (Test-Path $executable.FullName) { throw "CodexTPS.exe remains after uninstall." }
+          if (Test-Path $executable.FullName) { throw "OPLFleetAgent.exe remains after uninstall." }
 
           $signature = Get-AuthenticodeSignature $installer
           Write-Output "Windows Authenticode status: $($signature.Status)"
@@ -192,6 +196,10 @@ jobs:
             windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
             windows/dist/Codex-TPS-Windows-win-x64-Setup.exe
             windows/dist/Codex-TPS-Windows-win-x64-Setup.exe.sha256
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
 
   publish:
     needs:
@@ -212,6 +220,8 @@ jobs:
           sha256sum --check Codex-TPS.dmg.sha256
           sha256sum --check Codex-TPS-Windows-win-x64.zip.sha256
           sha256sum --check Codex-TPS-Windows-win-x64-Setup.exe.sha256
+          sha256sum --check OPL-Fleet-Agent-Windows-win-x64.zip.sha256
+          sha256sum --check OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -219,11 +229,11 @@ jobs:
           cat >release-notes.md <<'EOF'
           ## macOS
 
-          Version 0.2.32 completes the visible product rename to `OPL Fleet Agent`, adds the OPL-family app icon, and migrates the legacy `/Applications/Codex TPS.app` path during a guarded install. The existing Bundle ID, executable, `_codex-tps._tcp` Direct provider, and `Codex-TPS.dmg` asset name remain compatibility identities for old clients. The DMG carries both app names so 0.2.30 and earlier updaters remain functional, and its universal binary, Developer ID signature, notarization ticket, staple, and checksum are all verified before publication.
+          Version 0.2.33 completes the visible Windows executable rename to `OPLFleetAgent.exe`; the macOS product remains `OPL Fleet Agent` with the existing compatibility Bundle ID and Direct provider.
 
           ## Windows
 
-          Windows now displays only `OPL Fleet Agent` in the installer, Start menu, desktop shortcut, tray, dashboard, settings, and update messages. New installs use `%LOCALAPPDATA%\Programs\OPL Fleet Agent`; the fixed AppId, `CodexTPS.exe`, settings directory, and legacy release asset names remain compatible with old clients. Startup registration migrates from the legacy value automatically. The installer is still not Authenticode-signed and may show an unknown-publisher warning; verify the published SHA-256 before running it.
+          Windows now uses `OPLFleetAgent.exe` and `OPLFleetAgent.Updater.exe` in the branded install. A short-lived `CodexTPS.exe` bridge remains inside the installer only so 0.2.32 and earlier clients can complete one upgrade; it forwards to the canonical executable and removes itself. New installs use `%LOCALAPPDATA%\Programs\OPL Fleet Agent`, and the old `Programs\Codex TPS` path is migrated automatically. Canonical and legacy-named release assets are both published for updater compatibility. The installer is still not Authenticode-signed and may show an unknown-publisher warning; verify the published SHA-256 before running it.
           EOF
           gh release create "$GITHUB_REF_NAME" \
             release-assets/Codex-TPS.dmg \
@@ -232,6 +242,10 @@ jobs:
             release-assets/Codex-TPS-Windows-win-x64.zip.sha256 \
             release-assets/Codex-TPS-Windows-win-x64-Setup.exe \
             release-assets/Codex-TPS-Windows-win-x64-Setup.exe.sha256 \
+            release-assets/OPL-Fleet-Agent-Windows-win-x64.zip \
+            release-assets/OPL-Fleet-Agent-Windows-win-x64.zip.sha256 \
+            release-assets/OPL-Fleet-Agent-Windows-win-x64-Setup.exe \
+            release-assets/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --title "OPL Fleet Agent $GITHUB_REF_NAME" \
             --notes-file release-notes.md \

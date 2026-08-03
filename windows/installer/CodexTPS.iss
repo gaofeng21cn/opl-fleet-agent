@@ -27,9 +27,9 @@ DefaultDirName={localappdata}\Programs\OPL Fleet Agent
 DefaultGroupName=OPL Fleet Agent
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
-OutputBaseFilename=Codex-TPS-Windows-win-x64-Setup
+OutputBaseFilename=OPL-Fleet-Agent-Windows-win-x64-Setup
 SetupIconFile={#SourceDir}\app.ico
-UninstallDisplayIcon={app}\CodexTPS.exe
+UninstallDisplayIcon={app}\OPLFleetAgent.exe
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -37,7 +37,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 CloseApplications=yes
-CloseApplicationsFilter=CodexTPS.exe
+CloseApplicationsFilter=OPLFleetAgent.exe;CodexTPS.exe
 RestartApplications=no
 SetupLogging=yes
 LicenseFile={#SourceDir}\LICENSE.txt
@@ -52,17 +52,45 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\OPL Fleet Agent"; Filename: "{app}\CodexTPS.exe"; WorkingDir: "{app}"
-Name: "{autodesktop}\OPL Fleet Agent"; Filename: "{app}\CodexTPS.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\OPL Fleet Agent"; Filename: "{app}\OPLFleetAgent.exe"; WorkingDir: "{app}"
+Name: "{autodesktop}\OPL Fleet Agent"; Filename: "{app}\OPLFleetAgent.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [InstallDelete]
 Type: files; Name: "{autoprograms}\Codex TPS.lnk"
 Type: files; Name: "{autodesktop}\Codex TPS.lnk"
 
 [Run]
-Filename: "{app}\CodexTPS.exe"; Parameters: "--background"; Description: "{cm:LaunchProgram,OPL Fleet Agent}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\OPLFleetAgent.exe"; Parameters: "--background"; Description: "{cm:LaunchProgram,OPL Fleet Agent}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+var
+  LegacyBridgePath: string;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  LegacyBridgePath := '';
+  if CompareText(
+       ExpandConstant('{app}'),
+       ExpandConstant('{localappdata}\Programs\Codex TPS')) = 0 then
+  begin
+    LegacyBridgePath := ExpandConstant('{localappdata}\Programs\Codex TPS\CodexTPS.exe');
+    WizardDirValue := ExpandConstant('{localappdata}\Programs\OPL Fleet Agent');
+  end;
+  Result := '';
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if (CurStep = ssPostInstall) and (LegacyBridgePath <> '') then
+  begin
+    ForceDirectories(ExtractFileDir(LegacyBridgePath));
+    FileCopy(
+      ExpandConstant('{app}\OPLFleetAgent.exe'),
+      LegacyBridgePath,
+      False);
+  end;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then

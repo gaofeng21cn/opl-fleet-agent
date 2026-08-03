@@ -14,7 +14,7 @@ public sealed class WindowsUpdateWorkerTests
             var request = new UpdateWorkerRequest
             {
                 ParentProcessId = 123,
-                CurrentExecutablePath = @"C:\Program Files\Codex TPS\CodexTPS.exe",
+                CurrentExecutablePath = @"C:\Program Files\OPL Fleet Agent\OPLFleetAgent.exe",
                 InstallDirectory = @"C:\Program Files\Codex TPS",
                 InstallerPath = @"C:\Temp\Codex-TPS-Windows-win-x64-Setup.exe",
                 ExpectedSha256 = new string('a', 64),

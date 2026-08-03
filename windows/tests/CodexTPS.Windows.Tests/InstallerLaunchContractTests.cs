@@ -8,7 +8,7 @@ public sealed class InstallerLaunchContractTests
         var definition = ReadContract("CodexTPS.iss");
 
         Assert.Contains(
-            """Filename: "{app}\CodexTPS.exe"; Parameters: "--background"; Description: "{cm:LaunchProgram,OPL Fleet Agent}"; Flags: nowait postinstall skipifsilent""",
+            """Filename: "{app}\OPLFleetAgent.exe"; Parameters: "--background"; Description: "{cm:LaunchProgram,OPL Fleet Agent}"; Flags: nowait postinstall skipifsilent""",
             definition);
     }
 
@@ -21,6 +21,9 @@ public sealed class InstallerLaunchContractTests
         Assert.Contains(@"DefaultDirName={localappdata}\Programs\OPL Fleet Agent", definition);
         Assert.Contains(@"{autoprograms}\Codex TPS.lnk", definition);
         Assert.Contains(@"{autodesktop}\Codex TPS.lnk", definition);
+        Assert.Contains("OutputBaseFilename=OPL-Fleet-Agent-Windows-win-x64-Setup", definition);
+        Assert.Contains("CloseApplicationsFilter=OPLFleetAgent.exe;CodexTPS.exe", definition);
+        Assert.Contains("LegacyBridgePath", definition);
     }
 
     [Fact]
@@ -32,7 +35,7 @@ public sealed class InstallerLaunchContractTests
             Normalize(
                 """
                 Start-Process `
-                            (Join-Path $InstallDirectory "CodexTPS.exe") `
+                            (Join-Path $InstallDirectory "OPLFleetAgent.exe") `
                             -ArgumentList "--background"
                 """),
             script);

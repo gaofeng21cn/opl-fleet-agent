@@ -46,10 +46,7 @@ internal sealed class UpdateResult
 
 internal static class UpdateResultStore
 {
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Codex TPS",
-        "update-result.json");
+    public static string DefaultPath => WindowsProductIdentity.DefaultUpdateResultPath;
 
     public static void Write(string path, UpdateResult result)
     {
@@ -158,11 +155,13 @@ internal static class WindowsUpdateWorker
             throw new InvalidDataException("更新请求无效。");
         }
 
-        var expectedExecutable = Path.Combine(request.InstallDirectory, "CodexTPS.exe");
-        if (!string.Equals(
-                Path.GetFullPath(expectedExecutable),
-                Path.GetFullPath(request.CurrentExecutablePath),
-                StringComparison.OrdinalIgnoreCase))
+        var currentPath = Path.GetFullPath(request.CurrentExecutablePath);
+        var canonicalPath = Path.GetFullPath(
+            WindowsProductIdentity.CanonicalExecutablePath(request.InstallDirectory));
+        var legacyPath = Path.GetFullPath(
+            WindowsProductIdentity.LegacyExecutablePath(request.InstallDirectory));
+        if (!string.Equals(currentPath, canonicalPath, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(currentPath, legacyPath, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException("更新目标与当前安装目录不一致。");
         }
@@ -210,7 +209,7 @@ internal static class WindowsUpdateWorker
     {
         if (!File.Exists(request.CurrentExecutablePath))
         {
-            throw new FileNotFoundException("安装后找不到 CodexTPS.exe。");
+            throw new FileNotFoundException("安装后找不到 OPL Fleet Agent 可执行文件。");
         }
 
         var productVersion = FileVersionInfo

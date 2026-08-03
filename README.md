@@ -107,8 +107,8 @@ installer is self-contained and does not require a separate .NET runtime.
 Download both files from the
 [latest release](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest):
 
-- `Codex-TPS-Windows-win-x64-Setup.exe`
-- `Codex-TPS-Windows-win-x64-Setup.exe.sha256`
+- `OPL-Fleet-Agent-Windows-win-x64-Setup.exe`
+- `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
 New installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent`; upgrades preserve the
 Windows AppId, settings, and executable identity while replacing legacy shortcuts and

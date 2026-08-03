@@ -89,9 +89,9 @@ public sealed class DashboardFormBehaviorTests
                     "v0.2.20",
                     new SemanticVersion(0, 2, 20),
                     new Uri(
-                        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/v0.2.20/Codex-TPS-Windows-win-x64-Setup.exe"),
+                        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/v0.2.20/OPL-Fleet-Agent-Windows-win-x64-Setup.exe"),
                     new Uri(
-                        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/v0.2.20/Codex-TPS-Windows-win-x64-Setup.exe.sha256"))));
+                        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/v0.2.20/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256"))));
             form.Show();
             check.PerformClick();
             install.PerformClick();

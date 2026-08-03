@@ -68,7 +68,7 @@ public sealed class WindowsUpdateManagerTests
         {
             Handler = new StubHandler(statusCode, releaseTag);
             client = new HttpClient(Handler);
-            var executable = Path.Combine(directory.FullName, "CodexTPS.exe");
+            var executable = Path.Combine(directory.FullName, "OPLFleetAgent.exe");
             File.WriteAllText(executable, "test executable");
             Manager = new WindowsUpdateManager(
                 client,

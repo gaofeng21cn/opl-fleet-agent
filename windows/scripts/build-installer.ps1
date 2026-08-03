@@ -3,7 +3,7 @@ param(
     [string]$Runtime = "win-x64",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$Version = "0.2.32",
+    [string]$Version = "0.2.33",
     [switch]$SkipTests,
     [switch]$SkipAppBuild
 )
@@ -18,8 +18,10 @@ $repositoryRoot = Split-Path -Parent $windowsRoot
 $publishRoot = Join-Path $windowsRoot "dist/$Runtime"
 $distRoot = Join-Path $windowsRoot "dist"
 $definition = Join-Path $windowsRoot "installer/CodexTPS.iss"
-$installer = Join-Path $distRoot "Codex-TPS-Windows-$Runtime-Setup.exe"
+$installer = Join-Path $distRoot "OPL-Fleet-Agent-Windows-$Runtime-Setup.exe"
 $checksum = "$installer.sha256"
+$legacyInstaller = Join-Path $distRoot "Codex-TPS-Windows-$Runtime-Setup.exe"
+$legacyChecksum = "$legacyInstaller.sha256"
 
 if (-not $SkipAppBuild) {
     & (Join-Path $PSScriptRoot "build.ps1") `
@@ -30,9 +32,9 @@ if (-not $SkipAppBuild) {
     if ($LASTEXITCODE -ne 0) { throw "Windows app build failed." }
 }
 
-$executable = Join-Path $publishRoot "CodexTPS.exe"
+$executable = Join-Path $publishRoot "OPLFleetAgent.exe"
 if (-not (Test-Path $executable)) {
-    throw "Published CodexTPS.exe is missing."
+    throw "Published OPLFleetAgent.exe is missing."
 }
 
 $compilerCandidates = @(
@@ -47,6 +49,8 @@ if (-not $compiler) {
 
 if (Test-Path $installer) { Remove-Item -Force $installer }
 if (Test-Path $checksum) { Remove-Item -Force $checksum }
+if (Test-Path $legacyInstaller) { Remove-Item -Force $legacyInstaller }
+if (Test-Path $legacyChecksum) { Remove-Item -Force $legacyChecksum }
 
 $previousEnvironment = @{
     CODEX_TPS_INSTALLER_VERSION = $env:CODEX_TPS_INSTALLER_VERSION
@@ -79,5 +83,11 @@ if (-not (Test-Path $installer)) {
 $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
 $line = "$hash  $(Split-Path -Leaf $installer)"
 [System.IO.File]::WriteAllText($checksum, "$line`n", [System.Text.Encoding]::ASCII)
+Copy-Item $installer $legacyInstaller
+$legacyHash = (Get-FileHash -Algorithm SHA256 $legacyInstaller).Hash.ToLowerInvariant()
+$legacyLine = "$legacyHash  $(Split-Path -Leaf $legacyInstaller)"
+[System.IO.File]::WriteAllText($legacyChecksum, "$legacyLine`n", [System.Text.Encoding]::ASCII)
 Write-Output $installer
 Write-Output $line
+Write-Output $legacyInstaller
+Write-Output $legacyLine

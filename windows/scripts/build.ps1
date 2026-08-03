@@ -3,7 +3,7 @@ param(
     [string]$Runtime = "win-x64",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$Version = "0.2.32",
+    [string]$Version = "0.2.33",
     [switch]$SkipTests
 )
 
@@ -16,8 +16,10 @@ $coreTestProject = Join-Path $windowsRoot "tests/CodexTPS.Core.Tests/CodexTPS.Co
 $windowsTestProject = Join-Path $windowsRoot "tests/CodexTPS.Windows.Tests/CodexTPS.Windows.Tests.csproj"
 $distRoot = Join-Path $windowsRoot "dist"
 $publishRoot = Join-Path $distRoot $Runtime
-$archive = Join-Path $distRoot "Codex-TPS-Windows-$Runtime.zip"
+$archive = Join-Path $distRoot "OPL-Fleet-Agent-Windows-$Runtime.zip"
 $checksum = "$archive.sha256"
+$legacyArchive = Join-Path $distRoot "Codex-TPS-Windows-$Runtime.zip"
+$legacyChecksum = "$legacyArchive.sha256"
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "Version must use MAJOR.MINOR.PATCH format."
@@ -56,18 +58,27 @@ dotnet publish $appProject `
     -o $publishRoot
 if ($LASTEXITCODE -ne 0) { throw "Windows publish failed." }
 
-if (-not (Test-Path (Join-Path $publishRoot "CodexTPS.exe"))) {
-    throw "Published CodexTPS.exe is missing."
+if (-not (Test-Path (Join-Path $publishRoot "OPLFleetAgent.exe"))) {
+    throw "Published OPLFleetAgent.exe is missing."
 }
+Copy-Item (Join-Path $publishRoot "OPLFleetAgent.exe") (Join-Path $publishRoot "CodexTPS.exe") -Force
 Copy-Item (Join-Path $repositoryRoot "LICENSE") (Join-Path $publishRoot "LICENSE.txt")
 Copy-Item (Join-Path $windowsRoot "THIRD-PARTY-NOTICES.md") $publishRoot
 Copy-Item (Join-Path $windowsRoot "src/CodexTPS.Windows/app.ico") $publishRoot
 if (Test-Path $archive) { Remove-Item -Force $archive }
 if (Test-Path $checksum) { Remove-Item -Force $checksum }
+if (Test-Path $legacyArchive) { Remove-Item -Force $legacyArchive }
+if (Test-Path $legacyChecksum) { Remove-Item -Force $legacyChecksum }
 Compress-Archive -Path (Join-Path $publishRoot "*") -DestinationPath $archive -CompressionLevel Optimal
 
 $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
 $line = "$hash  $(Split-Path -Leaf $archive)"
 [System.IO.File]::WriteAllText($checksum, "$line`n", [System.Text.Encoding]::ASCII)
+Copy-Item $archive $legacyArchive
+$legacyHash = (Get-FileHash -Algorithm SHA256 $legacyArchive).Hash.ToLowerInvariant()
+$legacyLine = "$legacyHash  $(Split-Path -Leaf $legacyArchive)"
+[System.IO.File]::WriteAllText($legacyChecksum, "$legacyLine`n", [System.Text.Encoding]::ASCII)
 Write-Output $archive
 Write-Output $line
+Write-Output $legacyArchive
+Write-Output $legacyLine

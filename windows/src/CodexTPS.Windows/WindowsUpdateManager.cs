@@ -29,14 +29,16 @@ internal sealed class WindowsUpdateManager : IDisposable
         ownsHttpClient = httpClient is null;
         this.httpClient = httpClient ?? CreateHttpClient();
         this.executablePath = executablePath ?? Application.ExecutablePath;
-        this.updateRoot = updateRoot ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Codex TPS",
-            "updates");
+        this.updateRoot = updateRoot ?? WindowsProductIdentity.DefaultUpdateRoot;
         this.resultPath = resultPath ?? UpdateResultStore.DefaultPath;
         CurrentVersion = currentVersion ?? ReadCurrentVersion();
 
         var previousResult = UpdateResultStore.ReadAndDelete(this.resultPath);
+        if (previousResult is null && resultPath is null)
+        {
+            previousResult = UpdateResultStore.ReadAndDelete(
+                WindowsProductIdentity.LegacyUpdateResultPath);
+        }
         State = previousResult switch
         {
             { Success: true } => new(
@@ -132,7 +134,9 @@ internal sealed class WindowsUpdateManager : IDisposable
                 expectedSha256,
                 cancellationToken);
 
-            var helperPath = Path.Combine(stagingDirectory, "CodexTPS.Updater.exe");
+            var helperPath = Path.Combine(
+                stagingDirectory,
+                WindowsProductIdentity.UpdaterExecutableName);
             File.Copy(executablePath, helperPath, overwrite: true);
             var requestPath = Path.Combine(stagingDirectory, "update-request.json");
             var request = new UpdateWorkerRequest
@@ -207,7 +211,7 @@ internal sealed class WindowsUpdateManager : IDisposable
         {
             Timeout = TimeSpan.FromMinutes(5),
         };
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Codex-TPS", "1"));
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("OPL-Fleet-Agent", "1"));
         client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return client;
@@ -255,7 +259,7 @@ internal sealed class WindowsUpdateManager : IDisposable
         }
 
         var releaseRoot = new Uri(ReleaseDownloadRoot, $"{tagName}/");
-        const string installerName = "Codex-TPS-Windows-win-x64-Setup.exe";
+        const string installerName = WindowsProductIdentity.InstallerAssetName;
         return new AppRelease(
             tagName,
             version,

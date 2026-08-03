@@ -104,8 +104,8 @@ Windows 版是基于 .NET 8 WinForms 的 Windows 11 原生系统托盘应用。�
 
 从[最新发布版本](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest)下载：
 
-- `Codex-TPS-Windows-win-x64-Setup.exe`
-- `Codex-TPS-Windows-win-x64-Setup.exe.sha256`
+- `OPL-Fleet-Agent-Windows-win-x64-Setup.exe`
+- `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
 新安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`；升级时保留 Windows AppId、
 设置和可执行文件身份，并迁移旧快捷方式与开机启动项。当前安装器尚未使用

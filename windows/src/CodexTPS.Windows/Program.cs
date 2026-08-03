@@ -11,7 +11,12 @@ internal static class Program
             return;
         }
 
-        using var mutex = new Mutex(initiallyOwned: true, @"Local\CodexTPS.Windows", out var created);
+        if (LegacyExecutableBridge.TryRun(args))
+        {
+            return;
+        }
+
+        using var mutex = new Mutex(initiallyOwned: true, @"Local\OPLFleetAgent.Windows", out var created);
         if (!created)
         {
             MessageBox.Show(
@@ -23,6 +28,7 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
+        LegacyExecutableBridge.RemoveLegacySibling();
         StartupRegistration.MigrateLegacyRegistration();
         var background = args.Contains("--background", StringComparer.OrdinalIgnoreCase);
         Application.Run(new TrayApplicationContext(showDashboard: !background));

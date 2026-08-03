@@ -56,14 +56,14 @@ Download these two files from the
 [latest GitHub Release](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest):
 
 ```text
-Codex-TPS-Windows-win-x64-Setup.exe
-Codex-TPS-Windows-win-x64-Setup.exe.sha256
+OPL-Fleet-Agent-Windows-win-x64-Setup.exe
+OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
 ```
 
 Verify the installer in PowerShell, then open it:
 
 ```powershell
-$installer = ".\Codex-TPS-Windows-win-x64-Setup.exe"
+$installer = ".\OPL-Fleet-Agent-Windows-win-x64-Setup.exe"
 $expected = ((Get-Content "$installer.sha256" -Raw).Trim() -split "\s+")[0]
 $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash
 if ($expected -ne $actual) { throw "Installer checksum mismatch" }
@@ -74,7 +74,9 @@ The standard installer is self-contained and does not require a separate .NET
 runtime. It installs for the current user under
 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`, adds a Start-menu shortcut, supports
 in-place upgrades, and registers a normal Windows uninstaller. The fixed AppId keeps
-upgrades compatible with earlier Codex TPS releases. Uninstalling the app preserves
+upgrades compatible with earlier Codex TPS releases. New builds run as
+`OPLFleetAgent.exe`; a transitional `CodexTPS.exe` bridge is included only to let
+old clients finish their in-app upgrade, then it is removed. Uninstalling the app preserves
 the legacy `%LOCALAPPDATA%\Codex TPS\settings.json` settings authority; it removes
 both the current and legacy login-startup registry values.
 
@@ -106,20 +108,24 @@ The script runs Core tests, publishes a self-contained single-file app, and
 creates:
 
 ```text
-windows/dist/Codex-TPS-Windows-win-x64.zip
+windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
+windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
+windows/dist/Codex-TPS-Windows-win-x64.zip (legacy compatibility alias)
 windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
 ```
 
 To build the standard installer, also install Inno Setup 6 and run:
 
 ```powershell
-pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.32
+pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.33
 ```
 
 This additionally creates:
 
 ```text
-windows/dist/Codex-TPS-Windows-win-x64-Setup.exe
+windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
+windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
+windows/dist/Codex-TPS-Windows-win-x64-Setup.exe (legacy compatibility alias)
 windows/dist/Codex-TPS-Windows-win-x64-Setup.exe.sha256
 ```
 
@@ -140,7 +146,7 @@ user:
 
 ```powershell
 pwsh ./windows/scripts/install.ps1 `
-  -ArchivePath ./windows/dist/Codex-TPS-Windows-win-x64.zip
+  -ArchivePath ./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
 ```
 
 The PowerShell installer stages and verifies the archive before replacing

@@ -45,6 +45,22 @@ public sealed class UpdateModelsTests
         Assert.Equal("v0.2.20", release.TagName);
         Assert.Equal(new SemanticVersion(0, 2, 20), release.Version);
         Assert.EndsWith(
+            "/v0.2.20/OPL-Fleet-Agent-Windows-win-x64-Setup.exe",
+            release.InstallerUri.AbsoluteUri,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AcceptsLegacyWindowsAssetNamesDuringMigration()
+    {
+        var json = ReleaseJson("v0.2.20").Replace(
+            "OPL-Fleet-Agent-Windows-win-x64-Setup.exe",
+            "Codex-TPS-Windows-win-x64-Setup.exe",
+            StringComparison.Ordinal);
+
+        var release = GitHubReleaseParser.Parse(json);
+
+        Assert.EndsWith(
             "/v0.2.20/Codex-TPS-Windows-win-x64-Setup.exe",
             release.InstallerUri.AbsoluteUri,
             StringComparison.Ordinal);
@@ -83,7 +99,7 @@ public sealed class UpdateModelsTests
         {
             var installer = Path.Combine(
                 directory.FullName,
-                "Codex-TPS-Windows-win-x64-Setup.exe");
+                "OPL-Fleet-Agent-Windows-win-x64-Setup.exe");
             await File.WriteAllTextAsync(installer, "verified update bytes", Encoding.UTF8);
             var digest = Convert.ToHexString(
                     SHA256.HashData(await File.ReadAllBytesAsync(installer)))
@@ -108,12 +124,12 @@ public sealed class UpdateModelsTests
           "tag_name": "{{tag}}",
           "assets": [
             {
-              "name": "Codex-TPS-Windows-win-x64-Setup.exe",
-              "browser_download_url": "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/{{tag}}/Codex-TPS-Windows-win-x64-Setup.exe"
+              "name": "OPL-Fleet-Agent-Windows-win-x64-Setup.exe",
+              "browser_download_url": "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/{{tag}}/OPL-Fleet-Agent-Windows-win-x64-Setup.exe"
             },
             {
-              "name": "Codex-TPS-Windows-win-x64-Setup.exe.sha256",
-              "browser_download_url": "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/{{tag}}/Codex-TPS-Windows-win-x64-Setup.exe.sha256"
+              "name": "OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256",
+              "browser_download_url": "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/{{tag}}/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256"
             }
           ]
         }

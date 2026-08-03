@@ -16,18 +16,19 @@ $installer = (Resolve-Path (
     Join-Path $windowsRoot "dist/Codex-TPS-Windows-$Runtime-Setup.exe"
 )).Path
 $publishedExecutable = (Resolve-Path (
-    Join-Path $windowsRoot "dist/$Runtime/CodexTPS.exe"
+    Join-Path $windowsRoot "dist/$Runtime/OPLFleetAgent.exe"
 )).Path
 $expectedSha256 = (
     (Get-Content "$installer.sha256" -Raw).Trim() -split "\s+"
 )[0].ToLowerInvariant()
 
-$testRoot = Join-Path $env:RUNNER_TEMP "codex-tps-updater-$([Guid]::NewGuid().ToString('N'))"
+$testRoot = Join-Path $env:RUNNER_TEMP "opl-fleet-agent-updater-$([Guid]::NewGuid().ToString('N'))"
 $previousInstaller = Join-Path $testRoot "previous-setup.exe"
 $previousChecksum = "$previousInstaller.sha256"
 $installDirectory = Join-Path $testRoot "Codex TPS"
+$canonicalInstallDirectory = Join-Path $testRoot "OPL Fleet Agent"
 $stagingDirectory = Join-Path $testRoot "staging"
-$helper = Join-Path $stagingDirectory "CodexTPS.Updater.exe"
+$helper = Join-Path $stagingDirectory "OPLFleetAgent.Updater.exe"
 $requestPath = Join-Path $stagingDirectory "update-request.json"
 $resultPath = Join-Path $testRoot "update-result.json"
 $oldProcess = $null
@@ -125,8 +126,9 @@ try {
         throw "Updater helper exited with $($helperProcess.ExitCode)."
     }
 
-    $installedVersion = (Get-Item $targetExecutable).VersionInfo.ProductVersion
-    $installedProductName = (Get-Item $targetExecutable).VersionInfo.ProductName
+    $canonicalExecutable = Join-Path $canonicalInstallDirectory "OPLFleetAgent.exe"
+    $installedVersion = (Get-Item $canonicalExecutable).VersionInfo.ProductVersion
+    $installedProductName = (Get-Item $canonicalExecutable).VersionInfo.ProductName
     if (-not $installedVersion.StartsWith($Version)) {
         throw "Expected updated version $Version, got $installedVersion."
     }
@@ -136,10 +138,10 @@ try {
 
     $deadline = (Get-Date).AddSeconds(15)
     do {
-        $newProcess = Get-Process -Name "CodexTPS" -ErrorAction SilentlyContinue |
+        $newProcess = Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
             Where-Object {
                 try {
-                    $_.Path -eq $targetExecutable
+                    $_.Path -eq $canonicalExecutable
                 }
                 catch {
                     $false
@@ -154,6 +156,14 @@ try {
         throw "Updated OPL Fleet Agent process was not running after handoff."
     }
 
+    $cleanupDeadline = (Get-Date).AddSeconds(15)
+    while ((Test-Path $targetExecutable) -and (Get-Date) -lt $cleanupDeadline) {
+        Start-Sleep -Milliseconds 250
+    }
+    if (Test-Path $targetExecutable) {
+        throw "Legacy CodexTPS.exe bridge was not removed after migration."
+    }
+
     Write-Output (
         "Verified in-app updater handoff: " +
         "$PreviousVersion PID $($oldProcess.Id) -> $Version PID $($newProcess.Id)."
@@ -166,7 +176,7 @@ finally {
     if ($newProcess -and -not $newProcess.HasExited) {
         Stop-Process -Id $newProcess.Id -Force -ErrorAction SilentlyContinue
     }
-    Get-Process -Name "CodexTPS" -ErrorAction SilentlyContinue |
+    Get-Process -Name @("OPLFleetAgent", "CodexTPS") -ErrorAction SilentlyContinue |
         Stop-Process -Force -ErrorAction SilentlyContinue
     if (Test-Path $uninstaller) {
         $uninstallResult = Start-Process `

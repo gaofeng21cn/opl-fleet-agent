@@ -127,16 +127,16 @@
           "System.Reactive": "5.0.0"
         }
       },
-      "CodexTPS": {
+      "codextps.core": {
+        "type": "Project"
+      },
+      "OPLFleetAgent": {
         "type": "Project",
         "dependencies": {
           "CodexTPS.Core": "[1.0.0, )",
           "System.Security.Cryptography.ProtectedData": "[8.0.0, )",
           "Zeroconf": "[3.7.16, )"
         }
-      },
-      "codextps.core": {
-        "type": "Project"
       }
     }
   }

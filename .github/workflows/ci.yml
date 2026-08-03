@@ -59,20 +59,20 @@ jobs:
           }
           Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
       - name: Test and build Windows packages
-        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.32
+        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.33
       - name: Verify portable package
         run: |
-          $archive = "./windows/dist/Codex-TPS-Windows-win-x64.zip"
+          $archive = "./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip"
           $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent portable"
           ./windows/scripts/install.ps1 -ArchivePath $archive -InstallDirectory $install -NoLaunch
-          $executable = Get-Item (Join-Path $install "CodexTPS.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.32")) {
-            throw "Expected Windows product version 0.2.32, got $($executable.VersionInfo.ProductVersion)."
+          $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.33")) {
+            throw "Expected Windows product version 0.2.33, got $($executable.VersionInfo.ProductVersion)."
           }
           Write-Output "Verified $($executable.FullName) $($executable.VersionInfo.ProductVersion)"
       - name: Verify Windows installer and uninstaller
         run: |
-          $installer = Resolve-Path "./windows/dist/Codex-TPS-Windows-win-x64-Setup.exe"
+          $installer = Resolve-Path "./windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe"
           $checksum = "$installer.sha256"
           $expected = ((Get-Content $checksum -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
           $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
@@ -89,17 +89,19 @@ jobs:
           $result = Start-Process $installer -ArgumentList $arguments -Wait -PassThru
           if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
 
-          $executable = Get-Item (Join-Path $install "CodexTPS.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.32")) {
-            throw "Expected installed version 0.2.32, got $($executable.VersionInfo.ProductVersion)."
+          $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.33")) {
+            throw "Expected installed version 0.2.33, got $($executable.VersionInfo.ProductVersion)."
           }
+          Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
           $uninstaller = Join-Path $install "unins000.exe"
           $result = Start-Process $uninstaller `
             -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
             -Wait `
             -PassThru
           if ($result.ExitCode -ne 0) { throw "Uninstaller exited with $($result.ExitCode)." }
-          if (Test-Path $executable.FullName) { throw "CodexTPS.exe remains after uninstall." }
+          if (Test-Path $executable.FullName) { throw "OPLFleetAgent.exe remains after uninstall." }
           Write-Output "Verified installer, version, checksum, and uninstall."
       # The end-to-end updater handoff is release-only. It installs a prior
       # release and relaunches the app, so it belongs to release.yml where the
@@ -109,6 +111,10 @@ jobs:
         with:
           name: codex-tps-windows-win-x64
           path: |
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
+            windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
             windows/dist/Codex-TPS-Windows-win-x64.zip
             windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
             windows/dist/Codex-TPS-Windows-win-x64-Setup.exe
