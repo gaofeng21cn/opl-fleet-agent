@@ -119,7 +119,7 @@ windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
 To build the standard installer, also install Inno Setup 6 and run:
 
 ```powershell
-pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.35
+pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.36
 ```
 
 This additionally creates:

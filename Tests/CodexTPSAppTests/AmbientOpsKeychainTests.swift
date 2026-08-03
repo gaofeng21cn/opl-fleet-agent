@@ -121,6 +121,36 @@ final class AmbientOpsKeychainTests: XCTestCase {
     )
   }
 
+  func testManualGatewayAllowsDevicePairingWithoutDiscoveryMetadata() {
+    XCTAssertTrue(
+      AmbientOpsAuthenticationPolicy.allowsDevicePairing(
+        autoDiscover: false,
+        discoveredServiceSupportsPairing: nil
+      )
+    )
+  }
+
+  func testAutomaticDiscoveryRequiresExplicitPairingSupport() {
+    XCTAssertFalse(
+      AmbientOpsAuthenticationPolicy.allowsDevicePairing(
+        autoDiscover: true,
+        discoveredServiceSupportsPairing: nil
+      )
+    )
+    XCTAssertFalse(
+      AmbientOpsAuthenticationPolicy.allowsDevicePairing(
+        autoDiscover: true,
+        discoveredServiceSupportsPairing: false
+      )
+    )
+    XCTAssertTrue(
+      AmbientOpsAuthenticationPolicy.allowsDevicePairing(
+        autoDiscover: true,
+        discoveredServiceSupportsPairing: true
+      )
+    )
+  }
+
   func testRetryDelayIsExponentialAndCapped() {
     XCTAssertEqual(AmbientOpsRetryPolicy.delay(forFailureCount: 1), 15)
     XCTAssertEqual(AmbientOpsRetryPolicy.delay(forFailureCount: 2), 30)

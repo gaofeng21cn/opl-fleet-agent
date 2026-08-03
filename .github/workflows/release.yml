@@ -232,11 +232,11 @@ jobs:
           cat >release-notes.md <<'EOF'
           ## macOS
 
-          Version 0.2.35 completes the visible Windows executable rename to `OPLFleetAgent.exe`; the macOS product remains `OPL Fleet Agent` with the existing compatibility Bundle ID and Direct provider.
+          Version 0.2.36 lets a manually configured Gateway fall back from a rejected legacy bearer token to secure device pairing. The macOS product remains `OPL Fleet Agent` with the existing compatibility Bundle ID and Direct provider.
 
           ## Windows
 
-          Windows now uses `OPLFleetAgent.exe` and `OPLFleetAgent.Updater.exe` in the branded install. New payloads never carry `CodexTPS.exe`; only an installer that detects an existing legacy installation creates a short-lived bridge in the old directory so 0.2.32 and earlier clients can complete one upgrade. The bridge forwards to the canonical executable and removes itself. New installs use `%LOCALAPPDATA%\Programs\OPL Fleet Agent`, and the old `Programs\Codex TPS` path is migrated automatically. Canonical and legacy-named release assets are both published for updater compatibility. The installer is still not Authenticode-signed and may show an unknown-publisher warning; verify the published SHA-256 before running it.
+          macOS manual Gateway connections now retain the existing credential long enough to try it, then switch to the device-key approval flow after a 401 or 403 response. Windows continues to use `OPLFleetAgent.exe` and `OPLFleetAgent.Updater.exe` in the branded install. New payloads never carry `CodexTPS.exe`; only an installer that detects an existing legacy installation creates a short-lived bridge in the old directory so 0.2.32 and earlier clients can complete one upgrade. The bridge forwards to the canonical executable and removes itself. New installs use `%LOCALAPPDATA%\Programs\OPL Fleet Agent`, and the old `Programs\Codex TPS` path is migrated automatically. Canonical and legacy-named release assets are both published for updater compatibility. The installer is still not Authenticode-signed and may show an unknown-publisher warning; verify the published SHA-256 before running it.
           EOF
           gh release create "$GITHUB_REF_NAME" \
             release-assets/Codex-TPS.dmg \

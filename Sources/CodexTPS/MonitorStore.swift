@@ -307,7 +307,10 @@ final class MonitorStore: ObservableObject {
       defer { ambientPushTask = nil }
       ambientConnection = .pushing(name: name, endpoint: endpoint)
       do {
-        let pairingSupported = ambientAutoDiscover && service?.supportsPairing == true
+        let pairingSupported = AmbientOpsAuthenticationPolicy.allowsDevicePairing(
+          autoDiscover: ambientAutoDiscover,
+          discoveredServiceSupportsPairing: service?.supportsPairing
+        )
         let token = ambientBearerTokenRejected ? nil : try ambientKeychain.token()
         if token == nil, ambientAutoDiscover, !pairingSupported {
           ambientConnection = .failed(message: "此 Ambient Ops 不支持安全配对")
@@ -489,6 +492,15 @@ final class MonitorStore: ObservableObject {
     ambientRetryTask?.cancel()
     ambientRetryTask = nil
     ambientFailureCount = 0
+  }
+}
+
+enum AmbientOpsAuthenticationPolicy {
+  static func allowsDevicePairing(
+    autoDiscover: Bool,
+    discoveredServiceSupportsPairing: Bool?
+  ) -> Bool {
+    !autoDiscover || discoveredServiceSupportsPairing == true
   }
 }
 

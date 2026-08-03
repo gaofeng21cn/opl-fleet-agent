@@ -7,7 +7,7 @@ import Foundation
 public enum OPLFleetAgentProtocol {
   public static let schema = "opl_fleet_agent_telemetry.v1"
   public static let productName = "OPL Fleet Agent"
-  public static let agentVersion = "0.2.35"
+  public static let agentVersion = "0.2.36"
   public static let modes = ["local", "direct", "fleet"]
   public static let capabilities = [
     "node_local_observation",
