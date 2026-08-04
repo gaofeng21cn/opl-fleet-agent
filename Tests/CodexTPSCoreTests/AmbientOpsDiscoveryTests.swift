@@ -4,6 +4,11 @@ import XCTest
 @testable import CodexTPSCore
 
 final class AmbientOpsDiscoveryTests: XCTestCase {
+  func testUsesCurrentGatewayProductNames() {
+    XCTAssertEqual(OPLFleetAgentProtocol.gatewayProductName, "OPL Fleet Gateway")
+    XCTAssertEqual(OPLFleetAgentProtocol.gatewayShortName, "Fleet Gateway")
+  }
+
   func testParsesCompatibleTXTRecordAndDisplayPath() throws {
     let data = NetService.data(
       fromTXTRecord: [
@@ -16,7 +21,7 @@ final class AmbientOpsDiscoveryTests: XCTestCase {
 
     let service = try XCTUnwrap(
       AmbientOpsDiscoveryContract.service(
-        serviceName: "Ambient Ops",
+        serviceName: "OPL Fleet Gateway",
         hostName: "ambient-ops.local.",
         port: 8791,
         txtRecordData: data

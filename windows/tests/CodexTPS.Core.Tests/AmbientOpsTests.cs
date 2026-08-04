@@ -7,6 +7,13 @@ namespace CodexTPS.Core.Tests;
 public sealed class AmbientOpsTests
 {
     [Fact]
+    public void UsesCurrentGatewayProductName()
+    {
+        Assert.Equal("OPL Fleet Gateway", OplFleetAgentProtocol.GatewayProductName);
+        Assert.Equal("Fleet Gateway", OplFleetAgentProtocol.GatewayShortName);
+    }
+
+    [Fact]
     public void ParsesDiscoveryContractAndSelectsPreferredFallback()
     {
         var preferred = AmbientOpsDiscoveryContract.CreateService(

@@ -59,9 +59,9 @@ internal sealed class SettingsForm : RoundedPopupForm
         ambientEnabled.Checked = settings.AmbientEnabled;
         autoDiscover.Checked = settings.AutoDiscover;
         manualUrl.Text = settings.ManualUrl;
-        manualUrl.PlaceholderText = "http://ambient-ops.local:8787";
+        manualUrl.PlaceholderText = "http://opl-fleet-gateway.local:8787";
         token.Text = settings.Token;
-        token.PlaceholderText = "仅旧版 Ambient Ops 需要";
+        token.PlaceholderText = "仅旧版 OPL Fleet Gateway 需要";
         preferredInstance.Text = settings.PreferredInstanceId;
         preferredInstance.PlaceholderText = "可选";
         machineId.Text = settings.MachineId;
@@ -110,7 +110,7 @@ internal sealed class SettingsForm : RoundedPopupForm
         AddField("Codex home", homePanel);
         AddSeparator();
 
-        AddSection("OPL Fleet Agent / Ambient Ops Gateway");
+        AddSection(OplFleetAgentProtocol.GatewayProductName);
         AddToggle("发送聚合指标", ambientEnabled);
         AddToggle("自动发现", autoDiscover);
         AddConnection(connection);
@@ -159,7 +159,7 @@ internal sealed class SettingsForm : RoundedPopupForm
             ForeColor = Secondary,
             BackColor = Background,
             Font = new Font("Microsoft YaHei UI", 8.5f),
-            Text = "首次连接会自动打开 Ambient Ops 批准页，无需复制 NAS 密钥。本机私钥由 Windows DPAPI 加密；仅发送聚合指标、宠物元数据和本机 WebP 图集。",
+            Text = "首次连接会自动打开 OPL Fleet Gateway 批准页，无需复制 NAS 密钥。本机私钥由 Windows DPAPI 加密；仅发送聚合指标、宠物元数据和本机 WebP 图集。",
             Margin = new Padding(0, 10, 0, 18),
         });
 
@@ -369,7 +369,7 @@ internal sealed class SettingsForm : RoundedPopupForm
                 (!Uri.TryCreate(manualUrl.Text.Trim(), UriKind.Absolute, out var endpoint) ||
                  endpoint.Scheme is not ("http" or "https")))
             {
-                throw new InvalidOperationException("请输入有效的 Ambient Ops HTTP(S) 地址。");
+                throw new InvalidOperationException("请输入有效的 OPL Fleet Gateway HTTP(S) 地址。");
             }
             ResultSettings = new AppSettings
             {
@@ -407,7 +407,7 @@ internal sealed class SettingsForm : RoundedPopupForm
             var value = Clipboard.GetText(TextDataFormat.Text).Trim();
             if (value.Length < 16)
             {
-                throw new InvalidOperationException("剪贴板中没有有效的 Ambient Ops 推送令牌。");
+                throw new InvalidOperationException("剪贴板中没有有效的 OPL Fleet Gateway 推送令牌。");
             }
             token.Text = value;
             SaveSettings();

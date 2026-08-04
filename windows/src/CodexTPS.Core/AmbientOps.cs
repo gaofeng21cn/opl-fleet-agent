@@ -208,7 +208,9 @@ public static class OplFleetAgentProtocol
 {
     public const string Schema = "opl_fleet_agent_telemetry.v1";
     public const string ProductName = "OPL Fleet Agent";
-    public const string AgentVersion = "0.2.37";
+    public const string GatewayProductName = "OPL Fleet Gateway";
+    public const string GatewayShortName = "Fleet Gateway";
+    public const string AgentVersion = "0.2.38";
     public static readonly string[] Modes = ["local", "direct", "fleet"];
     public static readonly string[] Capabilities =
     [
@@ -321,11 +323,11 @@ public sealed class AmbientOpsPushClient
     {
         if (endpoint.Scheme is not ("http" or "https") || string.IsNullOrWhiteSpace(endpoint.Host))
         {
-            throw new ArgumentException("Ambient Ops URL must be HTTP or HTTPS.", nameof(endpoint));
+            throw new ArgumentException("OPL Fleet Gateway URL must be HTTP or HTTPS.", nameof(endpoint));
         }
         if (string.IsNullOrWhiteSpace(token))
         {
-            throw new ArgumentException("Ambient Ops push token is required.", nameof(token));
+            throw new ArgumentException("OPL Fleet Gateway push token is required.", nameof(token));
         }
 
         var url = new Uri(
@@ -352,7 +354,7 @@ public sealed class AmbientOpsPushClient
     {
         if (endpoint.Scheme is not ("http" or "https") || string.IsNullOrWhiteSpace(endpoint.Host))
         {
-            throw new ArgumentException("Ambient Ops URL must be HTTP or HTTPS.", nameof(endpoint));
+            throw new ArgumentException("OPL Fleet Gateway URL must be HTTP or HTTPS.", nameof(endpoint));
         }
         ArgumentNullException.ThrowIfNull(deviceKey);
 
@@ -421,7 +423,7 @@ public sealed class AmbientOpsPushClient
         if ((int)response.StatusCode != 202)
         {
             throw new HttpRequestException(
-                $"Ambient Ops returned HTTP {(int)response.StatusCode}.",
+                $"OPL Fleet Gateway returned HTTP {(int)response.StatusCode}.",
                 inner: null,
                 response.StatusCode);
         }
@@ -434,11 +436,11 @@ public sealed class AmbientOpsPushClient
             accepted = string.IsNullOrWhiteSpace(body)
                 ? new AmbientOpsPushResponse()
                 : JsonSerializer.Deserialize<AmbientOpsPushResponse>(body, SerializerOptions)
-                    ?? throw new JsonException("Ambient Ops returned an empty response.");
+                    ?? throw new JsonException("OPL Fleet Gateway returned an empty response.");
         }
         catch (JsonException error)
         {
-            throw new HttpRequestException("Ambient Ops returned an invalid response.", error);
+            throw new HttpRequestException("OPL Fleet Gateway returned an invalid response.", error);
         }
 
         if (petAsset is null ||
@@ -471,7 +473,7 @@ public sealed class AmbientOpsPushClient
         if ((int)uploadResponse.StatusCode is not (201 or 204))
         {
             throw new HttpRequestException(
-                $"Ambient Ops returned HTTP {(int)uploadResponse.StatusCode}.");
+                $"OPL Fleet Gateway returned HTTP {(int)uploadResponse.StatusCode}.");
         }
     }
 
@@ -612,7 +614,7 @@ public sealed class AmbientOpsPushClient
         if ((int)response.StatusCode != 202)
         {
             throw new HttpRequestException(
-                $"Ambient Ops returned HTTP {(int)response.StatusCode}.",
+                $"OPL Fleet Gateway returned HTTP {(int)response.StatusCode}.",
                 inner: null,
                 response.StatusCode);
         }
@@ -625,11 +627,11 @@ public sealed class AmbientOpsPushClient
             accepted = string.IsNullOrWhiteSpace(body)
                 ? new AmbientOpsPushResponse()
                 : JsonSerializer.Deserialize<AmbientOpsPushResponse>(body, SerializerOptions)
-                    ?? throw new JsonException("Ambient Ops returned an empty response.");
+                    ?? throw new JsonException("OPL Fleet Gateway returned an empty response.");
         }
         catch (JsonException error)
         {
-            throw new HttpRequestException("Ambient Ops returned an invalid response.", error);
+            throw new HttpRequestException("OPL Fleet Gateway returned an invalid response.", error);
         }
 
         if (petAsset is null ||
@@ -662,7 +664,7 @@ public sealed class AmbientOpsPushClient
         if ((int)uploadResponse.StatusCode is not (201 or 204))
         {
             throw new HttpRequestException(
-                $"Ambient Ops returned HTTP {(int)uploadResponse.StatusCode}.",
+                $"OPL Fleet Gateway returned HTTP {(int)uploadResponse.StatusCode}.",
                 inner: null,
                 uploadResponse.StatusCode);
         }

@@ -202,7 +202,7 @@ enum AmbientOpsKeychainError: LocalizedError, Equatable {
   var errorDescription: String? {
     switch self {
     case .invalidToken:
-      return "Keychain 中的 Ambient Ops 令牌无效"
+      return "Keychain 中的 \(OPLFleetAgentProtocol.gatewayProductName) 令牌无效"
     case .invalidDeviceKey:
       return "Keychain 中的设备配对密钥无效"
     case .invalidReadResult:

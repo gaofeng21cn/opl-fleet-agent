@@ -162,9 +162,9 @@ struct CodexTPSAgentCommand {
       CODEX_TPS_AMBIENT_TOKEN     Agent push token, or use the Keychain option
 
     Optional environment:
-      CODEX_TPS_AMBIENT_URL       Explicit Ambient Ops base URL; otherwise use mDNS
+      CODEX_TPS_AMBIENT_URL       Explicit OPL Fleet Gateway base URL; otherwise use mDNS
       CODEX_TPS_AMBIENT_INSTANCE_ID
-                                   Preferred discovered Ambient Ops instance ID
+                                   Preferred discovered OPL Fleet Gateway instance ID
       CODEX_TPS_AMBIENT_TOKEN_KEYCHAIN_SERVICE
                                    Generic-password Keychain service name
       CODEX_TPS_KEYCHAIN_ACCOUNT  Keychain account (default: current user)

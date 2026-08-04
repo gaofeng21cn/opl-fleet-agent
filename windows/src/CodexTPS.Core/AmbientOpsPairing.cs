@@ -157,7 +157,7 @@ public sealed class AmbientOpsPairingClient
         if (requestId.Length is < 32 or > 80 ||
             requestId.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not '_' and not '-'))
         {
-            throw new ArgumentException("Invalid Ambient Ops pairing request ID.", nameof(requestId));
+            throw new ArgumentException("Invalid OPL Fleet Gateway pairing request ID.", nameof(requestId));
         }
         using var request = new HttpRequestMessage(
             HttpMethod.Get,
@@ -173,7 +173,7 @@ public sealed class AmbientOpsPairingClient
             pairing.ApprovalPath.StartsWith("//", StringComparison.Ordinal) ||
             pairing.ApprovalPath.Length > 160)
         {
-            throw new InvalidOperationException("Ambient Ops returned an invalid approval path.");
+            throw new InvalidOperationException("OPL Fleet Gateway returned an invalid approval path.");
         }
         return new Uri(endpoint, pairing.ApprovalPath);
     }
@@ -188,7 +188,7 @@ public sealed class AmbientOpsPairingClient
         if ((int)response.StatusCode != expectedStatusCode)
         {
             throw new HttpRequestException(
-                $"Ambient Ops returned HTTP {(int)response.StatusCode}.",
+                $"OPL Fleet Gateway returned HTTP {(int)response.StatusCode}.",
                 inner: null,
                 response.StatusCode);
         }
@@ -196,14 +196,14 @@ public sealed class AmbientOpsPairingClient
             await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false),
             Options,
             cancellationToken).ConfigureAwait(false);
-        return pairing ?? throw new HttpRequestException("Ambient Ops returned an invalid pairing response.");
+        return pairing ?? throw new HttpRequestException("OPL Fleet Gateway returned an invalid pairing response.");
     }
 
     private static void ValidateEndpoint(Uri endpoint)
     {
         if (endpoint.Scheme is not ("http" or "https") || string.IsNullOrWhiteSpace(endpoint.Host))
         {
-            throw new ArgumentException("Ambient Ops URL must be HTTP or HTTPS.", nameof(endpoint));
+            throw new ArgumentException("OPL Fleet Gateway URL must be HTTP or HTTPS.", nameof(endpoint));
         }
     }
 }

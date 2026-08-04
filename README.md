@@ -9,7 +9,7 @@
 <h1 align="center">OPL Fleet Agent</h1>
 
 <p align="center"><strong>A quiet menu-bar and system-tray view of local Codex token throughput</strong></p>
-<p align="center">macOS menu bar · Windows system tray · Ambient Ops Gateway integration</p>
+<p align="center">macOS menu bar · Windows system tray · OPL Fleet Gateway integration</p>
 
 <p align="center">
   <a href="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml"><img src="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -59,7 +59,7 @@ already present in local session logs easier to see.
 - Remembered menu-bar window, manual refresh, session-folder access, and launch at login
 - User-confirmed, checksum-verified GitHub Release updates
 - A JSON snapshot command for scripts and integrations
-- Ambient Ops Direct discovery on macOS, plus optional aggregate-only Gateway pushes
+- OPL Fleet Gateway Direct discovery on macOS, plus optional aggregate-only Gateway pushes
 
 Codex normally records usage after a model request completes, so the readout represents
 completion-time throughput rather than per-streaming-chunk speed.
@@ -141,17 +141,17 @@ accessible WSL UNC path such as `\\wsl.localhost\Ubuntu\home\<user>\.codex`.
 | Requests/min | Completion rate inside the selected window |
 | Active sessions | Sessions with recent usage events |
 
-### Ambient Ops integration
+### OPL Fleet Gateway integration
 
-[Ambient Ops](https://github.com/gaofeng21cn/opl-fleet-cockpit) combines aggregate Codex
+[OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit) combines aggregate Codex
 state from multiple computers with trusted-LAN network telemetry for browser and
 Android ambient displays.
 
 On macOS, OPL Fleet Agent publishes the compatibility service name
-`_codex-tps._tcp.local` and a read-only local status
-endpoint so Ambient Ops can display this Mac without a separate Gateway. The Direct
-provider exposes only aggregate TPS, active sessions, host CPU and network throughput,
-and the selected pet asset. Windows does not publish the Direct provider yet.
+`_codex-tps._tcp.local` and a read-only local status endpoint so OPL Fleet Cockpit can
+display this Mac without enabling Gateway pushes. The Direct provider exposes only
+aggregate TPS, active sessions, host CPU and network throughput, and the selected pet
+asset. Windows does not publish the Direct provider yet.
 
 For fleet mode, the Agent discovers `_ambient-ops._tcp.local` automatically. On first
 connection, the desktop app creates a local per-device key and opens the approval page.
@@ -159,7 +159,7 @@ After the user verifies the six-digit code, signed pushes begin without copying 
 shared token.
 
 The private key stays in macOS Keychain or as current-user DPAPI ciphertext on Windows.
-Ambient Ops stores only the corresponding public key. The payload is limited to:
+OPL Fleet Gateway stores only the corresponding public key. The payload is limited to:
 
 - stable machine identity, machine name, and platform;
 - collection time and status;
@@ -185,7 +185,7 @@ HTTP(S) endpoint from settings.
 - Does not read or render conversation bodies.
 - Uses the network for GitHub Release checks and, on macOS, the aggregate-only local
   Direct provider advertised on the LAN.
-- Sends only allowlisted aggregates when Ambient Ops is enabled.
+- Sends only allowlisted aggregates when OPL Fleet Gateway is enabled.
 - Includes no analytics SDK, account system, or cloud session synchronization.
 - Treats the Codex log format as an implementation dependency that may evolve.
 
@@ -230,20 +230,20 @@ CODEX_HOME=/path/to/codex-home swift run codex-tps-snapshot --json
 Native Windows and WSL UNC roots are separate sources and require an explicit user
 choice.
 
-### Configure Ambient Ops
+### Configure OPL Fleet Gateway
 
 For desktop apps, prefer automatic discovery and the visible one-time approval flow.
 An agent may open settings, trigger rediscovery, and guide the user through code
 verification. It must not approve an unknown device or extract the private key.
 
-The headless agent also discovers Ambient Ops when `CODEX_TPS_AMBIENT_URL` is absent.
+The headless agent also discovers OPL Fleet Gateway when `CODEX_TPS_AMBIENT_URL` is absent.
 Set `CODEX_TPS_AMBIENT_INSTANCE_ID` to prefer one advertised instance. An explicit
 URL always overrides discovery.
 
 Legacy or headless bearer-token path:
 
 ```bash
-CODEX_TPS_AMBIENT_URL=http://ambient-ops.local:8787 \
+CODEX_TPS_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
 CODEX_TPS_AMBIENT_TOKEN='<agent-token>' \
 CODEX_TPS_MACHINE_ID=primary-mac \
 CODEX_TPS_MACHINE_NAME='Primary Mac' \
@@ -273,7 +273,7 @@ An installation is complete only after reading back:
 - macOS signing, notarization, and Gatekeeper state, or the Windows installed file version;
 - successful access to the intended `CODEX_HOME/sessions` root;
 - real metrics after a panel refresh; and
-- when Ambient Ops is enabled, matching approval and accepted machine identity.
+- when OPL Fleet Gateway is enabled, matching approval and accepted machine identity.
 
 Tests, a local build, or discovery of a release are not installed-runtime acceptance.
 
@@ -282,14 +282,14 @@ Tests, a local build, or discovery of a release are not installed-runtime accept
 - Never persist, log, transmit, or render prompt and response bodies.
 - `total_tokens` is the throughput total; cached input and reasoning output are subsets.
 - Preserve cross-file deduplication and fork/replay handling.
-- Keep Ambient Ops payloads limited to the allowlisted aggregate contract.
+- Keep OPL Fleet Gateway payloads limited to the allowlisted aggregate contract.
 - Keep release claims behind signing, notarization, checksum, and installed-app readback.
 
 ## Documentation and Development
 
 - [Architecture and accounting](docs/architecture.md)
 - [Native Windows app](windows/README.md)
-- [Ambient Ops](https://github.com/gaofeng21cn/opl-fleet-cockpit)
+- [OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit)
 - [Repository Agent contract](AGENTS.md)
 
 ```bash

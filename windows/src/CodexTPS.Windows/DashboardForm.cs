@@ -130,7 +130,9 @@ internal sealed class DashboardForm : RoundedPopupForm
             }
         };
 
-        toolTip.SetToolTip(ambientRow, "Ambient Ops 连接设置");
+        toolTip.SetToolTip(
+            ambientRow,
+            $"{OplFleetAgentProtocol.GatewayProductName} 连接设置");
         FormClosing += OnFormClosing;
         KeyDown += (_, eventArgs) =>
         {

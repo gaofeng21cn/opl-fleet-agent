@@ -109,7 +109,7 @@ internal sealed class AmbientOpsCoordinator : IDisposable
             selectedService ??= selector!.Select(discoveredServices);
             if (selectedService is null)
             {
-                SetStatus(AmbientOpsConnectionKind.Failed, "未发现兼容的 Ambient Ops");
+                SetStatus(AmbientOpsConnectionKind.Failed, "未发现兼容的 OPL Fleet Gateway");
                 return;
             }
             endpoint = selectedService.Endpoint;
@@ -409,7 +409,7 @@ internal sealed class AmbientOpsCoordinator : IDisposable
                 {
                     SetStatus(
                         AmbientOpsConnectionKind.NeedsToken,
-                        "此 Ambient Ops 版本不支持安全配对 · 请升级或使用兼容令牌",
+                        "此 OPL Fleet Gateway 版本不支持安全配对 · 请升级或使用兼容令牌",
                         endpoint);
                     return false;
                 }

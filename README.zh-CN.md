@@ -9,7 +9,7 @@
 <h1 align="center">OPL Fleet Agent</h1>
 
 <p align="center"><strong>在菜单栏或系统托盘中，安静地查看本机 Codex Token 吞吐</strong></p>
-<p align="center">macOS 菜单栏 · Windows 系统托盘 · Ambient Ops Gateway 协同</p>
+<p align="center">macOS 菜单栏 · Windows 系统托盘 · OPL Fleet Gateway 协同</p>
 
 <p align="center">
   <a href="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml"><img src="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml/badge.svg" alt="持续集成"></a>
@@ -59,7 +59,7 @@ OPL Fleet Agent 是一个本机优先的桌面小工具。它增量读取 Codex 
 - 菜单栏统计区间记忆、手动刷新、会话目录快捷入口和登录时启动
 - 自动检查 GitHub 发布版本，并在用户确认后执行校验过的更新
 - 面向脚本和自动化的 JSON 快照命令
-- 可选的 Ambient Ops 局域网发现与汇总指标上报
+- 可选的 OPL Fleet Gateway 局域网发现与汇总指标上报
 
 Codex 通常在一次模型请求完成后才写入用量，因此这里显示的是“完成时吞吐”，
 不是按流式输出分片实时变化的瞬时速度。
@@ -138,21 +138,21 @@ WSL UNC 路径，例如 `\\wsl.localhost\Ubuntu\home\<user>\.codex`。
 | 请求/分钟 | 选定窗口内完成请求的频率 |
 | 活跃会话 | 最近仍有用量事件的会话数量 |
 
-### 与 Ambient Ops 协同
+### 与 OPL Fleet Gateway 协同
 
-[Ambient Ops](https://github.com/gaofeng21cn/opl-fleet-cockpit) 用于把多台电脑上的 Codex
+[OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit) 用于把多台电脑上的 Codex
 汇总指标和局域网网络状态集中显示在浏览器或 Android 常驻屏上。
 
-macOS 版 OPL Fleet Agent 会继续发布兼容服务名 `_codex-tps._tcp.local` 和只读本机状态端点，Ambient
-Ops 无需单独部署 Gateway 即可显示这台 Mac。Direct 只提供汇总 TPS、活跃会话数、
-主机 CPU、网络吞吐以及所选 Pet 资源；Windows 本版尚未发布 Direct 服务。
+macOS 版 OPL Fleet Agent 会继续发布兼容服务名 `_codex-tps._tcp.local` 和只读本机状态端点，
+使 OPL Fleet Cockpit 无需启用 Gateway 推送即可显示这台 Mac。Direct 只提供汇总 TPS、
+活跃会话数、主机 CPU、网络吞吐以及所选 Pet 资源；Windows 本版尚未发布 Direct 服务。
 
 舰队模式下，Agent 可通过 `_ambient-ops._tcp.local` 自动发现 Gateway。首次连接
 时，桌面应用会在本机生成独立设备密钥并打开批准页；用户核对六位配对码后，应用
 开始发送签名快照，不需要复制共享令牌。
 
-macOS 私钥保存在 Keychain，Windows 私钥只以当前用户 DPAPI 密文保存。Ambient
-Ops 仅保存对应公钥。上报内容只包括：
+macOS 私钥保存在 Keychain，Windows 私钥只以当前用户 DPAPI 密文保存。OPL Fleet Gateway
+仅保存对应公钥。上报内容只包括：
 
 - 稳定机器标识、机器名和平台
 - 采集时间与采集状态
@@ -173,7 +173,7 @@ OPL Flow、私人 OPL Fleet Controller 和批准的 Instance 管理。Gateway �
 - 只解析统计和去重所需的结构化事件，不读取或展示对话正文。
 - 网络访问用于检查和下载 GitHub 发布版本；macOS 还会在局域网广播只含汇总数据的
   Direct 服务。
-- 启用 Ambient Ops 后，只在用户选择的局域网服务端上报允许清单内的汇总指标。
+- 启用 OPL Fleet Gateway 后，只在用户选择的局域网服务端上报允许清单内的汇总指标。
 - 没有分析 SDK、账户系统或云端会话同步。
 - 本机日志格式属于实现依赖；未来 Codex 版本变化可能需要更新解析器。
 
@@ -215,7 +215,7 @@ CODEX_HOME=/path/to/codex-home swift run codex-tps-snapshot --json
 
 Windows 原生目录与 WSL UNC 目录是不同的数据来源，必须由用户明确选择。
 
-### 配置 Ambient Ops
+### 配置 OPL Fleet Gateway
 
 桌面应用优先使用图形界面中的自动发现和一次性批准流程。Agent 可以打开设置、
 触发重新发现并引导用户核对配对码，但不得代替用户批准未知设备，也不得读取或
@@ -227,7 +227,7 @@ Windows 原生目录与 WSL UNC 目录是不同的数据来源，必须由用户
 旧版或无界面共享令牌路径：
 
 ```bash
-CODEX_TPS_AMBIENT_URL=http://ambient-ops.local:8787 \
+CODEX_TPS_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
 CODEX_TPS_AMBIENT_TOKEN='<agent-token>' \
 CODEX_TPS_MACHINE_ID=primary-mac \
 CODEX_TPS_MACHINE_NAME='Primary Mac' \
@@ -257,7 +257,7 @@ dotnet test windows/tests/CodexTPS.Core.Tests -c Release
 - macOS 签名、公证与 Gatekeeper 状态，或 Windows 安装文件版本
 - 目标 `CODEX_HOME/sessions` 是否被正确读取
 - 面板刷新后是否出现真实统计
-- 启用 Ambient Ops 时，批准状态和服务端接受的机器身份是否一致
+- 启用 OPL Fleet Gateway 时，批准状态和服务端接受的机器身份是否一致
 
 测试通过、本地构建成功或发现了发布版本，都不等于已经完成安装与运行验收。
 
@@ -266,14 +266,14 @@ dotnet test windows/tests/CodexTPS.Core.Tests -c Release
 - 不持久化、记录、传输或渲染提示词与回复正文。
 - `total_tokens` 是吞吐总量；缓存输入与推理输出是子集，不能重复相加。
 - 保留跨文件去重和分叉会话重放逻辑，避免同一请求被重复统计。
-- Ambient Ops 只能接收允许清单内的聚合字段。
+- OPL Fleet Gateway 只能接收允许清单内的聚合字段。
 - 发布仍需经过仓库既有的签名、公证、校验和安装后回读流程。
 
 ## 文档与开发
 
 - [统计与架构](docs/architecture.md)
 - [Windows 原生版](windows/README.md)
-- [Ambient Ops](https://github.com/gaofeng21cn/opl-fleet-cockpit)
+- [OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit)
 - [项目 Agent 合同](AGENTS.md)
 
 ```bash

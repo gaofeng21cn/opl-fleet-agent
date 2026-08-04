@@ -2,7 +2,7 @@
 
 OPL Fleet Agent for Windows is a native .NET 8 WinForms tray application. It reads
 the token accounting events already written under the current Windows user's
-Codex home and can send aggregate metrics to Ambient Ops on the local network.
+Codex home and can send aggregate metrics to OPL Fleet Gateway on the local network.
 
 ## Runtime behavior
 
@@ -10,14 +10,14 @@ Codex home and can send aggregate metrics to Ambient Ops on the local network.
 - Override: set `CODEX_HOME`, or select a Codex home in Settings
 - Taskbar readout renders large, waveform-prefixed TPS text without a background badge; clicking it opens the dashboard
 - Dashboard returns to the notification area when it loses focus and also provides an explicit minimize-to-tray button
-- Five-second local refresh; Ambient Ops pushes are limited to once per ten seconds
+- Five-second local refresh; OPL Fleet Gateway pushes are limited to once per ten seconds
 - `_ambient-ops._tcp.local.` DNS-SD discovery with preferred-instance and fallback behavior
-- Manual Ambient Ops HTTP(S) URL override
-- Optional Ledger Owl state using the same Ambient Ops v3 payload as macOS
+- Manual OPL Fleet Gateway HTTP(S) URL override
+- Optional Ledger Owl state using the same OPL Fleet Gateway v3 payload as macOS
 - Optional per-user startup through `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 - GitHub release checks after launch and every six hours, with user-confirmed in-app updates
 - SHA-256 verification, exact-PID handoff, installed-version readback, relaunch, and failure recovery
-- Automatic one-click pairing with Ambient Ops v0.1.4+ after LAN discovery
+- Automatic one-click pairing with OPL Fleet Gateway v0.1.4+ after LAN discovery
 - Per-device P-256 private key encrypted for the current Windows user with DPAPI
 - Legacy push token remains available as a DPAPI-protected compatibility path
 
@@ -33,7 +33,7 @@ live TPS icon should remain in the primary notification area.
 
 The scanner filters JSONL bytes for `session_meta`, `turn_context`,
 `task_started` and `token_count` markers before JSON decoding. Conversation-only
-records are not decoded or retained. Ambient Ops receives only:
+records are not decoded or retained. OPL Fleet Gateway receives only:
 
 - stable machine ID in the request path;
 - machine name, platform, generated time and collection status;
@@ -119,7 +119,7 @@ windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
 To build the standard installer, also install Inno Setup 6 and run:
 
 ```powershell
-pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.37
+pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.38
 ```
 
 This additionally creates:
@@ -175,10 +175,10 @@ and WSL stores.
 Before calling a Windows build production-ready, verify on a clean Windows 11
 machine: first launch, tray interaction, DPAPI persistence, startup after sign-in,
 local-network firewall consent and discovery, sleep/network recovery, and an
-actual Ambient Ops accepted push.
+actual OPL Fleet Gateway accepted push.
 
-With Ambient Ops v0.1.4+, first discovery creates a device key locally, opens the
+With OPL Fleet Gateway v0.1.4+, first discovery creates a device key locally, opens the
 server approval page once, and shows the same six-digit code in OPL Fleet Agent. After
 approval, signed pushes resume automatically across application restarts. The
 settings file must contain `ProtectedDevicePrivateKey`, never a plaintext private
-key. The **Compatible token** field is only for older Ambient Ops servers.
+key. The **Compatible token** field is only for older OPL Fleet Gateway servers.

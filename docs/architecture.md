@@ -14,7 +14,7 @@ the local process.
         -> stateful token_count parser
         -> replay/duplicate filter
         -> rolling event window
-        -> MenuBarExtra, snapshot CLI, and optional Ambient Ops agent
+        -> MenuBarExtra, snapshot CLI, and optional OPL Fleet Gateway push agent
 ```
 
 The scanner discovers files in today's and yesterday's session directories,
@@ -40,7 +40,7 @@ running. It is independent of the session scanner: requests contain no Codex
 log data, and only GitHub release metadata and assets are accessed. Automatic
 checking never silently installs or terminates the app.
 
-## Optional Ambient Ops flow
+## Optional OPL Fleet Gateway push flow
 
 ```text
 rolling aggregate snapshot
@@ -76,7 +76,7 @@ the local Agent's observation, doctor, execution-constraint, and sanitized-recei
 capabilities across Local, Direct, and Fleet modes. The Agent can constrain and
 report its own host execution, but it never owns registry, policy, admission,
 lease, or dispatch authority. OPL Flow, the private Instance, and the Fleet
-Controller remain authoritative. Ambient Ops is presented as `OPL Fleet Cockpit`
+Controller remain authoritative. OPL Fleet Gateway is presented as `OPL Fleet Cockpit`
 and its Gateway only stores, aggregates, and projects telemetry; it does not
 schedule or dispatch work.
 
@@ -121,5 +121,5 @@ must carry Team ID `SVVC4TA784` and pass the final notarized-byte verifier.
 - Codex JSONL is an implementation surface. Fixture tests cover the shapes used
   here so schema drift fails visibly.
 - Network access is restricted to GitHub release checks/update downloads and
-  the explicitly configured Ambient Ops push endpoint. There is no analytics,
+  the explicitly configured OPL Fleet Gateway push endpoint. There is no analytics,
   login, or conversation-content upload path.

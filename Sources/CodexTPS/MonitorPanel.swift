@@ -194,7 +194,7 @@ struct MonitorPanel: View {
         }
       } label: {
         HStack(spacing: 8) {
-          Label("Ambient Ops", systemImage: "display.2")
+          Label(OPLFleetAgentProtocol.gatewayShortName, systemImage: "display.2")
             .font(.subheadline.weight(.semibold))
           Spacer()
           Circle()
@@ -214,7 +214,7 @@ struct MonitorPanel: View {
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
-      .accessibilityLabel("Ambient Ops 高级连接设置")
+      .accessibilityLabel("\(OPLFleetAgentProtocol.gatewayShortName) 高级连接设置")
       .accessibilityValue(store.ambientConnection.label)
       .accessibilityHint(settingsExpanded ? "收起设置" : "展开设置")
 
@@ -258,12 +258,12 @@ struct MonitorPanel: View {
         }
         .buttonStyle(.borderless)
         .disabled(!store.ambientEnabled || !store.ambientAutoDiscover)
-        .help("重新发现 Ambient Ops")
+        .help("重新发现 \(OPLFleetAgentProtocol.gatewayProductName)")
       }
 
       if store.ambientEnabled && !store.ambientAutoDiscover {
         TextField(
-          "http://ambient-ops.local:8787",
+          "http://opl-fleet-gateway.local:8787",
           text: Binding(
             get: { store.ambientManualURL },
             set: { value in store.setAmbientManualURL(value) }

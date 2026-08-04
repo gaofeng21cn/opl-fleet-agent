@@ -373,19 +373,19 @@ public enum AmbientOpsPairingError: LocalizedError, Equatable {
   public var errorDescription: String? {
     switch self {
     case .invalidEndpoint:
-      return "Ambient Ops URL must be an absolute HTTP or HTTPS URL"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) URL must be an absolute HTTP or HTTPS URL"
     case .invalidRequestID:
-      return "Ambient Ops returned an invalid pairing request ID"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) returned an invalid pairing request ID"
     case .invalidApprovalPath:
-      return "Ambient Ops returned an invalid pairing approval path"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) returned an invalid pairing approval path"
     case .invalidResponse:
-      return "Ambient Ops returned an invalid pairing response"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) returned an invalid pairing response"
     case .server(let statusCode):
-      return "Ambient Ops returned HTTP \(statusCode)"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) returned HTTP \(statusCode)"
     case .rejected:
-      return "Ambient Ops pairing request was rejected"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) pairing request was rejected"
     case .expired:
-      return "Ambient Ops pairing request expired"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) pairing request expired"
     }
   }
 }

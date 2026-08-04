@@ -5,6 +5,10 @@ import XCTest
 @testable import CodexTPSCore
 
 final class AmbientOpsPushTests: XCTestCase {
+  func testUsesCurrentGatewayProductName() {
+    XCTAssertEqual(OPLFleetAgentProtocol.gatewayProductName, "OPL Fleet Gateway")
+  }
+
   func testMapsOnlyAggregateSnapshotFields() throws {
     let snapshot = usageSnapshot(status: .ready)
     let identity = try AmbientOpsMachineIdentity(

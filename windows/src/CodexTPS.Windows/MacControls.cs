@@ -302,7 +302,7 @@ internal sealed class AmbientStatusControl : Control
 
     public AmbientStatusControl()
     {
-        AccessibleName = "Ambient Ops 高级连接设置";
+        AccessibleName = $"{OplFleetAgentProtocol.GatewayShortName} 高级连接设置";
         AccessibleRole = AccessibleRole.PushButton;
         Cursor = Cursors.Hand;
         DoubleBuffered = true;
@@ -351,7 +351,7 @@ internal sealed class AmbientStatusControl : Control
             centerFlags | TextFormatFlags.Left);
         TextRenderer.DrawText(
             eventArgs.Graphics,
-            "Ambient Ops",
+            OplFleetAgentProtocol.GatewayShortName,
             titleFont,
             new Rectangle((int)(40 * scale), 0, (int)(90 * scale), Height),
             Color.FromArgb(36, 36, 38),

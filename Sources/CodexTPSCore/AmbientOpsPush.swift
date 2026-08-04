@@ -388,13 +388,13 @@ public enum AmbientOpsPushError: LocalizedError, Equatable {
     case .invalidPetAssetHash:
       return "Pet asset hash must be a SHA-256 value"
     case .invalidEndpoint:
-      return "Ambient Ops URL must be an absolute HTTP or HTTPS URL"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) URL must be an absolute HTTP or HTTPS URL"
     case .missingToken:
-      return "Ambient Ops push token is required"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) push token is required"
     case .invalidResponse:
-      return "Ambient Ops returned an invalid response"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) returned an invalid response"
     case .server(let statusCode):
-      return "Ambient Ops returned HTTP \(statusCode)"
+      return "\(OPLFleetAgentProtocol.gatewayProductName) returned HTTP \(statusCode)"
     }
   }
 }

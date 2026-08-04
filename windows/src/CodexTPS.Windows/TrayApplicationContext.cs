@@ -390,7 +390,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception error)
         {
-            ShowError("无法打开 Ambient Ops 批准页", error);
+            ShowError("无法打开 OPL Fleet Gateway 批准页", error);
         }
     }
 

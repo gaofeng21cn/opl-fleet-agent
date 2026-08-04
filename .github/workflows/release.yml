@@ -41,6 +41,7 @@ jobs:
           bash -n scripts/verify-updater.sh
           zsh -n scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/verify-release.sh
           ./Tests/notarize-dmg.test.sh
+          ./Tests/user-visible-branding.test.sh
       - name: Test
         run: swift test
 
@@ -232,11 +233,11 @@ jobs:
           cat >release-notes.md <<'EOF'
           ## macOS
 
-          Version 0.2.37 fixes automatic LAN Gateway reporting recovery in the macOS menu bar agent. A failed discovered endpoint is retained in the discovery session, an already discovered alternative is tried when available, and a single endpoint is retried after the existing bounded backoff instead of being immediately reselected through a fresh discovery loop.
+          Version 0.2.38 replaces the retired Gateway label with `Fleet Gateway` in the compact menu-bar connection row and `OPL Fleet Gateway` in full settings, help text, and connection diagnostics. Discovery, pairing, telemetry, and Cockpit freshness behavior are unchanged. It includes the automatic LAN Gateway reporting recovery shipped in 0.2.37.
 
           ## Windows
 
-          Windows behavior is unchanged; its package version is synchronized with the shared Fleet Agent protocol and release contract. Cockpit behavior is also unchanged: machines that stop reporting beyond the existing freshness threshold are removed from the user-selectable machine list and are not included in live TPS totals.
+          The compact tray dashboard uses `Fleet Gateway`; settings and connection diagnostics use the full `OPL Fleet Gateway` name. Discovery, pairing, telemetry, and Cockpit freshness behavior are unchanged.
           EOF
           gh release create "$GITHUB_REF_NAME" \
             release-assets/Codex-TPS.dmg \

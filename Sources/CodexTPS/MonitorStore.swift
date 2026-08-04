@@ -281,7 +281,10 @@ final class MonitorStore: ObservableObject {
       ambientConnection = .failed(message: "请输入有效的 HTTP(S) 地址")
       return
     }
-    ambientConnection = .ready(name: endpoint.host ?? "Ambient Ops", endpoint: endpoint)
+    ambientConnection = .ready(
+      name: endpoint.host ?? OPLFleetAgentProtocol.gatewayProductName,
+      endpoint: endpoint
+    )
   }
 
   private var manualAmbientEndpoint: URL? {
@@ -300,10 +303,10 @@ final class MonitorStore: ObservableObject {
     let name: String
     if ambientAutoDiscover {
       endpoint = service?.endpoint
-      name = service?.name ?? "Ambient Ops"
+      name = service?.name ?? OPLFleetAgentProtocol.gatewayProductName
     } else {
       endpoint = manualAmbientEndpoint
-      name = endpoint?.host ?? "Ambient Ops"
+      name = endpoint?.host ?? OPLFleetAgentProtocol.gatewayProductName
     }
     guard let endpoint else { return }
     ambientPushTask = Task { [weak self] in
@@ -317,7 +320,9 @@ final class MonitorStore: ObservableObject {
         )
         let token = ambientBearerTokenRejected ? nil : try ambientKeychain.token()
         if token == nil, ambientAutoDiscover, !pairingSupported {
-          ambientConnection = .failed(message: "此 Ambient Ops 不支持安全配对")
+          ambientConnection = .failed(
+            message: "此 \(OPLFleetAgentProtocol.gatewayProductName) 不支持安全配对"
+          )
           return
         }
         let identity = observation.identity
