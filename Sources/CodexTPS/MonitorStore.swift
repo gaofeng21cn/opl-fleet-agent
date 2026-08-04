@@ -158,6 +158,7 @@ final class MonitorStore: ObservableObject {
     ambientEnabled = enabled
     UserDefaults.standard.set(enabled, forKey: Self.ambientEnabledDefaultsKey)
     resetAmbientPairing()
+    resetAmbientEndpointFailures()
     refreshAmbientConfiguration()
     if enabled {
       Task { await refresh() }
@@ -169,6 +170,7 @@ final class MonitorStore: ObservableObject {
     UserDefaults.standard.set(enabled, forKey: Self.ambientAutoDiscoverDefaultsKey)
     ambientService = nil
     resetAmbientPairing()
+    resetAmbientEndpointFailures()
     refreshAmbientConfiguration()
     Task { await refresh() }
   }
@@ -178,6 +180,7 @@ final class MonitorStore: ObservableObject {
     UserDefaults.standard.set(value, forKey: Self.ambientManualURLDefaultsKey)
     guard !ambientAutoDiscover else { return }
     resetAmbientPairing()
+    resetAmbientEndpointFailures()
     refreshAmbientConfiguration()
   }
 
@@ -193,6 +196,7 @@ final class MonitorStore: ObservableObject {
     UserDefaults.standard.removeObject(forKey: Self.ambientInstanceIDDefaultsKey)
     ambientService = nil
     resetAmbientPairing()
+    resetAmbientEndpointFailures()
     ambientDiscovery.stop()
     refreshAmbientConfiguration()
   }
@@ -353,6 +357,7 @@ final class MonitorStore: ObservableObject {
           )
         }
         resetAmbientRetry()
+        resetAmbientEndpointFailures()
         ambientConnection = .live(name: name, endpoint: endpoint, pushedAt: Date())
       } catch is CancellationError {
         return
@@ -364,7 +369,8 @@ final class MonitorStore: ObservableObject {
           behavior: AmbientOpsRetryBehavior.behavior(
             for: error,
             autoDiscover: ambientAutoDiscover
-          )
+          ),
+          failedService: service
         )
       }
     }
@@ -462,10 +468,20 @@ final class MonitorStore: ObservableObject {
     openedAmbientPairingRequestID = nil
   }
 
-  private func scheduleAmbientRetry(behavior: AmbientOpsRetryBehavior) {
+  private func scheduleAmbientRetry(
+    behavior: AmbientOpsRetryBehavior,
+    failedService: AmbientOpsService?
+  ) {
     ambientRetryTask?.cancel()
     ambientFailureCount += 1
-    let delay = AmbientOpsRetryPolicy.delay(forFailureCount: ambientFailureCount)
+    if behavior == .rediscover, ambientAutoDiscover {
+      resetAmbientPairing()
+      if let service = failedService {
+        ambientService = ambientDiscovery.recordPushFailure(for: service)
+      }
+    }
+    let hasFallback = ambientAutoDiscover && ambientService != nil
+    let delay = hasFallback ? 1 : AmbientOpsRetryPolicy.delay(forFailureCount: ambientFailureCount)
     ambientRetryTask = Task { [weak self] in
       do {
         try await Task.sleep(for: .seconds(delay))
@@ -474,16 +490,11 @@ final class MonitorStore: ObservableObject {
       }
       guard let self, ambientEnabled else { return }
       ambientRetryTask = nil
-      if behavior == .rediscover, ambientAutoDiscover {
-        ambientService = nil
-        resetAmbientPairing()
-        ambientDiscovery.stop()
-        ambientConnection = .discovering
-        ambientDiscovery.start(preferredInstanceID: nil)
-      } else {
-        if let latestObservation {
-          pushAmbient(latestObservation)
-        }
+      if behavior == .rediscover, ambientAutoDiscover, ambientService == nil {
+        ambientService = ambientDiscovery.retryFailedEndpoints()
+      }
+      if let latestObservation {
+        pushAmbient(latestObservation)
       }
     }
   }
@@ -492,6 +503,10 @@ final class MonitorStore: ObservableObject {
     ambientRetryTask?.cancel()
     ambientRetryTask = nil
     ambientFailureCount = 0
+  }
+
+  private func resetAmbientEndpointFailures() {
+    ambientDiscovery.resetPushFailures()
   }
 }
 

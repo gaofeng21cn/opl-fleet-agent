@@ -173,6 +173,26 @@ public final class AmbientOpsDiscovery: NSObject, NetServiceBrowserDelegate, Net
     isRunning = false
   }
 
+  @discardableResult
+  public func recordPushFailure(for service: AmbientOpsService) -> AmbientOpsService? {
+    selector.recordPushFailure(for: service)
+    if selectedService == service {
+      selectedService = nil
+    }
+    return selectResolvedService()
+  }
+
+  @discardableResult
+  public func retryFailedEndpoints() -> AmbientOpsService? {
+    selector.resetFailures()
+    selectedService = nil
+    return selectResolvedService()
+  }
+
+  public func resetPushFailures() {
+    selector.resetFailures()
+  }
+
   nonisolated public func netServiceBrowserWillSearch(_ browser: NetServiceBrowser) {}
 
   nonisolated public func netServiceBrowser(
@@ -238,12 +258,18 @@ public final class AmbientOpsDiscovery: NSObject, NetServiceBrowserDelegate, Net
       )
     else { return }
     resolvedServices[candidate.endpoint] = candidate
+    _ = selectResolvedService()
+  }
+
+  @discardableResult
+  private func selectResolvedService() -> AmbientOpsService? {
     guard
       let selected = selector.select(from: Array(resolvedServices.values)),
       selected != selectedService
-    else { return }
+    else { return selectedService }
     selectedService = selected
     onServiceResolved?(selected)
+    return selected
   }
 }
 

@@ -59,15 +59,15 @@ jobs:
           }
           Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
       - name: Test and build Windows packages
-        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.36
+        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.37
       - name: Verify portable package
         run: |
           $archive = "./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip"
           $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent portable"
           ./windows/scripts/install.ps1 -ArchivePath $archive -InstallDirectory $install -NoLaunch
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.36")) {
-            throw "Expected Windows product version 0.2.36, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.37")) {
+            throw "Expected Windows product version 0.2.37, got $($executable.VersionInfo.ProductVersion)."
           }
           if (Test-Path (Join-Path $install "CodexTPS.exe")) {
             throw "Portable install must not contain CodexTPS.exe."
@@ -93,8 +93,8 @@ jobs:
           if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
 
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.36")) {
-            throw "Expected installed version 0.2.36, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.37")) {
+            throw "Expected installed version 0.2.37, got $($executable.VersionInfo.ProductVersion)."
           }
           if (Test-Path (Join-Path $install "CodexTPS.exe")) {
             throw "Fresh installer must not contain CodexTPS.exe."
@@ -111,7 +111,7 @@ jobs:
           Write-Output "Verified installer, version, checksum, and uninstall."
       - name: Verify Windows in-app updater handoff
         if: github.ref == 'refs/heads/main'
-        run: ./windows/scripts/verify-updater.ps1 -Version 0.2.36
+        run: ./windows/scripts/verify-updater.ps1 -Version 0.2.37
       - uses: actions/upload-artifact@v7
         with:
           name: codex-tps-windows-win-x64
