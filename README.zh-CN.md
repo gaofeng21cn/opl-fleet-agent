@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml"><img src="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml/badge.svg" alt="持续集成"></a>
   <a href="https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest"><img src="https://img.shields.io/github/v/release/gaofeng21cn/opl-fleet-agent" alt="最新版本"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT 许可证"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 许可证"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black.svg" alt="macOS 13 或更高版本">
 </p>
 
@@ -284,7 +284,7 @@ swift run codex-tps-snapshot --json
 ./scripts/build-dmg.sh
 ```
 
-项目采用 [MIT License](LICENSE)。统计口径参考了公开的
+项目采用 [Apache License 2.0](LICENSE)。统计口径参考了公开的
 [Tokscale](https://github.com/junhoyeo/tokscale) 项目，但 OPL Fleet Agent 是独立实现，
 不包含 Tokscale 代码。
 

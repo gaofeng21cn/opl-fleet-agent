@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml"><img src="https://github.com/gaofeng21cn/opl-fleet-agent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest"><img src="https://img.shields.io/github/v/release/gaofeng21cn/opl-fleet-agent" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 License"></a>
   <img src="https://img.shields.io/badge/macOS-13%2B-black.svg" alt="macOS 13 or later">
 </p>
 
@@ -300,7 +300,7 @@ swift run codex-tps-snapshot --json
 ./scripts/build-dmg.sh
 ```
 
-OPL Fleet Agent is available under the [MIT License](LICENSE). Its accounting semantics were
+OPL Fleet Agent is available under the [Apache License 2.0](LICENSE). Its accounting semantics were
 informed by the public [Tokscale](https://github.com/junhoyeo/tokscale) project, but
 OPL Fleet Agent is an independent implementation and does not embed Tokscale.
 
