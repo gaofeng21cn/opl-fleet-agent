@@ -7,6 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>OPLFleetAgentProvider</AssemblyName>
     <RootNamespace>CodexTPS.Provider</RootNamespace>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CodexTPS.Core\CodexTPS.Core.csproj" />

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using CodexTPS.Core;
@@ -82,7 +83,7 @@ public sealed class FleetAgentProviderTests
             projection,
             OplFleetAgentProvider.SerializerOptions);
         var fixture = Path.Combine(
-            Environment.CurrentDirectory,
+            RepositoryRoot(),
             "plugins",
             "opl-fleet-agent",
             "tests",
@@ -255,7 +256,7 @@ public sealed class FleetAgentProviderTests
         IReadOnlyDictionary<string, string> environment)
     {
         var providerAssembly = Path.Combine(
-            Environment.CurrentDirectory,
+            RepositoryRoot(),
             "windows",
             "src",
             "CodexTPS.Provider",
@@ -294,6 +295,14 @@ public sealed class FleetAgentProviderTests
             StringSplitOptions.RemoveEmptyEntries);
         return segments.LastOrDefault(item => item is "Debug" or "Release") ?? "Debug";
     }
+
+    private static string RepositoryRoot([CallerFilePath] string sourcePath = "") =>
+        Path.GetFullPath(Path.Combine(
+            Path.GetDirectoryName(sourcePath)
+                ?? throw new InvalidOperationException("Test source path has no parent directory."),
+            "..",
+            "..",
+            ".."));
 
     private static DateTimeOffset CacheObservedAt(string cachePath)
     {
