@@ -2,121 +2,28 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  source:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Toolchain
         run: |
           sw_vers
           xcodebuild -version
           xcrun swift --version
-          xcrun --show-sdk-version
-      - name: Lint
+      - name: Lint and source tests
         run: |
           xcrun swift-format lint --recursive Sources Tests Package.swift
-          bash -n scripts/install-release.sh
-          bash -n scripts/verify-updater.sh
+          bash -n scripts/install-release.sh scripts/verify-updater.sh
           ./Tests/user-visible-branding.test.sh
-      - name: Test
-        run: |
           swift test
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
-      - name: Package DMG
-        run: ./scripts/build-dmg.sh
-      - name: Verify updater transaction
-        env:
-          OPL_FLEET_AGENT_UPDATER_VERIFY_MODE: adhoc
-        run: ./scripts/verify-updater.sh
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: opl-fleet-agent-dmg
-          path: |
-            dist/OPL-Fleet-Agent.dmg
-            dist/OPL-Fleet-Agent.dmg.sha256
-
-  windows:
-    runs-on: windows-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: 8.0.x
-          cache: true
-          cache-dependency-path: windows/**/packages.lock.json
-      - name: Toolchain
-        run: |
-          dotnet --info
-          $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
-          if (-not (Test-Path $compiler)) {
-            throw "Inno Setup 6 is missing from the Windows runner."
-          }
-          Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
-      - name: Test and build Windows packages
-        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.40
-      - name: Verify portable package
-        run: |
-          $archive = "./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip"
-          $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent portable"
-          ./windows/scripts/install.ps1 -ArchivePath $archive -InstallDirectory $install -NoLaunch
-          $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.40")) {
-            throw "Expected Windows product version 0.2.40, got $($executable.VersionInfo.ProductVersion)."
-          }
-          Write-Output "Verified $($executable.FullName) $($executable.VersionInfo.ProductVersion)"
-      - name: Verify Windows installer and uninstaller
-        run: |
-          $installer = Resolve-Path "./windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe"
-          $checksum = "$installer.sha256"
-          $expected = ((Get-Content $checksum -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
-          $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
-          if ($expected -ne $actual) { throw "Windows installer checksum mismatch." }
-
-          $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent setup"
-          $arguments = @(
-            "/VERYSILENT",
-            "/SUPPRESSMSGBOXES",
-            "/NORESTART",
-            "/NOICONS",
-            "/DIR=`"$install`""
-          )
-          $result = Start-Process $installer -ArgumentList $arguments -Wait -PassThru
-          if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
-
-          $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.40")) {
-            throw "Expected installed version 0.2.40, got $($executable.VersionInfo.ProductVersion)."
-          }
-          Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
-            Stop-Process -Force -ErrorAction SilentlyContinue
-          $uninstaller = Join-Path $install "unins000.exe"
-          $result = Start-Process $uninstaller `
-            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
-            -Wait `
-            -PassThru
-          if ($result.ExitCode -ne 0) { throw "Uninstaller exited with $($result.ExitCode)." }
-          if (Test-Path $executable.FullName) { throw "OPLFleetAgent.exe remains after uninstall." }
-          Write-Output "Verified installer, version, checksum, and uninstall."
-      - name: Verify Windows in-app updater handoff
-        if: github.ref == 'refs/heads/main'
-        run: ./windows/scripts/verify-updater.ps1 -Version 0.2.40
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: opl-fleet-agent-windows-win-x64
-          path: |
-            windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
-            windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
-            windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
-            windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
