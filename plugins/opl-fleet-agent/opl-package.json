@@ -35,7 +35,7 @@
       "skills/opl-fleet-agent/SKILL.md",
       "skills/opl-fleet-agent/agents/openai.yaml"
     ],
-    "digest": "sha256:58fdfaf2f7ab0a7a133378d83e262db897014fd030b66d37c3b2e40fb5207da2"
+    "digest": "sha256:ed9f493a9858449d323a20f9c51697b0bc7cf37567e227a218917ac7d4628c6f"
   },
   "codex_surface": {
     "plugin_id": "opl-fleet-agent",

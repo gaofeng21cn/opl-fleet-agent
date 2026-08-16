@@ -27,7 +27,9 @@ jobs:
           bash -n scripts/verify-updater.sh
           ./Tests/user-visible-branding.test.sh
       - name: Test
-        run: swift test
+        run: |
+          swift test
+          node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
       - name: Package DMG
         run: ./scripts/build-dmg.sh
       - name: Verify updater transaction
