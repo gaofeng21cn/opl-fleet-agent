@@ -169,6 +169,98 @@ final class FleetAgentProviderTests: XCTestCase {
     XCTAssertEqual(actual, expected)
   }
 
+  func testLastKnownStoreExpiresAndRejectsInvalidOrSensitiveBytes() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("opl-fleet-last-known-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cacheURL = directory.appendingPathComponent("provider-last-known.json")
+    let store = FleetAgentLastKnownStore(url: cacheURL)
+    let projection = OPLFleetAgentProvider.telemetry(
+      usage: usage(at: observedAt),
+      identity: try identity(),
+      now: observedAt.addingTimeInterval(30)
+    )
+
+    try store.save(projection)
+    guard case .available(let sample) = store.load(now: observedAt.addingTimeInterval(60)) else {
+      return XCTFail("Expected a valid sanitized last-known sample")
+    }
+    XCTAssertEqual(sample.payload.windows.oneMinute.tokenRatePerSecond, 10)
+    let cacheObject = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: cacheURL)) as? [String: Any]
+    )
+    XCTAssertEqual(Set(cacheObject.keys), ["last_observed_at", "payload"])
+    XCTAssertFalse(recursiveKeys(cacheObject).contains(where: { key in
+      ["prompt", "response", "session", "path", "address", "credential", "secret"]
+        .contains(where: key.contains)
+    }))
+
+    XCTAssertEqual(
+      store.load(now: observedAt.addingTimeInterval(FleetAgentLastKnownStore.ttlSeconds + 1)),
+      .expired
+    )
+    try Data("{}".utf8).write(to: cacheURL)
+    XCTAssertEqual(store.load(now: observedAt), .invalid)
+    try Data(#"{"last_observed_at":"2025-08-16T08:00:00.000Z","prompt":"secret"}"#.utf8)
+      .write(to: cacheURL)
+    XCTAssertEqual(store.load(now: observedAt), .privacyRejected)
+  }
+
+  func testProviderCLIReusesSanitizedLastKnownAcrossIndependentProcesses() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("opl-fleet-provider-process-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let sessions = directory.appendingPathComponent("codex/sessions", isDirectory: true)
+    try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+    let now = Date()
+    let timestamp = now.addingTimeInterval(-5).formatted(.iso8601)
+    let log = [
+      #"{"timestamp":"\#(timestamp)","type":"session_meta","payload":{"id":"session-a","model_provider":"test-provider"}}"#,
+      #"{"timestamp":"\#(timestamp)","type":"turn_context","payload":{"model":"gpt-test"}}"#,
+      #"{"timestamp":"\#(timestamp)","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120},"last_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120}}}}"#,
+    ].joined(separator: "\n") + "\n"
+    let logURL = sessions.appendingPathComponent("rollout-session-a.jsonl")
+    try Data(log.utf8).write(to: logURL)
+    try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: logURL.path)
+
+    let executable = repositoryRoot().appendingPathComponent(".build/debug/OPLFleetAgentProvider")
+    XCTAssertTrue(FileManager.default.isExecutableFile(atPath: executable.path))
+    let cacheURL = directory.appendingPathComponent("provider-last-known.json")
+    let environment = [
+      "OPL_FLEET_AGENT_PROVIDER_CACHE": cacheURL.path,
+      "CODEX_TPS_MACHINE_ID": "process-fixture",
+      "CODEX_TPS_MACHINE_NAME": "Process Fixture",
+      "CODEX_TPS_PLATFORM": "macOS",
+    ]
+    let first = try runProvider(
+      executable: executable,
+      codexHome: directory.appendingPathComponent("codex"),
+      environment: environment
+    )
+    let second = try runProvider(
+      executable: executable,
+      codexHome: directory.appendingPathComponent("missing-codex-home"),
+      environment: environment
+    )
+
+    let firstFreshness = try XCTUnwrap(first["freshness"] as? [String: Any])
+    let secondFreshness = try XCTUnwrap(second["freshness"] as? [String: Any])
+    XCTAssertEqual(firstFreshness["state"] as? String, "fresh")
+    XCTAssertEqual(firstFreshness["last_known"] as? Bool, false)
+    XCTAssertEqual(secondFreshness["state"] as? String, "stale")
+    XCTAssertEqual(secondFreshness["last_known"] as? Bool, true)
+    XCTAssertEqual(
+      secondFreshness["last_observed_at"] as? String,
+      firstFreshness["last_observed_at"] as? String
+    )
+    let firstPayload = try XCTUnwrap(first["payload"] as? [String: Any])
+    let secondPayload = try XCTUnwrap(second["payload"] as? [String: Any])
+    XCTAssertEqual(
+      rate(firstPayload, window: "one_minute", field: "token_rate_per_second"),
+      rate(secondPayload, window: "one_minute", field: "token_rate_per_second")
+    )
+  }
+
   private func identity() throws -> AmbientOpsMachineIdentity {
     try AmbientOpsMachineIdentity(
       machineID: "fixture-node",
@@ -229,5 +321,43 @@ final class FleetAgentProviderTests: XCTestCase {
       .deletingLastPathComponent()
       .deletingLastPathComponent()
       .deletingLastPathComponent()
+  }
+
+  private func runProvider(
+    executable: URL,
+    codexHome: URL,
+    environment: [String: String]
+  ) throws -> [String: Any] {
+    let process = Process()
+    let output = Pipe()
+    let errors = Pipe()
+    process.executableURL = executable
+    process.arguments = ["--ref", OPLFleetAgentProvider.telemetryRef]
+    process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
+    process.environment?["CODEX_HOME"] = codexHome.path
+    process.standardOutput = output
+    process.standardError = errors
+    try process.run()
+    process.waitUntilExit()
+    let outputData = output.fileHandleForReading.readDataToEndOfFile()
+    let errorData = errors.fileHandleForReading.readDataToEndOfFile()
+    XCTAssertEqual(
+      process.terminationStatus,
+      0,
+      String(data: errorData, encoding: .utf8) ?? "provider failed"
+    )
+    return try XCTUnwrap(
+      JSONSerialization.jsonObject(with: outputData) as? [String: Any]
+    )
+  }
+
+  private func rate(
+    _ payload: [String: Any],
+    window: String,
+    field: String
+  ) -> Double? {
+    let windows = payload["windows"] as? [String: Any]
+    let value = windows?[window] as? [String: Any]
+    return value?[field] as? Double
   }
 }

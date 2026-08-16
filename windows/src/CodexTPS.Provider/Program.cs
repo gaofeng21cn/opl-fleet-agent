@@ -15,7 +15,12 @@ if (args is not ["--ref", var readRef])
 }
 
 var identity = LocalIdentity();
-var usage = new SessionScanner().Refresh();
+var now = DateTimeOffset.UtcNow;
+var usage = new SessionScanner().Refresh(now);
+var lastKnownStore = new FleetAgentLastKnownStore(FleetAgentLastKnownStore.DefaultPath());
+var lastKnownLoad = lastKnownStore.Load(now);
+var lastKnown = lastKnownLoad.Sample;
+var fallback = lastKnown?.UsageSnapshot();
 object projection;
 switch (readRef)
 {
@@ -25,14 +30,55 @@ switch (readRef)
         _ = cpuSampler.SampleCpuPercent();
         _ = networkSampler.Sample();
         await Task.Delay(100);
-        projection = OplFleetAgentProvider.Telemetry(
+        var telemetry = OplFleetAgentProvider.Telemetry(
             usage,
             identity,
-            cpuPercent: cpuSampler.SampleCpuPercent(),
-            network: networkSampler.Sample());
+            fallback: fallback,
+            fallbackLastObservedAt: lastKnown?.LastObservedAt,
+            cpuPercent: usage.Status == CollectionStatus.Ready
+                ? cpuSampler.SampleCpuPercent()
+                : lastKnown?.Payload.HostCpuPercent,
+            network: usage.Status == CollectionStatus.Ready
+                ? networkSampler.Sample()
+                : lastKnown?.NetworkTelemetry(),
+            unavailableReasonCode: lastKnownLoad.UnavailableReasonCode,
+            now: DateTimeOffset.UtcNow);
+        if (telemetry.Freshness.State == "fresh")
+        {
+            try
+            {
+                lastKnownStore.Save(telemetry);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+        projection = telemetry;
         break;
     case OplFleetAgentProvider.DoctorRef:
-        projection = OplFleetAgentProvider.Doctor(usage, identity);
+        if (usage.Status == CollectionStatus.Ready && lastKnown is null)
+        {
+            try
+            {
+                lastKnownStore.Save(OplFleetAgentProvider.Telemetry(usage, identity, now: now));
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+        projection = OplFleetAgentProvider.Doctor(
+            usage,
+            identity,
+            fallback: fallback,
+            fallbackLastObservedAt: lastKnown?.LastObservedAt,
+            unavailableReasonCode: lastKnownLoad.UnavailableReasonCode,
+            now: now);
         break;
     default:
         Console.Error.WriteLine("Unsupported provider ref");

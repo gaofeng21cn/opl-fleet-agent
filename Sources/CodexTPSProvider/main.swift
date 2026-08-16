@@ -17,8 +17,14 @@ struct OPLFleetAgentProviderCommand {
 
     let environment = ProcessInfo.processInfo.environment
     let identity = try localIdentity(environment: environment)
-    let usage = await SessionScanner().refresh()
     let now = Date()
+    let usage = await SessionScanner().refresh(now: now)
+    let lastKnownStore = FleetAgentLastKnownStore(
+      url: FleetAgentLastKnownStore.defaultURL(environment: environment)
+    )
+    let lastKnownLoad = lastKnownStore.load(now: now)
+    let lastKnown = lastKnownLoad.sample
+    let fallback = lastKnown?.usageSnapshot()
     let encoder = OPLFleetAgentProvider.encoder()
     let data: Data
 
@@ -29,18 +35,40 @@ struct OPLFleetAgentProviderCommand {
       _ = cpuSampler.sampleCPUPercent()
       _ = networkSampler.sample(at: now)
       try await Task.sleep(for: .milliseconds(100))
-      data = try encoder.encode(
-        OPLFleetAgentProvider.telemetry(
+      let projection = OPLFleetAgentProvider.telemetry(
+        usage: usage,
+        identity: identity,
+        fallback: fallback,
+        fallbackLastObservedAt: lastKnown?.lastObservedAt,
+        cpuPercent: usage.status == .ready
+          ? cpuSampler.sampleCPUPercent() : lastKnown?.cpuPercent,
+        network: usage.status == .ready
+          ? networkSampler.sample() : lastKnown?.networkTelemetry(),
+        unavailableReasonCode: lastKnownLoad.unavailableReasonCode,
+        now: Date()
+      )
+      if projection.freshness.state == "fresh" {
+        try? lastKnownStore.save(projection)
+      }
+      data = try encoder.encode(projection)
+    case OPLFleetAgentProvider.doctorRef:
+      if usage.status == .ready && lastKnown == nil {
+        let cacheProjection = OPLFleetAgentProvider.telemetry(
           usage: usage,
           identity: identity,
-          cpuPercent: cpuSampler.sampleCPUPercent(),
-          network: networkSampler.sample(),
-          now: Date()
+          now: now
         )
-      )
-    case OPLFleetAgentProvider.doctorRef:
+        try? lastKnownStore.save(cacheProjection)
+      }
       data = try encoder.encode(
-        OPLFleetAgentProvider.doctor(usage: usage, identity: identity, now: now)
+        OPLFleetAgentProvider.doctor(
+          usage: usage,
+          identity: identity,
+          fallback: fallback,
+          fallbackLastObservedAt: lastKnown?.lastObservedAt,
+          unavailableReasonCode: lastKnownLoad.unavailableReasonCode,
+          now: now
+        )
       )
     default:
       throw ProviderCommandError.unknownRef

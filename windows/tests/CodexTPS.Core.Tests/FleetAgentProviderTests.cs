@@ -91,6 +91,64 @@ public sealed class FleetAgentProviderTests
         Assert.True(JsonNode.DeepEquals(expected, actual));
     }
 
+    [Fact]
+    public void SanitizedLastKnownStoreFeedsAStaleFollowUpProjection()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            $"opl-fleet-last-known-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var cachePath = Path.Combine(directory, "provider-last-known.json");
+            var store = new FleetAgentLastKnownStore(cachePath);
+            var fresh = OplFleetAgentProvider.Telemetry(
+                Usage(),
+                Identity(),
+                now: ObservedAt.AddSeconds(30));
+
+            store.Save(fresh);
+            var loaded = store.Load(ObservedAt.AddMinutes(1));
+            Assert.Equal(FleetAgentLastKnownLoadState.Available, loaded.State);
+            var sample = Assert.IsType<FleetAgentLastKnownSample>(loaded.Sample);
+            var stale = OplFleetAgentProvider.Telemetry(
+                UsageSnapshot.Empty(ObservedAt.AddMinutes(1), CollectionStatus.ReadFailed),
+                Identity(),
+                fallback: sample.UsageSnapshot(),
+                fallbackLastObservedAt: sample.LastObservedAt,
+                now: ObservedAt.AddMinutes(1));
+
+            Assert.Equal("stale", stale.Freshness.State);
+            Assert.True(stale.Freshness.LastKnown);
+            Assert.Equal(fresh.Freshness.LastObservedAt, stale.Freshness.LastObservedAt);
+            Assert.Equal(
+                fresh.Payload.Windows.OneMinute.TokenRatePerSecond,
+                stale.Payload.Windows.OneMinute.TokenRatePerSecond);
+
+            var root = JsonNode.Parse(File.ReadAllText(cachePath))?.AsObject();
+            Assert.NotNull(root);
+            Assert.Equal(
+                ["last_observed_at", "payload"],
+                root.Select(item => item.Key).OrderBy(item => item, StringComparer.Ordinal));
+
+            Assert.Equal(
+                FleetAgentLastKnownLoadState.Expired,
+                store.Load(ObservedAt.Add(FleetAgentLastKnownStore.TimeToLive).AddSeconds(1)).State);
+            File.WriteAllText(cachePath, "{}");
+            Assert.Equal(FleetAgentLastKnownLoadState.Invalid, store.Load(ObservedAt).State);
+            File.WriteAllText(
+                cachePath,
+                """{"last_observed_at":"2025-08-16T08:00:00.000Z","prompt":"secret"}""");
+            Assert.Equal(
+                FleetAgentLastKnownLoadState.PrivacyRejected,
+                store.Load(ObservedAt).State);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
     private static AmbientOpsMachineIdentity Identity() =>
         new("fixture-node", "Fixture Node", "macOS");
 

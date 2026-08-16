@@ -159,7 +159,27 @@ function resolveHelper(environment) {
   }
   const candidates = [];
   if (process.platform === 'darwin') {
+    const home = typeof environment.HOME === 'string' ? environment.HOME.trim() : '';
+    if (home) {
+      candidates.push(path.join(
+        home,
+        'Applications',
+        'OPL Fleet Agent.app',
+        'Contents',
+        'MacOS',
+        'OPLFleetAgentProvider',
+      ));
+      candidates.push(path.join(
+        home,
+        'Applications',
+        'Codex TPS.app',
+        'Contents',
+        'MacOS',
+        'OPLFleetAgentProvider',
+      ));
+    }
     candidates.push('/Applications/OPL Fleet Agent.app/Contents/MacOS/OPLFleetAgentProvider');
+    candidates.push('/Applications/Codex TPS.app/Contents/MacOS/OPLFleetAgentProvider');
   } else if (process.platform === 'win32') {
     const localAppData = environment.LOCALAPPDATA;
     if (localAppData) {
