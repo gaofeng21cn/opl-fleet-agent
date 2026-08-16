@@ -1,0 +1,55 @@
+{
+  "access": "read_only",
+  "authority": "observation_only",
+  "capability_abi": {
+    "id": "opl-fleet-agent.capabilities",
+    "version": "1.0.0"
+  },
+  "freshness": {
+    "last_known": false,
+    "last_observed_at": "2025-08-16T08:00:00.000Z",
+    "state": "fresh"
+  },
+  "native_carrier": {
+    "availability": "available",
+    "kind": "opl_fleet_agent_process",
+    "status": "ready"
+  },
+  "node": {
+    "agent_version": "0.2.38",
+    "display_name": "Fixture Node",
+    "platform": "macOS",
+    "stable_node_id": "fixture-node"
+  },
+  "observed_at": "2025-08-16T08:00:30.000Z",
+  "operation": "telemetry.read",
+  "payload": {
+    "active_conversation_count": 3,
+    "collection_status": "available",
+    "host_capability_flags": [
+      "node_local_observation",
+      "node_local_doctor",
+      "local_codex_telemetry",
+      "host_dashboard",
+      "execution_constraints.not_projected",
+      "sanitized_execution_receipts.deferred"
+    ],
+    "host_cpu_percent": 42.5,
+    "host_network_receive_bytes_per_second": 15437500,
+    "host_network_transmit_bytes_per_second": 1531250,
+    "windows": {
+      "five_minutes": {
+        "request_rate_per_minute": 1,
+        "token_rate_per_second": 4,
+        "window_seconds": 300
+      },
+      "one_minute": {
+        "request_rate_per_minute": 2,
+        "token_rate_per_second": 10,
+        "window_seconds": 60
+      }
+    }
+  },
+  "read_ref": "fleet.agent.telemetry.v1#local",
+  "schema": "opl_fleet_agent_provider.v1"
+}

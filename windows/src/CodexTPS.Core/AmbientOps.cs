@@ -216,8 +216,6 @@ public static class OplFleetAgentProtocol
     [
         "node_local_observation",
         "node_local_doctor",
-        "node_local_execution_constraints",
-        "sanitized_execution_receipts",
         "local_codex_telemetry",
         "host_dashboard",
     ];

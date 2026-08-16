@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexTPS.Core", "src\CodexT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexTPS.Windows", "src\CodexTPS.Windows\CodexTPS.Windows.csproj", "{0F3BA658-D7C8-43B7-A33A-5DB7BF31914D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexTPS.Provider", "src\CodexTPS.Provider\CodexTPS.Provider.csproj", "{B177FF05-90C3-4277-BDA6-A7D7724C7178}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexTPS.Core.Tests", "tests\CodexTPS.Core.Tests\CodexTPS.Core.Tests.csproj", "{E0746B33-9027-4C32-9AD2-E8DAE0F55EAC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexTPS.Windows.Tests", "tests\CodexTPS.Windows.Tests\CodexTPS.Windows.Tests.csproj", "{92E05062-0A31-46BB-9E8D-313603F03152}"
@@ -24,6 +26,10 @@ Global
 		{0F3BA658-D7C8-43B7-A33A-5DB7BF31914D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0F3BA658-D7C8-43B7-A33A-5DB7BF31914D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0F3BA658-D7C8-43B7-A33A-5DB7BF31914D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B177FF05-90C3-4277-BDA6-A7D7724C7178}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B177FF05-90C3-4277-BDA6-A7D7724C7178}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B177FF05-90C3-4277-BDA6-A7D7724C7178}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B177FF05-90C3-4277-BDA6-A7D7724C7178}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E0746B33-9027-4C32-9AD2-E8DAE0F55EAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E0746B33-9027-4C32-9AD2-E8DAE0F55EAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E0746B33-9027-4C32-9AD2-E8DAE0F55EAC}.Release|Any CPU.ActiveCfg = Release|Any CPU

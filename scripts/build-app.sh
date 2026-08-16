@@ -24,11 +24,19 @@ fi
 
 swift build "${BUILD_ARGS[@]}"
 BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
+PROVIDER_BUILD_ARGS=(-c release --product OPLFleetAgentProvider)
+if [[ -n "${CODEX_TPS_ARCHS:-}" ]]; then
+  for ARCH in ${=CODEX_TPS_ARCHS}; do
+    PROVIDER_BUILD_ARGS+=(--arch "$ARCH")
+  done
+fi
+swift build "${PROVIDER_BUILD_ARGS[@]}"
 
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 ditto "$BIN_DIR/CodexTPS" "$APP_DIR/Contents/MacOS/CodexTPS"
+ditto "$BIN_DIR/OPLFleetAgentProvider" "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider"
 ditto "$ROOT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 ditto "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 ditto "$ROOT_DIR/scripts/install-release.sh" "$APP_DIR/Contents/Resources/install-release.sh"
@@ -37,6 +45,7 @@ chmod 755 "$APP_DIR/Contents/Resources/install-release.sh"
 if [[ -n "${CODEX_TPS_ARCHS:-}" ]]; then
   for ARCH in ${=CODEX_TPS_ARCHS}; do
     lipo "$APP_DIR/Contents/MacOS/CodexTPS" -verify_arch "$ARCH"
+    lipo "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider" -verify_arch "$ARCH"
   done
 fi
 
@@ -45,6 +54,7 @@ SIGN_ARGS=(--force --sign "$SIGNING_IDENTITY")
 if [[ "$SIGNING_IDENTITY" != "-" ]]; then
   SIGN_ARGS+=(--options runtime --timestamp)
 fi
+codesign "${SIGN_ARGS[@]}" "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider"
 codesign "${SIGN_ARGS[@]}" "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 

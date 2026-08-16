@@ -14,8 +14,6 @@ public enum OPLFleetAgentProtocol {
   public static let capabilities = [
     "node_local_observation",
     "node_local_doctor",
-    "node_local_execution_constraints",
-    "sanitized_execution_receipts",
     "local_codex_telemetry",
     "host_dashboard",
   ]

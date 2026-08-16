@@ -1,0 +1,32 @@
+{
+  "name": "opl-fleet-agent",
+  "version": "0.2.38",
+  "description": "Read-only local OPL Fleet Agent telemetry and doctor projections.",
+  "author": {
+    "name": "OPL"
+  },
+  "repository": "https://github.com/gaofeng21cn/opl-fleet-agent.git",
+  "license": "Apache-2.0",
+  "keywords": [
+    "fleet",
+    "telemetry",
+    "doctor",
+    "opl"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "OPL Fleet Agent",
+    "shortDescription": "Inspect local Fleet Agent health and telemetry.",
+    "longDescription": "Read sanitized node-local OPL Fleet Agent telemetry and bounded doctor results without exposing conversation content or fleet authority decisions.",
+    "developerName": "OPL",
+    "category": "Productivity",
+    "capabilities": [
+      "Local telemetry",
+      "Node doctor"
+    ],
+    "defaultPrompt": [
+      "Inspect this machine's OPL Fleet Agent telemetry.",
+      "Run the OPL Fleet Agent doctor and summarize degraded checks."
+    ]
+  }
+}

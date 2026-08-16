@@ -1,0 +1,179 @@
+import assert from 'node:assert/strict';
+import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+import { handleRequest } from '../bin/opl-fleet-agent.mjs';
+
+const request = (ref) => ({
+  schema_version: 'opl-package-app-contribution-request.v1',
+  operation: 'read',
+  ref,
+  input: {},
+});
+
+test('rejects unknown refs without invoking native code', async () => {
+  const response = await handleRequest(request('fleet.agent.telemetry.v1#unknown'), {});
+
+  assert.equal(response.code, 2);
+  assert.equal(response.payload.ok, false);
+  assert.match(response.payload.error.message, /not declared/);
+});
+
+test('returns a valid unavailable projection when the optional native helper is absent', async () => {
+  const response = await handleRequest(request('fleet.agent.telemetry.v1#local'), {
+    OPL_FLEET_AGENT_PROVIDER_BIN: path.join(tmpdir(), 'definitely-not-installed-provider'),
+  });
+
+  assert.equal(response.code, 0);
+  assert.equal(response.payload.ok, true);
+  assert.equal(response.payload.result.schema, 'opl_fleet_agent_provider.v1');
+  assert.equal(response.payload.result.native_carrier.availability, 'unavailable');
+  assert.equal(response.payload.result.native_carrier.status, 'not_running');
+  assert.equal(response.payload.result.node, null);
+  assert.equal(response.payload.result.freshness.state, 'unavailable');
+  assert.equal(response.payload.result.freshness.last_observed_at, null);
+  assert.equal(response.payload.result.freshness.reason_code, 'native_provider_not_installed');
+  assert.equal(response.payload.result.payload.collection_status, 'unavailable');
+  assert.equal(response.payload.result.payload.windows.one_minute.token_rate_per_second, null);
+  assert.deepEqual(response.payload.result.payload.host_capability_flags, []);
+});
+
+test('forwards a sanitized native projection', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'opl-fleet-provider-test-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const helper = await writeHelper(directory, {
+    schema: 'opl_fleet_agent_provider.v1',
+    capability_abi: { id: 'opl-fleet-agent.capabilities', version: '1.0.0' },
+    access: 'read_only',
+    authority: 'observation_only',
+    operation: 'doctor.read',
+    read_ref: 'fleet.agent.doctor.v1#current',
+    observed_at: '2026-08-16T00:00:00.000Z',
+    freshness: {
+      state: 'fresh',
+      last_observed_at: '2026-08-16T00:00:00.000Z',
+      last_known: false,
+    },
+    native_carrier: { kind: 'opl_fleet_agent_process', availability: 'available', status: 'ready' },
+    node: {
+      stable_node_id: 'fixture-node',
+      display_name: 'Fixture Node',
+      platform: 'test',
+      agent_version: '0.2.38',
+    },
+    payload: { doctor_state: 'healthy', capability_currentness: 'current', checks: [] },
+  });
+
+  const response = await handleRequest(request('fleet.agent.doctor.v1#current'), {
+    OPL_FLEET_AGENT_PROVIDER_BIN: helper,
+  });
+
+  assert.equal(response.code, 0);
+  assert.equal(response.payload.result.payload.doctor_state, 'healthy');
+});
+
+test('fails closed on recursively sensitive native keys without exposing helper output', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'opl-fleet-provider-privacy-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const helper = await writeHelper(directory, {
+    schema: 'opl_fleet_agent_provider.v1',
+    capability_abi: { id: 'opl-fleet-agent.capabilities', version: '1.0.0' },
+    access: 'read_only',
+    authority: 'observation_only',
+    operation: 'telemetry.read',
+    read_ref: 'fleet.agent.telemetry.v1#local',
+    observed_at: '2026-08-16T00:00:00.000Z',
+    freshness: {
+      state: 'fresh',
+      last_observed_at: '2026-08-16T00:00:00.000Z',
+      last_known: false,
+    },
+    native_carrier: { kind: 'opl_fleet_agent_process', availability: 'available', status: 'ready' },
+    node: {
+      stable_node_id: 'fixture-node',
+      display_name: 'Fixture Node',
+      platform: 'test',
+      agent_version: '0.2.38',
+    },
+    payload: { nested: { prompt: 'must-never-escape' } },
+  });
+
+  const response = await handleRequest(request('fleet.agent.telemetry.v1#local'), {
+    OPL_FLEET_AGENT_PROVIDER_BIN: helper,
+  });
+
+  assert.equal(response.code, 0);
+  assert.equal(response.payload.result.freshness.state, 'unavailable');
+  assert.equal(response.payload.result.freshness.reason_code, 'native_provider_privacy_rejected');
+  assert.doesNotMatch(JSON.stringify(response.payload), /must-never-escape/);
+});
+
+test('fails closed when native unavailable freshness still carries observations', async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'opl-fleet-provider-contract-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const helper = await writeHelper(directory, {
+    schema: 'opl_fleet_agent_provider.v1',
+    capability_abi: { id: 'opl-fleet-agent.capabilities', version: '1.0.0' },
+    access: 'read_only',
+    authority: 'observation_only',
+    operation: 'telemetry.read',
+    read_ref: 'fleet.agent.telemetry.v1#local',
+    observed_at: '2026-08-16T00:00:00.000Z',
+    freshness: {
+      state: 'unavailable',
+      last_observed_at: null,
+      last_known: false,
+      reason_code: 'usage_source_unavailable',
+    },
+    native_carrier: { kind: 'opl_fleet_agent_process', availability: 'available', status: 'degraded' },
+    node: {
+      stable_node_id: 'fixture-node',
+      display_name: 'Fixture Node',
+      platform: 'test',
+      agent_version: '0.2.38',
+    },
+    payload: {
+      collection_status: 'unavailable',
+      windows: {
+        one_minute: {
+          window_seconds: 60,
+          token_rate_per_second: 1,
+          request_rate_per_minute: null,
+        },
+        five_minutes: {
+          window_seconds: 300,
+          token_rate_per_second: null,
+          request_rate_per_minute: null,
+        },
+      },
+      active_conversation_count: null,
+      host_cpu_percent: null,
+      host_network_receive_bytes_per_second: null,
+      host_network_transmit_bytes_per_second: null,
+      host_capability_flags: [],
+    },
+  });
+
+  const response = await handleRequest(request('fleet.agent.telemetry.v1#local'), {
+    OPL_FLEET_AGENT_PROVIDER_BIN: helper,
+  });
+
+  assert.equal(response.code, 0);
+  assert.equal(response.payload.result.freshness.state, 'unavailable');
+  assert.equal(response.payload.result.freshness.reason_code, 'native_provider_invalid_response');
+  assert.equal(response.payload.result.payload.windows.one_minute.token_rate_per_second, null);
+});
+
+async function writeHelper(directory, payload) {
+  if (process.platform === 'win32') {
+    const file = path.join(directory, 'provider.cmd');
+    await writeFile(file, `@echo off\r\necho ${JSON.stringify(payload)}\r\n`);
+    return file;
+  }
+  const file = path.join(directory, 'provider');
+  await writeFile(file, `#!/bin/sh\nprintf '%s\\n' '${JSON.stringify(payload)}'\n`);
+  await chmod(file, 0o755);
+  return file;
+}

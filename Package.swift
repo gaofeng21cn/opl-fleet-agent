@@ -12,6 +12,7 @@ let package = Package(
     .executable(name: "CodexTPS", targets: ["CodexTPS"]),
     .executable(name: "codex-tps-snapshot", targets: ["CodexTPSSnapshot"]),
     .executable(name: "codex-tps-agent", targets: ["CodexTPSAgent"]),
+    .executable(name: "OPLFleetAgentProvider", targets: ["CodexTPSProvider"]),
   ],
   targets: [
     .target(name: "CodexTPSCore"),
@@ -25,6 +26,10 @@ let package = Package(
     ),
     .executableTarget(
       name: "CodexTPSAgent",
+      dependencies: ["CodexTPSCore"]
+    ),
+    .executableTarget(
+      name: "CodexTPSProvider",
       dependencies: ["CodexTPSCore"]
     ),
     .testTarget(

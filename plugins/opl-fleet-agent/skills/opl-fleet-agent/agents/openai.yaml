@@ -1,0 +1,4 @@
+interface:
+  display_name: "OPL Fleet Agent"
+  short_description: "Inspect local Fleet Agent telemetry and doctor status"
+  default_prompt: "Use $opl-fleet-agent to inspect this machine's Fleet Agent telemetry and doctor status."

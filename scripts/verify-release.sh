@@ -53,6 +53,7 @@ ACTUAL_TEAM_ID="$(sed -n 's/^TeamIdentifier=//p' <<<"$SIGNATURE_DETAILS")"
 ACTUAL_BUNDLE_ID="$(sed -n 's/^Identifier=//p' <<<"$SIGNATURE_DETAILS")"
 ACTUAL_VERSION="$(plutil -extract CFBundleShortVersionString raw "$APP_PATH/Contents/Info.plist")"
 DISPLAY_NAME="$(plutil -extract CFBundleDisplayName raw "$APP_PATH/Contents/Info.plist")"
+PROVIDER_PATH="$APP_PATH/Contents/MacOS/OPLFleetAgentProvider"
 
 if [[ "$ACTUAL_TEAM_ID" != "$EXPECTED_TEAM_ID" ]]; then
   echo "Expected Team ID $EXPECTED_TEAM_ID, got ${ACTUAL_TEAM_ID:-none}." >&2
@@ -70,12 +71,18 @@ if [[ "$DISPLAY_NAME" != "OPL Fleet Agent" ]]; then
   echo "Expected display name OPL Fleet Agent, got $DISPLAY_NAME." >&2
   exit 1
 fi
+if [[ ! -x "$PROVIDER_PATH" ]]; then
+  echo "OPLFleetAgentProvider is missing from the app bundle." >&2
+  exit 1
+fi
 cmp "$APP_PATH/Contents/MacOS/CodexTPS" "$LEGACY_APP_PATH/Contents/MacOS/CodexTPS"
+cmp "$PROVIDER_PATH" "$LEGACY_APP_PATH/Contents/MacOS/OPLFleetAgentProvider"
 
 grep -q '^Authority=Developer ID Application:' <<<"$SIGNATURE_DETAILS"
 grep -q 'flags=.*runtime' <<<"$SIGNATURE_DETAILS"
 grep -q '^Timestamp=' <<<"$SIGNATURE_DETAILS"
 spctl --assess --type execute --verbose=4 "$APP_PATH"
 lipo "$APP_PATH/Contents/MacOS/CodexTPS" -verify_arch arm64 x86_64
+lipo "$PROVIDER_PATH" -verify_arch arm64 x86_64
 
 echo "Verified notarized OPL Fleet Agent $ACTUAL_VERSION for Team $ACTUAL_TEAM_ID with legacy updater payload."

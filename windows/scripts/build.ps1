@@ -12,6 +12,7 @@ $windowsRoot = Split-Path -Parent $PSScriptRoot
 $repositoryRoot = Split-Path -Parent $windowsRoot
 $solution = Join-Path $windowsRoot "CodexTPS.Windows.sln"
 $appProject = Join-Path $windowsRoot "src/CodexTPS.Windows/CodexTPS.Windows.csproj"
+$providerProject = Join-Path $windowsRoot "src/CodexTPS.Provider/CodexTPS.Provider.csproj"
 $coreTestProject = Join-Path $windowsRoot "tests/CodexTPS.Core.Tests/CodexTPS.Core.Tests.csproj"
 $windowsTestProject = Join-Path $windowsRoot "tests/CodexTPS.Windows.Tests/CodexTPS.Windows.Tests.csproj"
 $distRoot = Join-Path $windowsRoot "dist"
@@ -29,6 +30,8 @@ dotnet restore $solution --locked-mode --nologo
 if ($LASTEXITCODE -ne 0) { throw "Locked dependency restore failed." }
 dotnet restore $appProject -r $Runtime --locked-mode --nologo
 if ($LASTEXITCODE -ne 0) { throw "Locked Windows runtime restore failed." }
+dotnet restore $providerProject -r $Runtime --locked-mode --nologo
+if ($LASTEXITCODE -ne 0) { throw "Locked Windows provider restore failed." }
 
 if (-not $SkipTests) {
     dotnet test $coreTestProject -c $Configuration --no-restore --nologo
@@ -58,8 +61,27 @@ dotnet publish $appProject `
     -o $publishRoot
 if ($LASTEXITCODE -ne 0) { throw "Windows publish failed." }
 
+dotnet publish $providerProject `
+    -c $Configuration `
+    -r $Runtime `
+    --self-contained true `
+    --no-restore `
+    --nologo `
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:DebugType=None `
+    -p:DebugSymbols=false `
+    -p:Version=$Version `
+    -p:FileVersion="$Version.0" `
+    -p:AssemblyVersion="$Version.0" `
+    -o $publishRoot
+if ($LASTEXITCODE -ne 0) { throw "Windows provider publish failed." }
+
 if (-not (Test-Path (Join-Path $publishRoot "OPLFleetAgent.exe"))) {
     throw "Published OPLFleetAgent.exe is missing."
+}
+if (-not (Test-Path (Join-Path $publishRoot "OPLFleetAgentProvider.exe"))) {
+    throw "Published OPLFleetAgentProvider.exe is missing."
 }
 $legacyExecutable = Join-Path $publishRoot "CodexTPS.exe"
 if (Test-Path $legacyExecutable) {
