@@ -219,15 +219,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cat >release-notes.md <<'EOF'
-          ## Distribution
+          version="${GITHUB_REF_NAME#v}"
+          {
+            printf "## Distribution\n\nOPL Fleet Agent %s ships \`OPL-Fleet-Agent.dmg\` for macOS and \`OPL-Fleet-Agent-Windows-*\` assets for Windows.\n\n" "$version"
+            cat <<'EOF'
+          The unified OPL Homebrew Tap projects the signed and notarized macOS release after independent checksum verification:
 
-          Version 0.2.40 completes the OPL Fleet Agent identity cutover across the app bundle, executables, modules, provider identifiers, preferences, Keychain, environment variables, and local discovery protocol. macOS ships only `OPL-Fleet-Agent.dmg`; Windows ships only `OPL-Fleet-Agent-Windows-*` assets, and Homebrew is not an installation route.
+          ```bash
+          brew tap gaofeng21cn/one-person-lab
+          brew install --cask opl-fleet-agent
+          ```
 
           ## Agent
 
           This release also includes the OPL Fleet provider package, durable sanitized last-known telemetry for Fleet doctor, and narrower GitHub Actions permissions.
           EOF
+          } >release-notes.md
           gh release create "$GITHUB_REF_NAME" \
             release-assets/OPL-Fleet-Agent.dmg \
             release-assets/OPL-Fleet-Agent.dmg.sha256 \

@@ -30,11 +30,16 @@ conversation content.
 - Universal DMG: `./scripts/build-dmg.sh`
 - Install: `./scripts/install.sh`
 - Install latest release: `./scripts/install-release.sh`
+- Install from the unified OPL Homebrew Tap: `brew install --cask gaofeng21cn/one-person-lab/opl-fleet-agent`
 - Windows test: `dotnet test windows/tests/OPLFleetAgent.Core.Tests -c Release`
 - Windows package: `pwsh ./windows/scripts/build.ps1 -Runtime win-x64`
 
 Runtime and packaging claims require a real installed-app readback in addition
 to unit tests.
+
+This repository owns Fleet Agent release truth. `homebrew-one-person-lab` is a
+downstream Cask projection and must not define a second version, checksum, asset,
+or retired installation alias.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph

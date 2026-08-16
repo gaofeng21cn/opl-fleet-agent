@@ -119,3 +119,10 @@ done
 /usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' Sources/OPLFleetAgent/UpdateManager.swift
 /usr/bin/grep --quiet --fixed-strings 'io.github.gaofeng21cn.opl-fleet-agent' Resources/Info.plist
 /usr/bin/grep --quiet --fixed-strings '_opl-fleet-agent._tcp' Resources/Info.plist
+/usr/bin/grep --quiet --fixed-strings 'brew install --cask opl-fleet-agent' README.md
+/usr/bin/grep --quiet --fixed-strings 'brew install --cask opl-fleet-agent' README.zh-CN.md
+/usr/bin/grep --quiet --fixed-strings 'brew install --cask opl-fleet-agent' .github/workflows/release.yml
+if /usr/bin/grep --line-number --fixed-strings 'Homebrew is not an installation route' .github/workflows/release.yml; then
+  echo "Fleet Agent releases must advertise the unified OPL Homebrew Tap." >&2
+  exit 1
+fi

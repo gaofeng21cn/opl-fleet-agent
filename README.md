@@ -68,7 +68,14 @@ completion-time throughput rather than per-streaming-chunk speed.
 
 Requirements: macOS 13 Ventura or later. OPL Fleet Agent needs no API key of its own.
 
-Install the latest release:
+Install from the unified OPL Homebrew Tap:
+
+```bash
+brew tap gaofeng21cn/one-person-lab
+brew install --cask opl-fleet-agent
+```
+
+Or use the release installer directly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
@@ -187,7 +194,14 @@ HTTP(S) endpoint from settings.
 Prefer a published, verified release for user installation. A successful local build
 is not the same terminal state as an installed release.
 
-Install the macOS release:
+Install the macOS release through Homebrew:
+
+```bash
+brew tap gaofeng21cn/one-person-lab
+brew install --cask opl-fleet-agent
+```
+
+Direct release installer:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash

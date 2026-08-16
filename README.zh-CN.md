@@ -68,7 +68,14 @@ Codex 通常在一次模型请求完成后才写入用量，因此这里显示�
 
 系统要求为 macOS 13 Ventura 或更高版本。应用本身不需要 API Key。
 
-一键安装最新正式版：
+通过统一的 OPL Homebrew Tap 安装：
+
+```bash
+brew tap gaofeng21cn/one-person-lab
+brew install --cask opl-fleet-agent
+```
+
+也可以直接运行正式版安装脚本：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
@@ -173,7 +180,14 @@ OPL Flow、私人 OPL Fleet Controller 和批准的 Instance 管理。Gateway �
 
 Agent 应优先安装已发布、已校验的正式版，而不是把本地构建当作用户安装结果。
 
-macOS 正式版：
+通过 Homebrew 安装 macOS 正式版：
+
+```bash
+brew tap gaofeng21cn/one-person-lab
+brew install --cask opl-fleet-agent
+```
+
+直接使用正式版安装脚本：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
