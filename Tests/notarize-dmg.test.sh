@@ -44,14 +44,14 @@ EOF
 cat >"$TEST_ROOT/build-dmg" <<'EOF'
 #!/bin/zsh
 set -euo pipefail
-print -r -- "build-dmg skip=${CODEX_TPS_SKIP_APP_BUILD:-} name=${CODEX_TPS_DMG_NAME:-}" >>"$NOTARY_TEST_LOG"
+print -r -- "build-dmg skip=${CODEX_TPS_SKIP_APP_BUILD:-} name=${OPL_FLEET_AGENT_DMG_NAME:-}" >>"$NOTARY_TEST_LOG"
 touch "$NOTARY_TEST_DMG"
 EOF
 
 chmod +x "$SANDBOX/scripts/notarize-dmg.sh" "$FAKE_BIN/xcrun" "$FAKE_BIN/ditto" "$TEST_ROOT/build-dmg"
 
 NOTARY_TEST_LOG="$CALL_LOG" \
-NOTARY_TEST_DMG="$SANDBOX/dist/Codex-TPS.dmg" \
+NOTARY_TEST_DMG="$SANDBOX/dist/OPL-Fleet-Agent.dmg" \
 CODEX_TPS_NOTARY_PROFILE="test-profile" \
 CODEX_TPS_BUILD_DMG_SCRIPT="$TEST_ROOT/build-dmg" \
 TMPDIR="$TEST_ROOT" \
@@ -73,10 +73,10 @@ line_for() {
 APP_SUBMIT="$(line_for "notarytool submit $TEST_ROOT/")"
 APP_STAPLE="$(line_for "stapler staple $SANDBOX/dist/OPL Fleet Agent.app")"
 APP_VALIDATE="$(line_for "stapler validate $SANDBOX/dist/OPL Fleet Agent.app")"
-BUILD_DMG="$(line_for "build-dmg skip=1 name=Codex-TPS.dmg")"
-DMG_SUBMIT="$(line_for "notarytool submit $SANDBOX/dist/Codex-TPS.dmg")"
-DMG_STAPLE="$(line_for "stapler staple $SANDBOX/dist/Codex-TPS.dmg")"
-DMG_VALIDATE="$(line_for "stapler validate $SANDBOX/dist/Codex-TPS.dmg")"
+BUILD_DMG="$(line_for "build-dmg skip=1 name=OPL-Fleet-Agent.dmg")"
+DMG_SUBMIT="$(line_for "notarytool submit $SANDBOX/dist/OPL-Fleet-Agent.dmg")"
+DMG_STAPLE="$(line_for "stapler staple $SANDBOX/dist/OPL-Fleet-Agent.dmg")"
+DMG_VALIDATE="$(line_for "stapler validate $SANDBOX/dist/OPL-Fleet-Agent.dmg")"
 
 if ! (( APP_SUBMIT < APP_STAPLE && APP_STAPLE < APP_VALIDATE && APP_VALIDATE < BUILD_DMG \
   && BUILD_DMG < DMG_SUBMIT && DMG_SUBMIT < DMG_STAPLE && DMG_STAPLE < DMG_VALIDATE )); then
@@ -85,7 +85,7 @@ if ! (( APP_SUBMIT < APP_STAPLE && APP_STAPLE < APP_VALIDATE && APP_VALIDATE < B
   exit 1
 fi
 
-[[ -s "$SANDBOX/dist/Codex-TPS.dmg.sha256" ]]
+[[ -s "$SANDBOX/dist/OPL-Fleet-Agent.dmg.sha256" ]]
 echo "Verified OPL Fleet Agent app-first notarization and dual stapling sequence."
 
 grep -Fq 'CODEX_TPS_ARCHS="arm64 x86_64" ./scripts/build-app.sh' \

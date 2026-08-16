@@ -158,10 +158,7 @@ internal static class WindowsUpdateWorker
         var currentPath = Path.GetFullPath(request.CurrentExecutablePath);
         var canonicalPath = Path.GetFullPath(
             WindowsProductIdentity.CanonicalExecutablePath(request.InstallDirectory));
-        var legacyPath = Path.GetFullPath(
-            WindowsProductIdentity.LegacyExecutablePath(request.InstallDirectory));
-        if (!string.Equals(currentPath, canonicalPath, StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(currentPath, legacyPath, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(currentPath, canonicalPath, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException("更新目标与当前安装目录不一致。");
         }
@@ -186,18 +183,6 @@ internal static class WindowsUpdateWorker
     private static void RunInstaller(UpdateWorkerRequest request)
     {
         var logPath = Path.Combine(request.StagingDirectory, "installer.log");
-        var installerDirectory = request.InstallDirectory;
-        string? legacyBridgePath = null;
-        if (WindowsProductIdentity.IsLegacyExecutable(request.CurrentExecutablePath))
-        {
-            var installParent = Path.GetDirectoryName(Path.GetFullPath(request.InstallDirectory))
-                ?? throw new InvalidDataException("旧版安装目录无效。");
-            installerDirectory = Path.Combine(
-                installParent,
-                WindowsProductIdentity.InstallDirectoryName);
-            legacyBridgePath = request.CurrentExecutablePath;
-        }
-
         var startInfo = new ProcessStartInfo(request.InstallerPath)
         {
             UseShellExecute = false,
@@ -205,11 +190,7 @@ internal static class WindowsUpdateWorker
         startInfo.ArgumentList.Add("/VERYSILENT");
         startInfo.ArgumentList.Add("/SUPPRESSMSGBOXES");
         startInfo.ArgumentList.Add("/NORESTART");
-        startInfo.ArgumentList.Add($"/DIR={installerDirectory}");
-        if (legacyBridgePath is not null)
-        {
-            startInfo.ArgumentList.Add($"/LEGACYBRIDGEPATH={legacyBridgePath}");
-        }
+        startInfo.ArgumentList.Add($"/DIR={request.InstallDirectory}");
         startInfo.ArgumentList.Add($"/LOG={logPath}");
 
         using var installer = Process.Start(startInfo)

@@ -74,17 +74,8 @@ Codex 通常在一次模型请求完成后才写入用量，因此这里显示�
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
 ```
 
-使用 Homebrew：
-
-```bash
-brew install --cask gaofeng21cn/codex-tps/codex-tps
-```
-
-Homebrew Tap 和 `Codex-TPS.dmg` 发布文件名保留兼容名称，以保证老版本的安装与
-应用内更新命令继续可用。
-
 也可以从[最新发布版本](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest)
-下载 `Codex-TPS.dmg`，打开后拖入“应用程序”。
+下载 `OPL-Fleet-Agent.dmg`，打开后拖入“应用程序”。
 
 正式版同时支持 Apple Silicon 和 Intel Mac，使用 Apple Developer ID 签名并
 经过公证。安装脚本会校验发布的 SHA-256、暂存并验证新应用，再替换已有版本；
@@ -94,7 +85,7 @@ Homebrew Tap 和 `Codex-TPS.dmg` 发布文件名保留兼容名称，以保证�
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | \
-  CODEX_TPS_INSTALL_DIR="$HOME/Applications" CODEX_TPS_NO_LAUNCH=1 bash
+  OPL_FLEET_AGENT_INSTALL_DIR="$HOME/Applications" OPL_FLEET_AGENT_NO_LAUNCH=1 bash
 ```
 
 ### Windows 安装
@@ -107,9 +98,8 @@ Windows 版是基于 .NET 8 WinForms 的 Windows 11 原生系统托盘应用。�
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe`
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
-新安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`；升级时保留 Windows AppId、
-设置和旧版更新兼容链，同时迁移旧快捷方式、开机启动项和主程序文件名。当前安装器尚未使用
-Authenticode 签名，因此 Windows 可能显示未知发布者
+安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`，主程序为 `OPLFleetAgent.exe`；
+退役安装名和发布别名不会再生成或迁移。当前安装器尚未使用 Authenticode 签名，因此 Windows 可能显示未知发布者
 或 SmartScreen 提示；发布页、SHA-256 和持续集成记录可以证明仓库来源，但不能替代
 Windows 代码签名信任。
 
@@ -143,7 +133,7 @@ WSL UNC 路径，例如 `\\wsl.localhost\Ubuntu\home\<user>\.codex`。
 [OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit) 用于把多台电脑上的 Codex
 汇总指标和局域网网络状态集中显示在浏览器或 Android 常驻屏上。
 
-macOS 版 OPL Fleet Agent 会继续发布兼容服务名 `_codex-tps._tcp.local` 和只读本机状态端点，
+macOS 版 OPL Fleet Agent 会发布既有协议服务名 `_codex-tps._tcp.local` 和只读本机状态端点，
 使 OPL Fleet Cockpit 无需启用 Gateway 推送即可显示这台 Mac。Direct 只提供汇总 TPS、
 活跃会话数、主机 CPU、网络吞吐以及所选 Pet 资源；Windows 本版尚未发布 Direct 服务。
 
@@ -198,7 +188,7 @@ cd opl-fleet-agent
 ```
 
 源码安装会为当前 Mac 构建、临时签名、安装并启动应用；它不等同于 Developer ID
-签名、公证和正式发布版本。需要自定义目录时使用 `CODEX_TPS_INSTALL_DIR`，不立即
+签名、公证和正式发布版本。需要自定义目录时使用 `OPL_FLEET_AGENT_INSTALL_DIR`，不立即
 启动时传入 `--no-launch`。
 
 Windows 应优先使用最新发布版本中的标准安装器，并在打开前校验同名

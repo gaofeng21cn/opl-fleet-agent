@@ -74,16 +74,7 @@ Install the latest release:
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
 ```
 
-With Homebrew:
-
-```bash
-brew install --cask gaofeng21cn/codex-tps/codex-tps
-```
-
-The Homebrew tap and `Codex-TPS.dmg` release filename keep their legacy names so
-existing casks and in-app update commands remain compatible with earlier releases.
-
-You can also download `Codex-TPS.dmg` from the
+You can also download `OPL-Fleet-Agent.dmg` from the
 [latest release](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest), open it,
 and drag the app into Applications.
 
@@ -96,7 +87,7 @@ Install for the current user without launching:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | \
-  CODEX_TPS_INSTALL_DIR="$HOME/Applications" CODEX_TPS_NO_LAUNCH=1 bash
+  OPL_FLEET_AGENT_INSTALL_DIR="$HOME/Applications" OPL_FLEET_AGENT_NO_LAUNCH=1 bash
 ```
 
 ### Install on Windows
@@ -110,9 +101,9 @@ Download both files from the
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe`
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
-New installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent`; upgrades preserve the
-Windows AppId, settings, and legacy updater compatibility chain while replacing old
-shortcuts, startup entries, and the main executable name. It is not yet Authenticode-signed, so Windows
+Installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent` and use `OPLFleetAgent.exe`.
+Retired install names and release aliases are not emitted or migrated. The installer is
+not yet Authenticode-signed, so Windows
 may show an unknown-publisher or SmartScreen warning. GitHub Release provenance,
 SHA-256, and CI receipts do not replace Windows code-signing trust.
 
@@ -147,7 +138,7 @@ accessible WSL UNC path such as `\\wsl.localhost\Ubuntu\home\<user>\.codex`.
 state from multiple computers with trusted-LAN network telemetry for browser and
 Android ambient displays.
 
-On macOS, OPL Fleet Agent publishes the compatibility service name
+On macOS, OPL Fleet Agent publishes the established protocol service name
 `_codex-tps._tcp.local` and a read-only local status endpoint so OPL Fleet Cockpit can
 display this Mac without enabling Gateway pushes. The Direct provider exposes only
 aggregate TPS, active sessions, host CPU and network throughput, and the selected pet
@@ -212,7 +203,7 @@ cd opl-fleet-agent
 
 The source path builds for the current Mac, ad-hoc signs, installs, and launches the
 app. It does not create a Developer ID signed, notarized release. Use
-`CODEX_TPS_INSTALL_DIR` for another destination or `--no-launch` to skip launch.
+`OPL_FLEET_AGENT_INSTALL_DIR` for another destination or `--no-launch` to skip launch.
 
 On Windows, prefer the standard installer from the latest release and verify its
 sibling `.sha256` file before opening it. Do not describe the unsigned installer as

@@ -19,31 +19,14 @@ $actual = (Get-FileHash -Algorithm SHA256 $resolvedArchive).Hash.ToLowerInvarian
 if ($expected -ne $actual) {
     throw "Archive SHA-256 does not match $checksumPath."
 }
-$running = Get-Process -Name @("OPLFleetAgent", "CodexTPS") -ErrorAction SilentlyContinue
+$running = Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue
 if ($running) {
     throw "Exit OPL Fleet Agent from its tray menu before installing an update."
 }
 
 $stageParent = Join-Path ([System.IO.Path]::GetTempPath()) ("opl-fleet-agent-install-" + [guid]::NewGuid())
 $stage = Join-Path $stageParent "app"
-$requestedInstallDirectory = $InstallDirectory
-$defaultInstallDirectory = Join-Path $env:LOCALAPPDATA "Programs/OPL Fleet Agent"
-$legacyInstallDirectory = Join-Path $env:LOCALAPPDATA "Programs/Codex TPS"
-$requestedLegacyDirectory = [string]::Equals(
-    [System.IO.Path]::GetFullPath($requestedInstallDirectory),
-    [System.IO.Path]::GetFullPath($legacyInstallDirectory),
-    [System.StringComparison]::OrdinalIgnoreCase
-)
-if ($requestedLegacyDirectory) {
-    $InstallDirectory = $defaultInstallDirectory
-}
 $backup = "$InstallDirectory.backup-" + [guid]::NewGuid()
-$migrateLegacy = [string]::Equals(
-    [System.IO.Path]::GetFullPath($InstallDirectory),
-    [System.IO.Path]::GetFullPath($defaultInstallDirectory),
-    [System.StringComparison]::OrdinalIgnoreCase
-)
-$legacyBackup = "$legacyInstallDirectory.backup-" + [guid]::NewGuid()
 New-Item -ItemType Directory -Force $stage | Out-Null
 try {
     Expand-Archive -Path $resolvedArchive -DestinationPath $stage -Force
@@ -60,9 +43,6 @@ try {
     if (Test-Path $InstallDirectory) {
         Move-Item $InstallDirectory $backup
     }
-    if ($migrateLegacy -and (Test-Path $legacyInstallDirectory)) {
-        Move-Item $legacyInstallDirectory $legacyBackup
-    }
     try {
         Move-Item $stage $InstallDirectory
     }
@@ -70,18 +50,11 @@ try {
         if (Test-Path $backup) {
             Move-Item $backup $InstallDirectory
         }
-        if (Test-Path $legacyBackup) {
-            Move-Item $legacyBackup $legacyInstallDirectory
-        }
         throw
     }
     if (Test-Path $backup) {
         Remove-Item -Recurse -Force $backup
     }
-    if (Test-Path $legacyBackup) {
-        Remove-Item -Recurse -Force $legacyBackup
-    }
-
     if (-not $NoLaunch) {
         Start-Process `
             (Join-Path $InstallDirectory "OPLFleetAgent.exe") `

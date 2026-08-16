@@ -67,10 +67,11 @@ affecting local collection.
 ## OPL Fleet Agent boundary
 
 The product is presented to users only as `OPL Fleet Agent`. Windows now uses the
-`OPLFleetAgent.exe` executable and branded release assets. A legacy upgrade may create a
-one-time `CodexTPS.exe` bridge in the old installation directory; the settings location,
-`_codex-tps._tcp` discovery service, and
-legacy release asset names remain compatibility identities for the upgrade chain.
+`OPLFleetAgent.exe` executable and branded release assets. macOS ships
+`OPL-Fleet-Agent.dmg`; Windows ships only `OPL-Fleet-Agent-Windows-*` assets. Retired
+install names are neither emitted nor migrated. Internal module, bundle, preference,
+Keychain, and `_codex-tps._tcp` protocol identities remain implementation details and
+are not alternate installation routes.
 The `oplFleet` extension is a versioned, aggregate-only envelope. It describes
 the local Agent's observation, doctor, execution-constraint, and sanitized-receipt
 capabilities across Local, Direct, and Fleet modes. The Agent can constrain and
