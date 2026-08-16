@@ -261,6 +261,74 @@ final class FleetAgentProviderTests: XCTestCase {
     )
   }
 
+  func testDoctorCLIRefreshesLastKnownBeforeIndependentProcessFailure() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("opl-fleet-provider-doctor-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let codexHome = directory.appendingPathComponent("codex", isDirectory: true)
+    let sessions = codexHome.appendingPathComponent("sessions", isDirectory: true)
+    try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+    let now = Date()
+    let timestamp = now.addingTimeInterval(-5).formatted(.iso8601)
+    let log = [
+      #"{"timestamp":"\#(timestamp)","type":"session_meta","payload":{"id":"session-doctor","model_provider":"test-provider"}}"#,
+      #"{"timestamp":"\#(timestamp)","type":"turn_context","payload":{"model":"gpt-test"}}"#,
+      #"{"timestamp":"\#(timestamp)","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":200,"output_tokens":40,"total_tokens":240},"last_token_usage":{"input_tokens":200,"output_tokens":40,"total_tokens":240}}}}"#,
+    ].joined(separator: "\n") + "\n"
+    let logURL = sessions.appendingPathComponent("rollout-session-doctor.jsonl")
+    try Data(log.utf8).write(to: logURL)
+    try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: logURL.path)
+
+    let executable = repositoryRoot().appendingPathComponent(".build/debug/OPLFleetAgentProvider")
+    XCTAssertTrue(FileManager.default.isExecutableFile(atPath: executable.path))
+    let cacheURL = directory.appendingPathComponent("provider-last-known.json")
+    let environment = [
+      "OPL_FLEET_AGENT_PROVIDER_CACHE": cacheURL.path,
+      "CODEX_TPS_MACHINE_ID": "doctor-process-fixture",
+      "CODEX_TPS_MACHINE_NAME": "Doctor Process Fixture",
+      "CODEX_TPS_PLATFORM": "macOS",
+    ]
+
+    _ = try runProvider(
+      executable: executable,
+      ref: OPLFleetAgentProvider.doctorRef,
+      codexHome: codexHome,
+      environment: environment
+    )
+    try rebaseCache(cacheURL, to: Date().addingTimeInterval(-14 * 60))
+
+    _ = try runProvider(
+      executable: executable,
+      ref: OPLFleetAgentProvider.doctorRef,
+      codexHome: codexHome,
+      environment: environment
+    )
+    let refreshedAt = try cacheObservedAt(cacheURL)
+    XCTAssertLessThan(abs(refreshedAt.timeIntervalSinceNow), 5)
+
+    // Advancing the simulated clock by two minutes makes an unrefreshed t0 sample expire.
+    let failureObservedAt = refreshedAt.addingTimeInterval(-2 * 60)
+    try rebaseCache(cacheURL, to: failureObservedAt)
+    let failure = try runProvider(
+      executable: executable,
+      ref: OPLFleetAgentProvider.telemetryRef,
+      codexHome: directory.appendingPathComponent("missing-codex-home"),
+      environment: environment
+    )
+
+    let freshness = try XCTUnwrap(failure["freshness"] as? [String: Any])
+    XCTAssertEqual(freshness["state"] as? String, "stale")
+    XCTAssertEqual(freshness["last_known"] as? Bool, true)
+    XCTAssertEqual(
+      freshness["last_observed_at"] as? String,
+      failureObservedAt.formatted(
+        Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+      )
+    )
+    let payload = try XCTUnwrap(failure["payload"] as? [String: Any])
+    XCTAssertEqual(rate(payload, window: "one_minute", field: "token_rate_per_second"), 4)
+  }
+
   private func identity() throws -> AmbientOpsMachineIdentity {
     try AmbientOpsMachineIdentity(
       machineID: "fixture-node",
@@ -325,6 +393,7 @@ final class FleetAgentProviderTests: XCTestCase {
 
   private func runProvider(
     executable: URL,
+    ref: String = OPLFleetAgentProvider.telemetryRef,
     codexHome: URL,
     environment: [String: String]
   ) throws -> [String: Any] {
@@ -332,7 +401,7 @@ final class FleetAgentProviderTests: XCTestCase {
     let output = Pipe()
     let errors = Pipe()
     process.executableURL = executable
-    process.arguments = ["--ref", OPLFleetAgentProvider.telemetryRef]
+    process.arguments = ["--ref", ref]
     process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
     process.environment?["CODEX_HOME"] = codexHome.path
     process.standardOutput = output
@@ -349,6 +418,24 @@ final class FleetAgentProviderTests: XCTestCase {
     return try XCTUnwrap(
       JSONSerialization.jsonObject(with: outputData) as? [String: Any]
     )
+  }
+
+  private func cacheObservedAt(_ cacheURL: URL) throws -> Date {
+    let object = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: cacheURL)) as? [String: Any]
+    )
+    let value = try XCTUnwrap(object["last_observed_at"] as? String)
+    return try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(value)
+  }
+
+  private func rebaseCache(_ cacheURL: URL, to observedAt: Date) throws {
+    var object = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: cacheURL)) as? [String: Any]
+    )
+    object["last_observed_at"] = observedAt.formatted(
+      Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+    )
+    try JSONSerialization.data(withJSONObject: object).write(to: cacheURL, options: .atomic)
   }
 
   private func rate(

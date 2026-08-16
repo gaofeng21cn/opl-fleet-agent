@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using CodexTPS.Core;
@@ -148,6 +150,174 @@ public sealed class FleetAgentProviderTests
             Directory.Delete(directory, true);
         }
     }
+
+    [Fact]
+    public void DoctorRefreshesLastKnownBeforeIndependentProcessFailure()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            $"opl-fleet-provider-doctor-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var codexHome = Path.Combine(directory, "codex");
+            var sessions = Path.Combine(codexHome, "sessions");
+            Directory.CreateDirectory(sessions);
+            var now = DateTimeOffset.UtcNow;
+            var timestamp = now.AddSeconds(-5).ToString("O", CultureInfo.InvariantCulture);
+            var log = string.Join(
+                '\n',
+                JsonSerializer.Serialize(new
+                {
+                    timestamp,
+                    type = "session_meta",
+                    payload = new { id = "session-doctor", model_provider = "test-provider" },
+                }),
+                JsonSerializer.Serialize(new
+                {
+                    timestamp,
+                    type = "turn_context",
+                    payload = new { model = "gpt-test" },
+                }),
+                JsonSerializer.Serialize(new
+                {
+                    timestamp,
+                    type = "event_msg",
+                    payload = new
+                    {
+                        type = "token_count",
+                        info = new
+                        {
+                            total_token_usage = new
+                            {
+                                input_tokens = 200,
+                                output_tokens = 40,
+                                total_tokens = 240,
+                            },
+                            last_token_usage = new
+                            {
+                                input_tokens = 200,
+                                output_tokens = 40,
+                                total_tokens = 240,
+                            },
+                        },
+                    },
+                })
+            ) + '\n';
+            var logPath = Path.Combine(sessions, "rollout-session-doctor.jsonl");
+            File.WriteAllText(logPath, log);
+            File.SetLastWriteTimeUtc(logPath, now.UtcDateTime);
+
+            var cachePath = Path.Combine(directory, "provider-last-known.json");
+            var environment = new Dictionary<string, string>
+            {
+                ["OPL_FLEET_AGENT_PROVIDER_CACHE"] = cachePath,
+                ["CODEX_TPS_MACHINE_ID"] = "doctor-process-fixture",
+                ["CODEX_TPS_MACHINE_NAME"] = "Doctor Process Fixture",
+                ["CODEX_TPS_PLATFORM"] = "Windows",
+            };
+
+            _ = RunProvider(OplFleetAgentProvider.DoctorRef, codexHome, environment);
+            RebaseCache(cachePath, DateTimeOffset.UtcNow.AddMinutes(-14));
+
+            _ = RunProvider(OplFleetAgentProvider.DoctorRef, codexHome, environment);
+            var refreshedAt = CacheObservedAt(cachePath);
+            Assert.True((refreshedAt - DateTimeOffset.UtcNow).Duration() < TimeSpan.FromSeconds(5));
+
+            // Advancing the simulated clock by two minutes makes an unrefreshed t0 sample expire.
+            var failureObservedAt = refreshedAt.AddMinutes(-2);
+            RebaseCache(cachePath, failureObservedAt);
+            var failure = RunProvider(
+                OplFleetAgentProvider.TelemetryRef,
+                Path.Combine(directory, "missing-codex-home"),
+                environment);
+
+            var freshness = Assert.IsType<JsonObject>(failure["freshness"]);
+            Assert.Equal("stale", freshness["state"]?.GetValue<string>());
+            Assert.True(freshness["last_known"]?.GetValue<bool>() ?? false);
+            Assert.Equal(
+                Timestamp(failureObservedAt),
+                freshness["last_observed_at"]?.GetValue<string>());
+            var payload = Assert.IsType<JsonObject>(failure["payload"]);
+            var windows = Assert.IsType<JsonObject>(payload["windows"]);
+            var oneMinute = Assert.IsType<JsonObject>(windows["one_minute"]);
+            Assert.Equal(4d, oneMinute["token_rate_per_second"]?.GetValue<double>());
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    private static JsonObject RunProvider(
+        string readRef,
+        string codexHome,
+        IReadOnlyDictionary<string, string> environment)
+    {
+        var providerAssembly = Path.Combine(
+            Environment.CurrentDirectory,
+            "windows",
+            "src",
+            "CodexTPS.Provider",
+            "bin",
+            Configuration(),
+            "net8.0",
+            "OPLFleetAgentProvider.dll");
+        Assert.True(File.Exists(providerAssembly), $"Missing provider assembly: {providerAssembly}");
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        startInfo.ArgumentList.Add(providerAssembly);
+        startInfo.ArgumentList.Add("--ref");
+        startInfo.ArgumentList.Add(readRef);
+        startInfo.Environment["CODEX_HOME"] = codexHome;
+        foreach (var item in environment)
+        {
+            startInfo.Environment[item.Key] = item.Value;
+        }
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Failed to start Fleet Agent provider process.");
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        Assert.True(process.ExitCode == 0, error);
+        return Assert.IsType<JsonObject>(JsonNode.Parse(output));
+    }
+
+    private static string Configuration()
+    {
+        var segments = AppContext.BaseDirectory.Split(
+            [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+            StringSplitOptions.RemoveEmptyEntries);
+        return segments.LastOrDefault(item => item is "Debug" or "Release") ?? "Debug";
+    }
+
+    private static DateTimeOffset CacheObservedAt(string cachePath)
+    {
+        var root = Assert.IsType<JsonObject>(JsonNode.Parse(File.ReadAllText(cachePath)));
+        var value = root["last_observed_at"]?.GetValue<string>()
+            ?? throw new InvalidOperationException("Provider cache is missing last_observed_at.");
+        return DateTimeOffset.ParseExact(
+            value,
+            "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
+    }
+
+    private static void RebaseCache(string cachePath, DateTimeOffset observedAt)
+    {
+        var root = Assert.IsType<JsonObject>(JsonNode.Parse(File.ReadAllText(cachePath)));
+        root["last_observed_at"] = Timestamp(observedAt);
+        File.WriteAllText(cachePath, root.ToJsonString(OplFleetAgentProvider.SerializerOptions));
+    }
+
+    private static string Timestamp(DateTimeOffset value) =>
+        value.UtcDateTime.ToString(
+            "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
+            CultureInfo.InvariantCulture);
 
     private static AmbientOpsMachineIdentity Identity() =>
         new("fixture-node", "Fixture Node", "macOS");

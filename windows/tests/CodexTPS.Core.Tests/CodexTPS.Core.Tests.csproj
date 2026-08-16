@@ -17,5 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\CodexTPS.Core\CodexTPS.Core.csproj" />
+    <ProjectReference Include="..\..\src\CodexTPS.Provider\CodexTPS.Provider.csproj"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>

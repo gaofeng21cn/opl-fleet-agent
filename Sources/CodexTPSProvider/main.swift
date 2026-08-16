@@ -52,7 +52,7 @@ struct OPLFleetAgentProviderCommand {
       }
       data = try encoder.encode(projection)
     case OPLFleetAgentProvider.doctorRef:
-      if usage.status == .ready && lastKnown == nil {
+      if usage.status == .ready {
         let cacheProjection = OPLFleetAgentProvider.telemetry(
           usage: usage,
           identity: identity,

@@ -59,7 +59,7 @@ switch (readRef)
         projection = telemetry;
         break;
     case OplFleetAgentProvider.DoctorRef:
-        if (usage.Status == CollectionStatus.Ready && lastKnown is null)
+        if (usage.Status == CollectionStatus.Ready)
         {
             try
             {
