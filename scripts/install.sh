@@ -9,7 +9,7 @@ DEST_APP="$INSTALL_DIR/OPL Fleet Agent.app"
 "$ROOT_DIR/scripts/build-app.sh"
 
 mkdir -p "$INSTALL_DIR"
-pkill -x CodexTPS 2>/dev/null || true
+pkill -x OPLFleetAgent 2>/dev/null || true
 rm -rf "$DEST_APP"
 ditto "$SOURCE_APP" "$DEST_APP"
 codesign --verify --deep --strict "$DEST_APP"

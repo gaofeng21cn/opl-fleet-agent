@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALLER="$ROOT_DIR/scripts/install-release.sh"
-PREFERENCES_DOMAIN="io.github.gaofeng21cn.codex-tps"
+PREFERENCES_DOMAIN="io.github.gaofeng21cn.opl-fleet-agent"
 VERIFY_MODE="${OPL_FLEET_AGENT_UPDATER_VERIFY_MODE:-strict}"
 DMG_PATH="${1:-$ROOT_DIR/dist/OPL-Fleet-Agent.dmg}"
 CHECKSUM_PATH="${2:-$DMG_PATH.sha256}"
@@ -25,7 +25,7 @@ FAIL_ROLLBACK_OPEN="$TEST_ROOT/fail-rollback-open"
 OPEN_STATE="$TEST_ROOT/open-state"
 OPEN_LOG="$TEST_ROOT/open-log"
 STUB_SOURCE="$TEST_ROOT/stub.c"
-STUB_EXECUTABLE="$TEST_ROOT/CodexTPS"
+STUB_EXECUTABLE="$TEST_ROOT/OPLFleetAgent"
 ISOLATED_HOME="$TEST_ROOT/home"
 ISOLATED_CODEX_HOME="$TEST_ROOT/codex"
 OLD_PID=""
@@ -62,7 +62,7 @@ process_matches_app() {
   local command expected_executable
 
   command="$(ps -ww -p "$pid" -o command= 2>/dev/null)" || return 1
-  expected_executable="$app_path/Contents/MacOS/CodexTPS"
+  expected_executable="$app_path/Contents/MacOS/OPLFleetAgent"
   [[ "$command" == "$expected_executable" || "$command" == "$expected_executable "* ]]
 }
 
@@ -78,7 +78,7 @@ process_for_app() {
       printf '%s\n' "$pid"
       return 0
     fi
-  done < <(pgrep -x CodexTPS 2>/dev/null || true)
+  done < <(pgrep -x OPLFleetAgent 2>/dev/null || true)
   return 1
 }
 
@@ -119,7 +119,7 @@ stop_app_processes() {
     if process_matches_app "$pid" "$app_path"; then
       kill -TERM "$pid" 2>/dev/null || true
     fi
-  done < <(pgrep -x CodexTPS 2>/dev/null || true)
+  done < <(pgrep -x OPLFleetAgent 2>/dev/null || true)
 }
 
 cleanup() {
@@ -139,14 +139,14 @@ make_stub_app() {
   local marker="$2"
 
   mkdir -p "$app_path/Contents/MacOS"
-  cp "$STUB_EXECUTABLE" "$app_path/Contents/MacOS/CodexTPS"
+  cp "$STUB_EXECUTABLE" "$app_path/Contents/MacOS/OPLFleetAgent"
   printf '%s\n' "$marker" >"$app_path/Contents/test-marker"
 }
 
 start_stub_app() {
   local app_path="$1"
 
-  "$app_path/Contents/MacOS/CodexTPS" >/dev/null 2>&1 &
+  "$app_path/Contents/MacOS/OPLFleetAgent" >/dev/null 2>&1 &
   STARTED_PID="$!"
 }
 
@@ -211,7 +211,7 @@ export HOME="$OPL_FLEET_AGENT_TEST_HOME"
 export CODEX_HOME="$OPL_FLEET_AGENT_TEST_CODEX_HOME"
 nohup /usr/bin/sandbox-exec \
   -p '(version 1)(allow default)(deny network*)(deny file-write*)(deny mach-lookup (global-name "com.apple.cfprefsd.agent"))(deny mach-lookup (global-name "com.apple.cfprefsd.xpc.agent"))(deny mach-lookup (global-name "com.apple.cfprefsd.daemon"))' \
-  "$app_path/Contents/MacOS/CodexTPS" --preview-window >/dev/null 2>&1 &
+  "$app_path/Contents/MacOS/OPLFleetAgent" --preview-window >/dev/null 2>&1 &
 EOF
 chmod 755 "$DIRECT_OPEN"
 
@@ -341,7 +341,7 @@ if [[ "$count" -eq 1 ]]; then
 fi
 
 app_path="$1"
-nohup "$app_path/Contents/MacOS/CodexTPS" >/dev/null 2>&1 &
+nohup "$app_path/Contents/MacOS/OPLFleetAgent" >/dev/null 2>&1 &
 EOF
 chmod 755 "$FAKE_OPEN"
 

@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPOSITORY="gaofeng21cn/opl-fleet-agent"
 EXPECTED_TEAM_ID="SVVC4TA784"
-EXPECTED_BUNDLE_ID="io.github.gaofeng21cn.codex-tps"
+EXPECTED_BUNDLE_ID="io.github.gaofeng21cn.opl-fleet-agent"
 INSTALL_DIR="${OPL_FLEET_AGENT_INSTALL_DIR:-/Applications}"
 RUNNING_PID="${OPL_FLEET_AGENT_RUNNING_PID:-}"
 RUNNING_APP="${OPL_FLEET_AGENT_RUNNING_APP:-}"
@@ -121,7 +121,7 @@ process_matches_app() {
   local command expected_executable
 
   command="$(ps -ww -p "$pid" -o command= 2>/dev/null)" || return 1
-  expected_executable="$app_path/Contents/MacOS/CodexTPS"
+  expected_executable="$app_path/Contents/MacOS/OPLFleetAgent"
   [[ "$command" == "$expected_executable" || "$command" == "$expected_executable "* ]]
 }
 
@@ -177,7 +177,7 @@ stop_processes_for_app() {
     if process_matches_app "$pid" "$app_path"; then
       stop_process "$pid" "$app_path" || result=1
     fi
-  done < <(pgrep -x CodexTPS 2>/dev/null || true)
+  done < <(pgrep -x OPLFleetAgent 2>/dev/null || true)
 
   return "$result"
 }
@@ -231,7 +231,7 @@ running_process_for_app() {
       printf '%s\n' "$pid"
       return 0
     fi
-  done < <(pgrep -x CodexTPS 2>/dev/null || true)
+  done < <(pgrep -x OPLFleetAgent 2>/dev/null || true)
   return 1
 }
 

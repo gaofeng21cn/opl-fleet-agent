@@ -18,10 +18,10 @@ jobs:
     environment: release
     env:
       APPLE_TEAM_ID: SVVC4TA784
-      CODEX_TPS_SIGNING_IDENTITY: "Developer ID Application: FENG GAO (SVVC4TA784)"
-      CODEX_TPS_EXPECTED_TEAM_ID: SVVC4TA784
-      CODEX_TPS_REQUIRE_DEVELOPER_ID: "1"
-      CODEX_TPS_NOTARY_PROFILE: codex-tps-release
+      OPL_FLEET_AGENT_SIGNING_IDENTITY: "Developer ID Application: FENG GAO (SVVC4TA784)"
+      OPL_FLEET_AGENT_EXPECTED_TEAM_ID: SVVC4TA784
+      OPL_FLEET_AGENT_REQUIRE_DEVELOPER_ID: "1"
+      OPL_FLEET_AGENT_NOTARY_PROFILE: opl-fleet-agent-release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Toolchain
@@ -59,7 +59,7 @@ jobs:
           : "${APPLE_NOTARY_APPLE_ID:?Missing notarization Apple ID}"
           : "${APPLE_NOTARY_PASSWORD:?Missing notarization app-specific password}"
 
-          keychain="$RUNNER_TEMP/codex-tps-release.keychain-db"
+          keychain="$RUNNER_TEMP/opl-fleet-agent-release.keychain-db"
           keychain_password="$(openssl rand -hex 24)"
           p12_path="$RUNNER_TEMP/DeveloperIDApplication.p12"
           printf '%s' "$APPLE_DEVELOPER_ID_P12_BASE64" | base64 --decode >"$p12_path"
@@ -73,25 +73,25 @@ jobs:
           security list-keychains -d user -s "$keychain"
           security default-keychain -d user -s "$keychain"
 
-          xcrun notarytool store-credentials "$CODEX_TPS_NOTARY_PROFILE" \
+          xcrun notarytool store-credentials "$OPL_FLEET_AGENT_NOTARY_PROFILE" \
             --apple-id "$APPLE_NOTARY_APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_NOTARY_PASSWORD" \
             --keychain "$keychain"
 
-          security find-identity -v -p codesigning "$keychain" | grep -F "$CODEX_TPS_SIGNING_IDENTITY"
-          echo "CODEX_TPS_NOTARY_KEYCHAIN=$keychain" >>"$GITHUB_ENV"
+          security find-identity -v -p codesigning "$keychain" | grep -F "$OPL_FLEET_AGENT_SIGNING_IDENTITY"
+          echo "OPL_FLEET_AGENT_NOTARY_KEYCHAIN=$keychain" >>"$GITHUB_ENV"
 
       - name: Build signed universal app
-        run: CODEX_TPS_ARCHS="arm64 x86_64" ./scripts/build-app.sh
+        run: OPL_FLEET_AGENT_ARCHS="arm64 x86_64" ./scripts/build-app.sh
 
       - name: Notarize app and DMG, staple both, and verify release bytes
         env:
-          CODEX_TPS_EXPECTED_VERSION: ${{ github.ref_name }}
+          OPL_FLEET_AGENT_EXPECTED_VERSION: ${{ github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
-          export CODEX_TPS_EXPECTED_VERSION="${CODEX_TPS_EXPECTED_VERSION#v}"
+          export OPL_FLEET_AGENT_EXPECTED_VERSION="${OPL_FLEET_AGENT_EXPECTED_VERSION#v}"
           ./scripts/notarize-dmg.sh
           ./scripts/verify-release.sh
 
@@ -109,8 +109,8 @@ jobs:
         if: ${{ always() }}
         shell: bash
         run: |
-          if [[ -n "${CODEX_TPS_NOTARY_KEYCHAIN:-}" ]]; then
-            security delete-keychain "$CODEX_TPS_NOTARY_KEYCHAIN" || true
+          if [[ -n "${OPL_FLEET_AGENT_NOTARY_KEYCHAIN:-}" ]]; then
+            security delete-keychain "$OPL_FLEET_AGENT_NOTARY_KEYCHAIN" || true
           fi
 
   windows:
@@ -128,7 +128,7 @@ jobs:
       - name: Check tag and toolchain
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
-          [xml]$project = Get-Content "windows/src/CodexTPS.Windows/CodexTPS.Windows.csproj"
+          [xml]$project = Get-Content "windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj"
           if ($project.Project.PropertyGroup.Version -ne $version) {
             throw "Tag version $version does not match Windows project version."
           }
@@ -170,9 +170,6 @@ jobs:
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
           if (-not $executable.VersionInfo.ProductVersion.StartsWith($version)) {
             throw "Expected installed version $version, got $($executable.VersionInfo.ProductVersion)."
-          }
-          if (Test-Path (Join-Path $install "CodexTPS.exe")) {
-            throw "Fresh release install must not contain CodexTPS.exe."
           }
           Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
@@ -225,7 +222,7 @@ jobs:
           cat >release-notes.md <<'EOF'
           ## Distribution
 
-          Version 0.2.39 retires the Codex TPS distribution compatibility layer. macOS now ships only `OPL-Fleet-Agent.dmg`; Windows ships only `OPL-Fleet-Agent-Windows-*` assets. The installers and in-app updaters no longer consume or migrate retired install names, and Homebrew is no longer an installation route.
+          Version 0.2.40 completes the OPL Fleet Agent identity cutover across the app bundle, executables, modules, provider identifiers, preferences, Keychain, environment variables, and local discovery protocol. macOS ships only `OPL-Fleet-Agent.dmg`; Windows ships only `OPL-Fleet-Agent-Windows-*` assets, and Homebrew is not an installation route.
 
           ## Agent
 

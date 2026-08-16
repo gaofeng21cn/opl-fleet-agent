@@ -7,9 +7,9 @@ APP_NAME="OPL Fleet Agent.app"
 DMG_NAME="${OPL_FLEET_AGENT_DMG_NAME:-OPL-Fleet-Agent.dmg}"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 CHECKSUM_PATH="$DMG_PATH.sha256"
-SIGNING_IDENTITY="${CODEX_TPS_SIGNING_IDENTITY:--}"
-SKIP_APP_BUILD="${CODEX_TPS_SKIP_APP_BUILD:-0}"
-STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-tps-dmg.XXXXXX")"
+SIGNING_IDENTITY="${OPL_FLEET_AGENT_SIGNING_IDENTITY:--}"
+SKIP_APP_BUILD="${OPL_FLEET_AGENT_SKIP_APP_BUILD:-0}"
+STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/opl-fleet-agent-dmg.XXXXXX")"
 
 cleanup() {
   rm -rf "$STAGING_DIR"
@@ -22,7 +22,7 @@ if [[ "$SKIP_APP_BUILD" == "1" ]]; then
     exit 1
   fi
 else
-  CODEX_TPS_ARCHS="${CODEX_TPS_ARCHS:-arm64 x86_64}" \
+  OPL_FLEET_AGENT_ARCHS="${OPL_FLEET_AGENT_ARCHS:-arm64 x86_64}" \
     "$ROOT_DIR/scripts/build-app.sh"
 fi
 

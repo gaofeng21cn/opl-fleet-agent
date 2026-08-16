@@ -4,17 +4,17 @@ set -euo pipefail
 ROOT_DIR="${0:A:h:h}"
 DMG_PATH="${1:-$ROOT_DIR/dist/OPL-Fleet-Agent.dmg}"
 CHECKSUM_PATH="${2:-$DMG_PATH.sha256}"
-APP_PATH="${CODEX_TPS_APP_PATH:-$ROOT_DIR/dist/OPL Fleet Agent.app}"
-BUILD_DMG_SCRIPT="${CODEX_TPS_BUILD_DMG_SCRIPT:-$ROOT_DIR/scripts/build-dmg.sh}"
-NOTARY_PROFILE="${CODEX_TPS_NOTARY_PROFILE:-}"
-NOTARY_KEYCHAIN="${CODEX_TPS_NOTARY_KEYCHAIN:-}"
+APP_PATH="${OPL_FLEET_AGENT_APP_PATH:-$ROOT_DIR/dist/OPL Fleet Agent.app}"
+BUILD_DMG_SCRIPT="${OPL_FLEET_AGENT_BUILD_DMG_SCRIPT:-$ROOT_DIR/scripts/build-dmg.sh}"
+NOTARY_PROFILE="${OPL_FLEET_AGENT_NOTARY_PROFILE:-}"
+NOTARY_KEYCHAIN="${OPL_FLEET_AGENT_NOTARY_KEYCHAIN:-}"
 
 if [[ ! -d "$APP_PATH" ]]; then
   echo "Signed app not found: $APP_PATH" >&2
   exit 1
 fi
 if [[ -z "$NOTARY_PROFILE" ]]; then
-  echo "CODEX_TPS_NOTARY_PROFILE is required." >&2
+  echo "OPL_FLEET_AGENT_NOTARY_PROFILE is required." >&2
   exit 1
 fi
 if [[ "${DMG_PATH:h}" != "$ROOT_DIR/dist" ]]; then
@@ -26,7 +26,7 @@ if [[ ! -x "$BUILD_DMG_SCRIPT" ]]; then
   exit 1
 fi
 
-TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/codex-tps-notary.XXXXXX")"
+TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/opl-fleet-agent-notary.XXXXXX")"
 APP_ZIP="$TEMP_ROOT/OPL-Fleet-Agent-app.zip"
 cleanup() {
   rm -rf "${TEMP_ROOT:?}"
@@ -81,7 +81,7 @@ APP_SUBMISSION_ID="$(submit_and_wait "$APP_ZIP" app)"
 xcrun stapler staple "$APP_PATH"
 xcrun stapler validate "$APP_PATH"
 
-CODEX_TPS_SKIP_APP_BUILD=1 \
+OPL_FLEET_AGENT_SKIP_APP_BUILD=1 \
 OPL_FLEET_AGENT_DMG_NAME="${DMG_PATH:t}" \
   "$BUILD_DMG_SCRIPT"
 

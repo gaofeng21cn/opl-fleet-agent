@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyName>OPLFleetAgent</AssemblyName>
+    <RootNamespace>OPLFleetAgent.WindowsApp</RootNamespace>
+    <Product>OPL Fleet Agent</Product>
+    <AssemblyTitle>OPL Fleet Agent</AssemblyTitle>
+    <Description>Private local telemetry agent for OPL Fleet Cockpit.</Description>
+    <Version>0.2.40</Version>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OPLFleetAgent.Core\OPLFleetAgent.Core.csproj" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <PackageReference Include="Zeroconf" Version="3.7.16" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\Resources\AppIcon.png"
+                      LogicalName="OPLFleetAgent.AppIcon.png" />
+  </ItemGroup>
+</Project>

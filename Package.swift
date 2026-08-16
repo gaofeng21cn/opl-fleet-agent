@@ -3,42 +3,42 @@
 import PackageDescription
 
 let package = Package(
-  name: "CodexTPS",
+  name: "OPLFleetAgent",
   platforms: [
     .macOS(.v13)
   ],
   products: [
-    .library(name: "CodexTPSCore", targets: ["CodexTPSCore"]),
-    .executable(name: "CodexTPS", targets: ["CodexTPS"]),
-    .executable(name: "codex-tps-snapshot", targets: ["CodexTPSSnapshot"]),
-    .executable(name: "codex-tps-agent", targets: ["CodexTPSAgent"]),
-    .executable(name: "OPLFleetAgentProvider", targets: ["CodexTPSProvider"]),
+    .library(name: "OPLFleetAgentCore", targets: ["OPLFleetAgentCore"]),
+    .executable(name: "OPLFleetAgent", targets: ["OPLFleetAgent"]),
+    .executable(name: "opl-fleet-agent-snapshot", targets: ["OPLFleetAgentSnapshot"]),
+    .executable(name: "opl-fleet-agent-headless", targets: ["OPLFleetAgentHeadless"]),
+    .executable(name: "OPLFleetAgentProvider", targets: ["OPLFleetAgentProvider"]),
   ],
   targets: [
-    .target(name: "CodexTPSCore"),
+    .target(name: "OPLFleetAgentCore"),
     .executableTarget(
-      name: "CodexTPS",
-      dependencies: ["CodexTPSCore"]
+      name: "OPLFleetAgent",
+      dependencies: ["OPLFleetAgentCore"]
     ),
     .executableTarget(
-      name: "CodexTPSSnapshot",
-      dependencies: ["CodexTPSCore"]
+      name: "OPLFleetAgentSnapshot",
+      dependencies: ["OPLFleetAgentCore"]
     ),
     .executableTarget(
-      name: "CodexTPSAgent",
-      dependencies: ["CodexTPSCore"]
+      name: "OPLFleetAgentHeadless",
+      dependencies: ["OPLFleetAgentCore"]
     ),
     .executableTarget(
-      name: "CodexTPSProvider",
-      dependencies: ["CodexTPSCore"]
+      name: "OPLFleetAgentProvider",
+      dependencies: ["OPLFleetAgentCore"]
     ),
     .testTarget(
-      name: "CodexTPSCoreTests",
-      dependencies: ["CodexTPSCore"]
+      name: "OPLFleetAgentCoreTests",
+      dependencies: ["OPLFleetAgentCore"]
     ),
     .testTarget(
-      name: "CodexTPSAppTests",
-      dependencies: ["CodexTPS", "CodexTPSCore"]
+      name: "OPLFleetAgentAppTests",
+      dependencies: ["OPLFleetAgent", "OPLFleetAgentCore"]
     ),
   ]
 )

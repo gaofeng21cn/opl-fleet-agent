@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-black.svg" alt="macOS 13 or later">
 </p>
 
-![OPL Fleet Agent panel](docs/assets/codex-tps-panel.png)
+![OPL Fleet Agent panel](docs/assets/opl-fleet-agent-panel.png)
 
 <table>
   <tr>
@@ -139,7 +139,7 @@ state from multiple computers with trusted-LAN network telemetry for browser and
 Android ambient displays.
 
 On macOS, OPL Fleet Agent publishes the established protocol service name
-`_codex-tps._tcp.local` and a read-only local status endpoint so OPL Fleet Cockpit can
+`_opl-fleet-agent._tcp.local` and a read-only local status endpoint so OPL Fleet Cockpit can
 display this Mac without enabling Gateway pushes. The Direct provider exposes only
 aggregate TPS, active sessions, host CPU and network throughput, and the selected pet
 asset. Windows does not publish the Direct provider yet.
@@ -215,7 +215,7 @@ Verify that the selected root contains `sessions` before setting `CODEX_HOME`. D
 silently guess, merge, or switch between multiple roots.
 
 ```bash
-CODEX_HOME=/path/to/codex-home swift run codex-tps-snapshot --json
+CODEX_HOME=/path/to/codex-home swift run opl-fleet-agent-snapshot --json
 ```
 
 Native Windows and WSL UNC roots are separate sources and require an explicit user
@@ -227,35 +227,35 @@ For desktop apps, prefer automatic discovery and the visible one-time approval f
 An agent may open settings, trigger rediscovery, and guide the user through code
 verification. It must not approve an unknown device or extract the private key.
 
-The headless agent also discovers OPL Fleet Gateway when `CODEX_TPS_AMBIENT_URL` is absent.
-Set `CODEX_TPS_AMBIENT_INSTANCE_ID` to prefer one advertised instance. An explicit
+The headless agent also discovers OPL Fleet Gateway when `OPL_FLEET_AGENT_AMBIENT_URL` is absent.
+Set `OPL_FLEET_AGENT_AMBIENT_INSTANCE_ID` to prefer one advertised instance. An explicit
 URL always overrides discovery.
 
 Legacy or headless bearer-token path:
 
 ```bash
-CODEX_TPS_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
-CODEX_TPS_AMBIENT_TOKEN='<agent-token>' \
-CODEX_TPS_MACHINE_ID=primary-mac \
-CODEX_TPS_MACHINE_NAME='Primary Mac' \
-swift run codex-tps-agent --once
+OPL_FLEET_AGENT_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
+OPL_FLEET_AGENT_AMBIENT_TOKEN='<agent-token>' \
+OPL_FLEET_AGENT_MACHINE_ID=primary-mac \
+OPL_FLEET_AGENT_MACHINE_NAME='Primary Mac' \
+swift run opl-fleet-agent-headless --once
 ```
 
 Do not put a real token in a task prompt, repository, log, or persistent shell history.
-On macOS, `CODEX_TPS_AMBIENT_TOKEN_KEYCHAIN_SERVICE` and optional
-`CODEX_TPS_KEYCHAIN_ACCOUNT` can read a generic-password Keychain item.
+On macOS, `OPL_FLEET_AGENT_AMBIENT_TOKEN_KEYCHAIN_SERVICE` and optional
+`OPL_FLEET_AGENT_KEYCHAIN_ACCOUNT` can read a generic-password Keychain item.
 
 ### Agent acceptance
 
 ```bash
 swift test
-swift run codex-tps-snapshot --json
+swift run opl-fleet-agent-snapshot --json
 ```
 
 Windows core tests:
 
 ```powershell
-dotnet test windows/tests/CodexTPS.Core.Tests -c Release
+dotnet test windows/tests/OPLFleetAgent.Core.Tests -c Release
 ```
 
 An installation is complete only after reading back:
@@ -286,7 +286,7 @@ Tests, a local build, or discovery of a release are not installed-runtime accept
 ```bash
 xcrun swift-format lint --recursive Sources Tests Package.swift
 swift test
-swift run codex-tps-snapshot --json
+swift run opl-fleet-agent-snapshot --json
 ./scripts/build-app.sh
 ./scripts/build-dmg.sh
 ```

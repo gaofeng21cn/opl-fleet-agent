@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-black.svg" alt="macOS 13 或更高版本">
 </p>
 
-![OPL Fleet Agent 面板](docs/assets/codex-tps-panel.png)
+![OPL Fleet Agent 面板](docs/assets/opl-fleet-agent-panel.png)
 
 <table>
   <tr>
@@ -133,7 +133,7 @@ WSL UNC 路径，例如 `\\wsl.localhost\Ubuntu\home\<user>\.codex`。
 [OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit) 用于把多台电脑上的 Codex
 汇总指标和局域网网络状态集中显示在浏览器或 Android 常驻屏上。
 
-macOS 版 OPL Fleet Agent 会发布既有协议服务名 `_codex-tps._tcp.local` 和只读本机状态端点，
+macOS 版 OPL Fleet Agent 会发布既有协议服务名 `_opl-fleet-agent._tcp.local` 和只读本机状态端点，
 使 OPL Fleet Cockpit 无需启用 Gateway 推送即可显示这台 Mac。Direct 只提供汇总 TPS、
 活跃会话数、主机 CPU、网络吞吐以及所选 Pet 资源；Windows 本版尚未发布 Direct 服务。
 
@@ -200,7 +200,7 @@ Windows 应优先使用最新发布版本中的标准安装器，并在打开前
 猜测或合并，也不要改动 Codex 自身的执行环境。
 
 ```bash
-CODEX_HOME=/path/to/codex-home swift run codex-tps-snapshot --json
+CODEX_HOME=/path/to/codex-home swift run opl-fleet-agent-snapshot --json
 ```
 
 Windows 原生目录与 WSL UNC 目录是不同的数据来源，必须由用户明确选择。
@@ -211,34 +211,34 @@ Windows 原生目录与 WSL UNC 目录是不同的数据来源，必须由用户
 触发重新发现并引导用户核对配对码，但不得代替用户批准未知设备，也不得读取或
 导出设备私钥。
 
-无界面 Agent 在未设置 `CODEX_TPS_AMBIENT_URL` 时同样可以自动发现服务。需要固定
-实例时设置 `CODEX_TPS_AMBIENT_INSTANCE_ID`；显式地址始终覆盖自动发现。
+无界面 Agent 在未设置 `OPL_FLEET_AGENT_AMBIENT_URL` 时同样可以自动发现服务。需要固定
+实例时设置 `OPL_FLEET_AGENT_AMBIENT_INSTANCE_ID`；显式地址始终覆盖自动发现。
 
 旧版或无界面共享令牌路径：
 
 ```bash
-CODEX_TPS_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
-CODEX_TPS_AMBIENT_TOKEN='<agent-token>' \
-CODEX_TPS_MACHINE_ID=primary-mac \
-CODEX_TPS_MACHINE_NAME='Primary Mac' \
-swift run codex-tps-agent --once
+OPL_FLEET_AGENT_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
+OPL_FLEET_AGENT_AMBIENT_TOKEN='<agent-token>' \
+OPL_FLEET_AGENT_MACHINE_ID=primary-mac \
+OPL_FLEET_AGENT_MACHINE_NAME='Primary Mac' \
+swift run opl-fleet-agent-headless --once
 ```
 
 不要把真实令牌写进任务描述、仓库、日志或长期 shell 历史。macOS 可通过
-`CODEX_TPS_AMBIENT_TOKEN_KEYCHAIN_SERVICE` 和可选的
-`CODEX_TPS_KEYCHAIN_ACCOUNT` 从通用密码 Keychain 项读取令牌。
+`OPL_FLEET_AGENT_AMBIENT_TOKEN_KEYCHAIN_SERVICE` 和可选的
+`OPL_FLEET_AGENT_KEYCHAIN_ACCOUNT` 从通用密码 Keychain 项读取令牌。
 
 ### Agent 验收
 
 ```bash
 swift test
-swift run codex-tps-snapshot --json
+swift run opl-fleet-agent-snapshot --json
 ```
 
 Windows 核心测试：
 
 ```powershell
-dotnet test windows/tests/CodexTPS.Core.Tests -c Release
+dotnet test windows/tests/OPLFleetAgent.Core.Tests -c Release
 ```
 
 完成安装时还应回读：
@@ -269,7 +269,7 @@ dotnet test windows/tests/CodexTPS.Core.Tests -c Release
 ```bash
 xcrun swift-format lint --recursive Sources Tests Package.swift
 swift test
-swift run codex-tps-snapshot --json
+swift run opl-fleet-agent-snapshot --json
 ./scripts/build-app.sh
 ./scripts/build-dmg.sh
 ```

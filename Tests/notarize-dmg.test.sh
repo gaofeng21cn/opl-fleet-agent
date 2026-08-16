@@ -44,7 +44,7 @@ EOF
 cat >"$TEST_ROOT/build-dmg" <<'EOF'
 #!/bin/zsh
 set -euo pipefail
-print -r -- "build-dmg skip=${CODEX_TPS_SKIP_APP_BUILD:-} name=${OPL_FLEET_AGENT_DMG_NAME:-}" >>"$NOTARY_TEST_LOG"
+print -r -- "build-dmg skip=${OPL_FLEET_AGENT_SKIP_APP_BUILD:-} name=${OPL_FLEET_AGENT_DMG_NAME:-}" >>"$NOTARY_TEST_LOG"
 touch "$NOTARY_TEST_DMG"
 EOF
 
@@ -52,8 +52,8 @@ chmod +x "$SANDBOX/scripts/notarize-dmg.sh" "$FAKE_BIN/xcrun" "$FAKE_BIN/ditto" 
 
 NOTARY_TEST_LOG="$CALL_LOG" \
 NOTARY_TEST_DMG="$SANDBOX/dist/OPL-Fleet-Agent.dmg" \
-CODEX_TPS_NOTARY_PROFILE="test-profile" \
-CODEX_TPS_BUILD_DMG_SCRIPT="$TEST_ROOT/build-dmg" \
+OPL_FLEET_AGENT_NOTARY_PROFILE="test-profile" \
+OPL_FLEET_AGENT_BUILD_DMG_SCRIPT="$TEST_ROOT/build-dmg" \
 TMPDIR="$TEST_ROOT" \
 PATH="$FAKE_BIN:$PATH" \
   "$SANDBOX/scripts/notarize-dmg.sh" >/dev/null
@@ -88,6 +88,6 @@ fi
 [[ -s "$SANDBOX/dist/OPL-Fleet-Agent.dmg.sha256" ]]
 echo "Verified OPL Fleet Agent app-first notarization and dual stapling sequence."
 
-grep -Fq 'CODEX_TPS_ARCHS="arm64 x86_64" ./scripts/build-app.sh' \
+grep -Fq 'OPL_FLEET_AGENT_ARCHS="arm64 x86_64" ./scripts/build-app.sh' \
   "$ROOT_DIR/.github/workflows/release.yml"
 echo "Verified the release workflow requests a universal macOS binary."

@@ -34,8 +34,11 @@ try {
     if (-not (Test-Path $executable)) {
         throw "OPLFleetAgent.exe is missing from the archive."
     }
-    if (Test-Path (Join-Path $stage "CodexTPS.exe")) {
-        throw "The archive must not include CodexTPS.exe."
+    $allowedExecutables = @("OPLFleetAgent.exe", "OPLFleetAgentProvider.exe")
+    $unexpectedExecutables = Get-ChildItem $stage -File -Filter "*.exe" |
+        Where-Object { $_.Name -notin $allowedExecutables }
+    if ($unexpectedExecutables) {
+        throw "The archive contains an unexpected executable: $($unexpectedExecutables.Name -join ', ')."
     }
 
     $installParent = Split-Path -Parent $InstallDirectory
