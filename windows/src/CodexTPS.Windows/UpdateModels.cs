@@ -90,11 +90,7 @@ internal readonly record struct SemanticVersion(int Major, int Minor, int Patch)
 
 internal static class GitHubReleaseParser
 {
-    private static readonly string[] AllowedRepositories =
-    [
-        "opl-fleet-agent",
-        "codex-tps",
-    ];
+    private const string AllowedRepository = "opl-fleet-agent";
 
     public static AppRelease Parse(string json)
     {
@@ -109,10 +105,8 @@ internal static class GitHubReleaseParser
             throw new InvalidDataException("GitHub 返回了无效的版本信息。");
         }
 
-        Uri? canonicalInstallerUri = null;
-        Uri? legacyInstallerUri = null;
-        Uri? canonicalChecksumUri = null;
-        Uri? legacyChecksumUri = null;
+        Uri? installerUri = null;
+        Uri? checksumUri = null;
         foreach (var asset in assets.EnumerateArray())
         {
             if (!asset.TryGetProperty("name", out var nameElement) ||
@@ -127,33 +121,15 @@ internal static class GitHubReleaseParser
             if (name == WindowsProductIdentity.InstallerAssetName &&
                 IsAllowedAsset(uri, tagName, name))
             {
-                canonicalInstallerUri = uri;
-            }
-            else if (name == WindowsProductIdentity.LegacyInstallerAssetName &&
-                IsAllowedAsset(uri, tagName, name))
-            {
-                legacyInstallerUri = uri;
+                installerUri = uri;
             }
             else if (name == WindowsProductIdentity.InstallerAssetName + ".sha256" &&
                 IsAllowedAsset(uri, tagName, name))
             {
-                canonicalChecksumUri = uri;
-            }
-            else if (name == WindowsProductIdentity.LegacyInstallerAssetName + ".sha256" &&
-                IsAllowedAsset(uri, tagName, name))
-            {
-                legacyChecksumUri = uri;
+                checksumUri = uri;
             }
         }
 
-        var installerUri = canonicalInstallerUri is not null && canonicalChecksumUri is not null
-            ? canonicalInstallerUri
-            : legacyInstallerUri;
-        var checksumUri = canonicalInstallerUri is not null && canonicalChecksumUri is not null
-            ? canonicalChecksumUri
-            : legacyInstallerUri is not null && legacyChecksumUri is not null
-                ? legacyChecksumUri
-                : null;
         if (installerUri is null || checksumUri is null)
         {
             throw new InvalidDataException("最新版缺少 Windows 安装包或校验文件。");
@@ -170,10 +146,10 @@ internal static class GitHubReleaseParser
             return false;
         }
 
-        return AllowedRepositories.Any(repository => string.Equals(
+        return string.Equals(
             uri.AbsolutePath,
-            $"/gaofeng21cn/{repository}/releases/download/{tagName}/{fileName}",
-            StringComparison.Ordinal));
+            $"/gaofeng21cn/{AllowedRepository}/releases/download/{tagName}/{fileName}",
+            StringComparison.Ordinal);
     }
 }
 

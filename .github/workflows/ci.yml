@@ -34,14 +34,14 @@ jobs:
         run: ./scripts/build-dmg.sh
       - name: Verify updater transaction
         env:
-          CODEX_TPS_UPDATER_VERIFY_MODE: adhoc
+          OPL_FLEET_AGENT_UPDATER_VERIFY_MODE: adhoc
         run: ./scripts/verify-updater.sh
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: codex-tps-dmg
+          name: opl-fleet-agent-dmg
           path: |
-            dist/Codex-TPS.dmg
-            dist/Codex-TPS.dmg.sha256
+            dist/OPL-Fleet-Agent.dmg
+            dist/OPL-Fleet-Agent.dmg.sha256
 
   windows:
     runs-on: windows-latest
@@ -65,15 +65,15 @@ jobs:
           }
           Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
       - name: Test and build Windows packages
-        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.38
+        run: ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.39
       - name: Verify portable package
         run: |
           $archive = "./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip"
           $install = Join-Path $env:RUNNER_TEMP "OPL Fleet Agent portable"
           ./windows/scripts/install.ps1 -ArchivePath $archive -InstallDirectory $install -NoLaunch
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.38")) {
-            throw "Expected Windows product version 0.2.38, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.39")) {
+            throw "Expected Windows product version 0.2.39, got $($executable.VersionInfo.ProductVersion)."
           }
           if (Test-Path (Join-Path $install "CodexTPS.exe")) {
             throw "Portable install must not contain CodexTPS.exe."
@@ -99,8 +99,8 @@ jobs:
           if ($result.ExitCode -ne 0) { throw "Installer exited with $($result.ExitCode)." }
 
           $executable = Get-Item (Join-Path $install "OPLFleetAgent.exe")
-          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.38")) {
-            throw "Expected installed version 0.2.38, got $($executable.VersionInfo.ProductVersion)."
+          if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.39")) {
+            throw "Expected installed version 0.2.39, got $($executable.VersionInfo.ProductVersion)."
           }
           if (Test-Path (Join-Path $install "CodexTPS.exe")) {
             throw "Fresh installer must not contain CodexTPS.exe."
@@ -117,16 +117,12 @@ jobs:
           Write-Output "Verified installer, version, checksum, and uninstall."
       - name: Verify Windows in-app updater handoff
         if: github.ref == 'refs/heads/main'
-        run: ./windows/scripts/verify-updater.ps1 -Version 0.2.38
+        run: ./windows/scripts/verify-updater.ps1 -Version 0.2.39
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: codex-tps-windows-win-x64
+          name: opl-fleet-agent-windows-win-x64
           path: |
             windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
             windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
             windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
             windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
-            windows/dist/Codex-TPS-Windows-win-x64.zip
-            windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
-            windows/dist/Codex-TPS-Windows-win-x64-Setup.exe
-            windows/dist/Codex-TPS-Windows-win-x64-Setup.exe.sha256

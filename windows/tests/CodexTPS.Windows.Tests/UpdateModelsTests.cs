@@ -51,33 +51,25 @@ public sealed class UpdateModelsTests
     }
 
     [Fact]
-    public void AcceptsLegacyWindowsAssetNamesDuringMigration()
+    public void RejectsRetiredWindowsAssetNames()
     {
         var json = ReleaseJson("v0.2.20").Replace(
             "OPL-Fleet-Agent-Windows-win-x64-Setup.exe",
             "Codex-TPS-Windows-win-x64-Setup.exe",
             StringComparison.Ordinal);
 
-        var release = GitHubReleaseParser.Parse(json);
-
-        Assert.EndsWith(
-            "/v0.2.20/Codex-TPS-Windows-win-x64-Setup.exe",
-            release.InstallerUri.AbsoluteUri,
-            StringComparison.Ordinal);
+        Assert.Throws<InvalidDataException>(() => GitHubReleaseParser.Parse(json));
     }
 
     [Fact]
-    public void AcceptsLegacyBridgeRepositoryAssets()
+    public void RejectsRetiredRepositoryAssets()
     {
         var json = ReleaseJson("v0.2.28").Replace(
             "https://github.com/gaofeng21cn/opl-fleet-agent/",
             "https://github.com/gaofeng21cn/codex-tps/",
             StringComparison.Ordinal);
 
-        var release = GitHubReleaseParser.Parse(json);
-
-        Assert.Equal("v0.2.28", release.TagName);
-        Assert.Equal("codex-tps", release.InstallerUri.Segments[2].TrimEnd('/'));
+        Assert.Throws<InvalidDataException>(() => GitHubReleaseParser.Parse(json));
     }
 
     [Fact]

@@ -3,7 +3,7 @@ param(
     [string]$Runtime = "win-x64",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$Version = "0.2.38",
+    [string]$Version = "0.2.39",
     [switch]$SkipTests
 )
 
@@ -19,8 +19,6 @@ $distRoot = Join-Path $windowsRoot "dist"
 $publishRoot = Join-Path $distRoot $Runtime
 $archive = Join-Path $distRoot "OPL-Fleet-Agent-Windows-$Runtime.zip"
 $checksum = "$archive.sha256"
-$legacyArchive = Join-Path $distRoot "Codex-TPS-Windows-$Runtime.zip"
-$legacyChecksum = "$legacyArchive.sha256"
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "Version must use MAJOR.MINOR.PATCH format."
@@ -92,18 +90,10 @@ Copy-Item (Join-Path $windowsRoot "THIRD-PARTY-NOTICES.md") $publishRoot
 Copy-Item (Join-Path $windowsRoot "src/CodexTPS.Windows/app.ico") $publishRoot
 if (Test-Path $archive) { Remove-Item -Force $archive }
 if (Test-Path $checksum) { Remove-Item -Force $checksum }
-if (Test-Path $legacyArchive) { Remove-Item -Force $legacyArchive }
-if (Test-Path $legacyChecksum) { Remove-Item -Force $legacyChecksum }
 Compress-Archive -Path (Join-Path $publishRoot "*") -DestinationPath $archive -CompressionLevel Optimal
 
 $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
 $line = "$hash  $(Split-Path -Leaf $archive)"
 [System.IO.File]::WriteAllText($checksum, "$line`n", [System.Text.Encoding]::ASCII)
-Copy-Item $archive $legacyArchive
-$legacyHash = (Get-FileHash -Algorithm SHA256 $legacyArchive).Hash.ToLowerInvariant()
-$legacyLine = "$legacyHash  $(Split-Path -Leaf $legacyArchive)"
-[System.IO.File]::WriteAllText($legacyChecksum, "$legacyLine`n", [System.Text.Encoding]::ASCII)
 Write-Output $archive
 Write-Output $line
-Write-Output $legacyArchive
-Write-Output $legacyLine

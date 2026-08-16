@@ -33,10 +33,7 @@ final class UpdateManager: ObservableObject {
     string: "https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest")!
   private static let releaseDownloadURL = URL(
     string: "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download")!
-  private static let allowedReleasePagePrefixes = [
-    "/gaofeng21cn/opl-fleet-agent/releases/tag/",
-    "/gaofeng21cn/codex-tps/releases/tag/",
-  ]
+  private static let allowedReleasePagePrefix = "/gaofeng21cn/opl-fleet-agent/releases/tag/"
 
   init(bundle: Bundle = .main, session: URLSession = .shared) {
     let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
@@ -123,8 +120,8 @@ final class UpdateManager: ObservableObject {
     }
 
     let versionDownloadURL = Self.releaseDownloadURL.appendingPathComponent(tagName)
-    let dmgURL = versionDownloadURL.appendingPathComponent("Codex-TPS.dmg")
-    let checksumURL = versionDownloadURL.appendingPathComponent("Codex-TPS.dmg.sha256")
+    let dmgURL = versionDownloadURL.appendingPathComponent("OPL-Fleet-Agent.dmg")
+    let checksumURL = versionDownloadURL.appendingPathComponent("OPL-Fleet-Agent.dmg.sha256")
 
     return AppRelease(
       tagName: tagName,
@@ -147,7 +144,7 @@ final class UpdateManager: ObservableObject {
   private func headResponse(for url: URL) async throws -> HTTPURLResponse {
     var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
     request.httpMethod = "HEAD"
-    request.setValue("Codex-TPS", forHTTPHeaderField: "User-Agent")
+    request.setValue("OPL-Fleet-Agent", forHTTPHeaderField: "User-Agent")
     let (_, response) = try await session.data(for: request)
     guard let response = response as? HTTPURLResponse else {
       throw UpdateError.invalidResponse
@@ -169,15 +166,15 @@ final class UpdateManager: ObservableObject {
 
     var environment = ProcessInfo.processInfo.environment
     let runningAppURL = Bundle.main.bundleURL.resolvingSymlinksInPath()
-    environment["CODEX_TPS_DMG_URL"] = release.dmgURL.absoluteString
-    environment["CODEX_TPS_CHECKSUM_URL"] = release.checksumURL.absoluteString
-    environment["CODEX_TPS_EXPECTED_VERSION"] = release.version.description
-    environment["CODEX_TPS_INSTALL_DIR"] = runningAppURL.deletingLastPathComponent().path
-    environment["CODEX_TPS_RUNNING_PID"] = String(ProcessInfo.processInfo.processIdentifier)
-    environment["CODEX_TPS_RUNNING_APP"] = runningAppURL.path
+    environment["OPL_FLEET_AGENT_DMG_URL"] = release.dmgURL.absoluteString
+    environment["OPL_FLEET_AGENT_CHECKSUM_URL"] = release.checksumURL.absoluteString
+    environment["OPL_FLEET_AGENT_EXPECTED_VERSION"] = release.version.description
+    environment["OPL_FLEET_AGENT_INSTALL_DIR"] = runningAppURL.deletingLastPathComponent().path
+    environment["OPL_FLEET_AGENT_RUNNING_PID"] = String(ProcessInfo.processInfo.processIdentifier)
+    environment["OPL_FLEET_AGENT_RUNNING_APP"] = runningAppURL.path
 
     let logURL = FileManager.default.temporaryDirectory
-      .appendingPathComponent("codex-tps-update-\(UUID().uuidString).log")
+      .appendingPathComponent("opl-fleet-agent-update-\(UUID().uuidString).log")
     guard FileManager.default.createFile(atPath: logURL.path, contents: nil) else {
       throw UpdateError.installerUnavailable
     }
@@ -187,7 +184,7 @@ final class UpdateManager: ObservableObject {
       try? FileManager.default.removeItem(at: logURL)
     }
 
-    environment["CODEX_TPS_UPDATE_LOG"] = logURL.path
+    environment["OPL_FLEET_AGENT_UPDATE_LOG"] = logURL.path
     process.environment = environment
     process.standardOutput = logHandle
     process.standardError = logHandle
@@ -223,7 +220,7 @@ final class UpdateManager: ObservableObject {
   private static func isAllowedReleasePage(_ url: URL) -> Bool {
     url.scheme == "https"
       && url.host == "github.com"
-      && allowedReleasePagePrefixes.contains { url.path.hasPrefix($0) }
+      && url.path.hasPrefix(allowedReleasePagePrefix)
   }
 
   private static func message(for error: Error) -> String {

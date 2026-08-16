@@ -34,11 +34,6 @@ internal sealed class WindowsUpdateManager : IDisposable
         CurrentVersion = currentVersion ?? ReadCurrentVersion();
 
         var previousResult = UpdateResultStore.ReadAndDelete(this.resultPath);
-        if (previousResult is null && resultPath is null)
-        {
-            previousResult = UpdateResultStore.ReadAndDelete(
-                WindowsProductIdentity.LegacyUpdateResultPath);
-        }
         State = previousResult switch
         {
             { Success: true } => new(

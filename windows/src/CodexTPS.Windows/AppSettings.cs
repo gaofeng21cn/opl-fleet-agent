@@ -51,7 +51,7 @@ internal sealed class AppSettingsStore
     {
         var root = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Codex TPS");
+            WindowsProductIdentity.InstallDirectoryName);
         SettingsPath = Path.Combine(root, "settings.json");
     }
 

@@ -5,35 +5,6 @@ namespace CodexTPS.Windows.Tests;
 public sealed class WindowsUpdateWorkerTests
 {
     [Fact]
-    public void LegacyBridgeFindsCanonicalExecutableInSiblingInstallDirectory()
-    {
-        var root = Directory.CreateTempSubdirectory("opl-fleet-agent-bridge-test-");
-        try
-        {
-            var legacyDirectory = Directory.CreateDirectory(
-                Path.Combine(root.FullName, WindowsProductIdentity.LegacyInstallDirectoryName));
-            var canonicalDirectory = Directory.CreateDirectory(
-                Path.Combine(root.FullName, WindowsProductIdentity.InstallDirectoryName));
-            var legacyExecutable = Path.Combine(
-                legacyDirectory.FullName,
-                WindowsProductIdentity.LegacyExecutableName);
-            var canonicalExecutable = Path.Combine(
-                canonicalDirectory.FullName,
-                WindowsProductIdentity.ExecutableName);
-            File.WriteAllBytes(legacyExecutable, []);
-            File.WriteAllBytes(canonicalExecutable, []);
-
-            Assert.Equal(
-                canonicalExecutable,
-                WindowsProductIdentity.FindCanonicalExecutable(legacyExecutable));
-        }
-        finally
-        {
-            root.Delete(recursive: true);
-        }
-    }
-
-    [Fact]
     public void UpdateRequestRoundTripsWithoutLosingTransactionIdentity()
     {
         var directory = Directory.CreateTempSubdirectory("codex-tps-worker-test-");
@@ -44,12 +15,12 @@ public sealed class WindowsUpdateWorkerTests
             {
                 ParentProcessId = 123,
                 CurrentExecutablePath = @"C:\Program Files\OPL Fleet Agent\OPLFleetAgent.exe",
-                InstallDirectory = @"C:\Program Files\Codex TPS",
-                InstallerPath = @"C:\Temp\Codex-TPS-Windows-win-x64-Setup.exe",
+                InstallDirectory = @"C:\Program Files\OPL Fleet Agent",
+                InstallerPath = @"C:\Temp\OPL-Fleet-Agent-Windows-win-x64-Setup.exe",
                 ExpectedSha256 = new string('a', 64),
                 ExpectedVersion = "0.2.20",
                 ResultPath = @"C:\Temp\result.json",
-                StagingDirectory = @"C:\Temp\codex-tps-update",
+                StagingDirectory = @"C:\Temp\opl-fleet-agent-update",
             };
 
             request.Save(path);

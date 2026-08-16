@@ -4,25 +4,22 @@ set -euo pipefail
 REPOSITORY="gaofeng21cn/opl-fleet-agent"
 EXPECTED_TEAM_ID="SVVC4TA784"
 EXPECTED_BUNDLE_ID="io.github.gaofeng21cn.codex-tps"
-INSTALL_DIR="${CODEX_TPS_INSTALL_DIR:-/Applications}"
-RUNNING_PID="${CODEX_TPS_RUNNING_PID:-}"
-RUNNING_APP="${CODEX_TPS_RUNNING_APP:-}"
-OPEN_COMMAND="${CODEX_TPS_OPEN_COMMAND:-/usr/bin/open}"
-UPDATER_TEST_ROOT="${CODEX_TPS_UPDATER_TEST_ROOT:-}"
-DMG_URL="${CODEX_TPS_DMG_URL:-https://github.com/$REPOSITORY/releases/latest/download/Codex-TPS.dmg}"
-CHECKSUM_URL="${CODEX_TPS_CHECKSUM_URL:-https://github.com/$REPOSITORY/releases/latest/download/Codex-TPS.dmg.sha256}"
-TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-tps-install.XXXXXX")"
-DMG_PATH="$TEMP_DIR/Codex-TPS.dmg"
-CHECKSUM_PATH="$TEMP_DIR/Codex-TPS.dmg.sha256"
+INSTALL_DIR="${OPL_FLEET_AGENT_INSTALL_DIR:-/Applications}"
+RUNNING_PID="${OPL_FLEET_AGENT_RUNNING_PID:-}"
+RUNNING_APP="${OPL_FLEET_AGENT_RUNNING_APP:-}"
+OPEN_COMMAND="${OPL_FLEET_AGENT_OPEN_COMMAND:-/usr/bin/open}"
+UPDATER_TEST_ROOT="${OPL_FLEET_AGENT_UPDATER_TEST_ROOT:-}"
+DMG_URL="${OPL_FLEET_AGENT_DMG_URL:-https://github.com/$REPOSITORY/releases/latest/download/OPL-Fleet-Agent.dmg}"
+CHECKSUM_URL="${OPL_FLEET_AGENT_CHECKSUM_URL:-https://github.com/$REPOSITORY/releases/latest/download/OPL-Fleet-Agent.dmg.sha256}"
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/opl-fleet-agent-install.XXXXXX")"
+DMG_PATH="$TEMP_DIR/OPL-Fleet-Agent.dmg"
+CHECKSUM_PATH="$TEMP_DIR/OPL-Fleet-Agent.dmg.sha256"
 MOUNT_POINT=""
 DEST_APP="$INSTALL_DIR/OPL Fleet Agent.app"
-LEGACY_APP="$INSTALL_DIR/Codex TPS.app"
 STAGED_APP="$INSTALL_DIR/.OPL Fleet Agent.app.update.$$"
 BACKUP_APP="$INSTALL_DIR/.OPL Fleet Agent.app.backup.$$"
-LEGACY_BACKUP_APP="$INSTALL_DIR/.Codex TPS.app.backup.$$"
 REPLACEMENT_STARTED=0
 HAD_EXISTING_APP=0
-HAD_LEGACY_APP=0
 NEW_PID=""
 ROLLBACK_PID=""
 ALLOW_AD_HOC_TEST=0
@@ -40,7 +37,6 @@ cleanup() {
   rm -rf "$STAGED_APP"
   if [[ "$exit_status" -eq 0 ]]; then
     rm -rf "$BACKUP_APP"
-    rm -rf "$LEGACY_BACKUP_APP"
   fi
   rm -rf "$TEMP_DIR"
 }
@@ -198,7 +194,7 @@ validate_running_process_contract() {
     echo "OPL Fleet Agent updater received an invalid process ID." >&2
     return 1
   fi
-  if [[ "$RUNNING_APP" != "$DEST_APP" && "$RUNNING_APP" != "$LEGACY_APP" ]]; then
+  if [[ "$RUNNING_APP" != "$DEST_APP" ]]; then
     echo "OPL Fleet Agent updater refused to replace a different app path." >&2
     return 1
   fi
@@ -217,17 +213,10 @@ stop_running_app() {
     validate_running_process_contract
     stop_process "$RUNNING_PID" "$RUNNING_APP"
     stop_processes_for_app "$RUNNING_APP"
-    if [[ "$RUNNING_APP" != "$DEST_APP" ]]; then
-      stop_processes_for_app "$DEST_APP"
-    fi
-    if [[ "$RUNNING_APP" != "$LEGACY_APP" ]]; then
-      stop_processes_for_app "$LEGACY_APP"
-    fi
     return
   fi
 
   stop_processes_for_app "$DEST_APP"
-  stop_processes_for_app "$LEGACY_APP"
 }
 
 running_process_for_app() {
@@ -275,16 +264,12 @@ launch_app_and_wait() {
 
 rollback_replacement() {
   if ! stop_processes_for_app "$DEST_APP"; then
-    echo "OPL Fleet Agent could not safely stop the replacement; backups remain at $BACKUP_APP and $LEGACY_BACKUP_APP." >&2
-    return 1
-  fi
-  if ! stop_processes_for_app "$LEGACY_APP"; then
-    echo "OPL Fleet Agent could not safely stop the legacy app; backups remain at $BACKUP_APP and $LEGACY_BACKUP_APP." >&2
+    echo "OPL Fleet Agent could not safely stop the replacement; backup remains at $BACKUP_APP." >&2
     return 1
   fi
 
   if ! rm -rf "$DEST_APP"; then
-    echo "OPL Fleet Agent could not remove the failed replacement; backups remain at $BACKUP_APP and $LEGACY_BACKUP_APP." >&2
+    echo "OPL Fleet Agent could not remove the failed replacement; backup remains at $BACKUP_APP." >&2
     return 1
   fi
   if [[ -d "$BACKUP_APP" ]]; then
@@ -296,25 +281,12 @@ rollback_replacement() {
     echo "OPL Fleet Agent backup is missing; automatic rollback is unavailable." >&2
     return 1
   fi
-  if [[ -d "$LEGACY_BACKUP_APP" ]]; then
-    if ! mv "$LEGACY_BACKUP_APP" "$LEGACY_APP"; then
-      echo "OPL Fleet Agent could not restore the legacy backup at $LEGACY_BACKUP_APP." >&2
-      return 1
-    fi
-  elif [[ "$HAD_LEGACY_APP" -eq 1 ]]; then
-    echo "The legacy Codex TPS backup is missing; automatic rollback is unavailable." >&2
-    return 1
-  fi
   REPLACEMENT_STARTED=0
 
-  if [[ "$HAD_EXISTING_APP" -eq 1 || "$HAD_LEGACY_APP" -eq 1 ]] \
-    && [[ "${CODEX_TPS_NO_LAUNCH:-0}" != "1" ]]
+  if [[ "$HAD_EXISTING_APP" -eq 1 ]] \
+    && [[ "${OPL_FLEET_AGENT_NO_LAUNCH:-0}" != "1" ]]
   then
-    local rollback_app="$DEST_APP"
-    if [[ "$RUNNING_APP" == "$LEGACY_APP" || "$HAD_EXISTING_APP" -eq 0 ]]; then
-      rollback_app="$LEGACY_APP"
-    fi
-    if ! ROLLBACK_PID="$(launch_app_and_wait "$rollback_app" "$RUNNING_PID")"; then
+    if ! ROLLBACK_PID="$(launch_app_and_wait "$DEST_APP" "$RUNNING_PID")"; then
       echo "OPL Fleet Agent was restored but could not be relaunched." >&2
       return 1
     fi
@@ -324,7 +296,7 @@ rollback_replacement() {
 
 configure_updater_test_trust
 validate_running_process_contract
-if [[ "${CODEX_TPS_NO_LAUNCH:-0}" != "1" && ! -x "$OPEN_COMMAND" ]]; then
+if [[ "${OPL_FLEET_AGENT_NO_LAUNCH:-0}" != "1" && ! -x "$OPEN_COMMAND" ]]; then
   echo "OPL Fleet Agent launch command is unavailable." >&2
   exit 1
 fi
@@ -351,19 +323,19 @@ fi
 
 verify_app "$SOURCE_APP"
 VERSION="$(plutil -extract CFBundleShortVersionString raw "$SOURCE_APP/Contents/Info.plist")"
-if [[ -n "${CODEX_TPS_EXPECTED_VERSION:-}" && "$VERSION" != "$CODEX_TPS_EXPECTED_VERSION" ]]; then
-  echo "Expected OPL Fleet Agent $CODEX_TPS_EXPECTED_VERSION, but the DMG contains $VERSION." >&2
+if [[ -n "${OPL_FLEET_AGENT_EXPECTED_VERSION:-}" && "$VERSION" != "$OPL_FLEET_AGENT_EXPECTED_VERSION" ]]; then
+  echo "Expected OPL Fleet Agent $OPL_FLEET_AGENT_EXPECTED_VERSION, but the DMG contains $VERSION." >&2
   exit 1
 fi
 
 mkdir -p "$INSTALL_DIR"
 if [[ ! -w "$INSTALL_DIR" ]]; then
   echo "No write permission for $INSTALL_DIR." >&2
-  echo "Use CODEX_TPS_INSTALL_DIR=\"$HOME/Applications\" to install for this user." >&2
+  echo "Use OPL_FLEET_AGENT_INSTALL_DIR=\"$HOME/Applications\" to install for this user." >&2
   exit 1
 fi
 
-rm -rf "$STAGED_APP" "$BACKUP_APP" "$LEGACY_BACKUP_APP"
+rm -rf "$STAGED_APP" "$BACKUP_APP"
 ditto "$SOURCE_APP" "$STAGED_APP"
 verify_app "$STAGED_APP"
 
@@ -372,20 +344,14 @@ stop_running_app
 if [[ -d "$DEST_APP" ]]; then
   HAD_EXISTING_APP=1
 fi
-if [[ -d "$LEGACY_APP" ]]; then
-  HAD_LEGACY_APP=1
-fi
 REPLACEMENT_STARTED=1
 if [[ "$HAD_EXISTING_APP" -eq 1 ]]; then
   mv "$DEST_APP" "$BACKUP_APP"
 fi
-if [[ "$HAD_LEGACY_APP" -eq 1 ]]; then
-  mv "$LEGACY_APP" "$LEGACY_BACKUP_APP"
-fi
 mv "$STAGED_APP" "$DEST_APP"
 verify_app "$DEST_APP"
 
-if [[ "${CODEX_TPS_NO_LAUNCH:-0}" != "1" ]]; then
+if [[ "${OPL_FLEET_AGENT_NO_LAUNCH:-0}" != "1" ]]; then
   if ! NEW_PID="$(launch_app_and_wait "$DEST_APP" "$RUNNING_PID")"; then
     echo "OPL Fleet Agent was installed but did not relaunch." >&2
     exit 1
@@ -394,9 +360,8 @@ fi
 
 REPLACEMENT_STARTED=0
 rm -rf "$BACKUP_APP"
-rm -rf "$LEGACY_BACKUP_APP"
-if [[ -n "${CODEX_TPS_UPDATE_LOG:-}" ]]; then
-  rm -f "$CODEX_TPS_UPDATE_LOG" || true
+if [[ -n "${OPL_FLEET_AGENT_UPDATE_LOG:-}" ]]; then
+  rm -f "$OPL_FLEET_AGENT_UPDATE_LOG" || true
 fi
 
 echo "Installed OPL Fleet Agent $VERSION at $DEST_APP"

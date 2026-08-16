@@ -93,7 +93,7 @@ test('forwards a sanitized native projection', async (t) => {
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: { doctor_state: 'healthy', capability_currentness: 'current', checks: [] },
   });
@@ -106,7 +106,7 @@ test('forwards a sanitized native projection', async (t) => {
   assert.equal(response.payload.result.payload.doctor_state, 'healthy');
 });
 
-test('discovers the legacy current-user macOS app helper', {
+test('discovers the canonical current-user macOS app helper', {
   skip: process.platform !== 'darwin',
 }, async (t) => {
   const home = await mkdtemp(path.join(tmpdir(), 'opl-fleet-provider-home-'));
@@ -114,7 +114,7 @@ test('discovers the legacy current-user macOS app helper', {
   const helper = path.join(
     home,
     'Applications',
-    'Codex TPS.app',
+    'OPL Fleet Agent.app',
     'Contents',
     'MacOS',
     'OPLFleetAgentProvider',
@@ -138,7 +138,7 @@ test('discovers the legacy current-user macOS app helper', {
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: { doctor_state: 'healthy', capability_currentness: 'current', checks: [] },
   });
@@ -171,7 +171,7 @@ test('fails closed on recursively sensitive native keys without exposing helper 
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: { nested: { prompt: 'must-never-escape' } },
   });
@@ -208,7 +208,7 @@ test('fails closed when native unavailable freshness still carries observations'
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: {
       collection_status: 'unavailable',
