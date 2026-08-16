@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -11,6 +12,28 @@ const request = (ref) => ({
   operation: 'read',
   ref,
   input: {},
+});
+
+test('package content lock matches the shipped plugin bytes', async () => {
+  const manifest = JSON.parse(await readFile(
+    new URL('../opl-package.json', import.meta.url),
+    'utf8',
+  ));
+  const digest = createHash('sha256');
+  for (const relativePath of manifest.content_lock.paths) {
+    const pathBytes = Buffer.from(relativePath, 'utf8');
+    const fileBytes = await readFile(new URL(`../${relativePath}`, import.meta.url));
+    const pathLength = Buffer.allocUnsafe(8);
+    const fileLength = Buffer.allocUnsafe(8);
+    pathLength.writeBigUInt64BE(BigInt(pathBytes.length));
+    fileLength.writeBigUInt64BE(BigInt(fileBytes.length));
+    digest.update(pathLength);
+    digest.update(pathBytes);
+    digest.update(fileLength);
+    digest.update(fileBytes);
+  }
+
+  assert.equal(manifest.content_lock.digest, `sha256:${digest.digest('hex')}`);
 });
 
 test('rejects unknown refs without invoking native code', async () => {
@@ -61,7 +84,7 @@ test('forwards a sanitized native projection', async (t) => {
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: { doctor_state: 'healthy', capability_currentness: 'current', checks: [] },
   });
@@ -74,7 +97,7 @@ test('forwards a sanitized native projection', async (t) => {
   assert.equal(response.payload.result.payload.doctor_state, 'healthy');
 });
 
-test('discovers the legacy current-user macOS app helper', {
+test('discovers the canonical current-user macOS app helper', {
   skip: process.platform !== 'darwin',
 }, async (t) => {
   const home = await mkdtemp(path.join(tmpdir(), 'opl-fleet-provider-home-'));
@@ -82,7 +105,7 @@ test('discovers the legacy current-user macOS app helper', {
   const helper = path.join(
     home,
     'Applications',
-    'Codex TPS.app',
+    'OPL Fleet Agent.app',
     'Contents',
     'MacOS',
     'OPLFleetAgentProvider',
@@ -106,7 +129,7 @@ test('discovers the legacy current-user macOS app helper', {
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: { doctor_state: 'healthy', capability_currentness: 'current', checks: [] },
   });
@@ -139,7 +162,7 @@ test('fails closed on recursively sensitive native keys without exposing helper 
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: { nested: { prompt: 'must-never-escape' } },
   });
@@ -176,7 +199,7 @@ test('fails closed when native unavailable freshness still carries observations'
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.38',
+      agent_version: '0.2.39',
     },
     payload: {
       collection_status: 'unavailable',

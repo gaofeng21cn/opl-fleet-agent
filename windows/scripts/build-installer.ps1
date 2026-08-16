@@ -3,7 +3,7 @@ param(
     [string]$Runtime = "win-x64",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$Version = "0.2.38",
+    [string]$Version = "0.2.39",
     [switch]$SkipTests,
     [switch]$SkipAppBuild
 )
@@ -20,8 +20,6 @@ $distRoot = Join-Path $windowsRoot "dist"
 $definition = Join-Path $windowsRoot "installer/CodexTPS.iss"
 $installer = Join-Path $distRoot "OPL-Fleet-Agent-Windows-$Runtime-Setup.exe"
 $checksum = "$installer.sha256"
-$legacyInstaller = Join-Path $distRoot "Codex-TPS-Windows-$Runtime-Setup.exe"
-$legacyChecksum = "$legacyInstaller.sha256"
 
 if (-not $SkipAppBuild) {
     & (Join-Path $PSScriptRoot "build.ps1") `
@@ -53,20 +51,18 @@ if (-not $compiler) {
 
 if (Test-Path $installer) { Remove-Item -Force $installer }
 if (Test-Path $checksum) { Remove-Item -Force $checksum }
-if (Test-Path $legacyInstaller) { Remove-Item -Force $legacyInstaller }
-if (Test-Path $legacyChecksum) { Remove-Item -Force $legacyChecksum }
 
 $previousEnvironment = @{
-    CODEX_TPS_INSTALLER_VERSION = $env:CODEX_TPS_INSTALLER_VERSION
-    CODEX_TPS_INSTALLER_VERSION_QUAD = $env:CODEX_TPS_INSTALLER_VERSION_QUAD
-    CODEX_TPS_INSTALLER_SOURCE = $env:CODEX_TPS_INSTALLER_SOURCE
-    CODEX_TPS_INSTALLER_OUTPUT = $env:CODEX_TPS_INSTALLER_OUTPUT
+    OPL_FLEET_AGENT_INSTALLER_VERSION = $env:OPL_FLEET_AGENT_INSTALLER_VERSION
+    OPL_FLEET_AGENT_INSTALLER_VERSION_QUAD = $env:OPL_FLEET_AGENT_INSTALLER_VERSION_QUAD
+    OPL_FLEET_AGENT_INSTALLER_SOURCE = $env:OPL_FLEET_AGENT_INSTALLER_SOURCE
+    OPL_FLEET_AGENT_INSTALLER_OUTPUT = $env:OPL_FLEET_AGENT_INSTALLER_OUTPUT
 }
 try {
-    $env:CODEX_TPS_INSTALLER_VERSION = $Version
-    $env:CODEX_TPS_INSTALLER_VERSION_QUAD = "$Version.0"
-    $env:CODEX_TPS_INSTALLER_SOURCE = $publishRoot
-    $env:CODEX_TPS_INSTALLER_OUTPUT = $distRoot
+    $env:OPL_FLEET_AGENT_INSTALLER_VERSION = $Version
+    $env:OPL_FLEET_AGENT_INSTALLER_VERSION_QUAD = "$Version.0"
+    $env:OPL_FLEET_AGENT_INSTALLER_SOURCE = $publishRoot
+    $env:OPL_FLEET_AGENT_INSTALLER_OUTPUT = $distRoot
     & $compiler /Qp $definition
     if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
 }
@@ -87,11 +83,5 @@ if (-not (Test-Path $installer)) {
 $hash = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
 $line = "$hash  $(Split-Path -Leaf $installer)"
 [System.IO.File]::WriteAllText($checksum, "$line`n", [System.Text.Encoding]::ASCII)
-Copy-Item $installer $legacyInstaller
-$legacyHash = (Get-FileHash -Algorithm SHA256 $legacyInstaller).Hash.ToLowerInvariant()
-$legacyLine = "$legacyHash  $(Split-Path -Leaf $legacyInstaller)"
-[System.IO.File]::WriteAllText($legacyChecksum, "$legacyLine`n", [System.Text.Encoding]::ASCII)
 Write-Output $installer
 Write-Output $line
-Write-Output $legacyInstaller
-Write-Output $legacyLine

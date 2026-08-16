@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="${0:A:h:h}"
-DMG_PATH="${1:-$ROOT_DIR/dist/Codex-TPS.dmg}"
+DMG_PATH="${1:-$ROOT_DIR/dist/OPL-Fleet-Agent.dmg}"
 CHECKSUM_PATH="${2:-$DMG_PATH.sha256}"
 EXPECTED_TEAM_ID="${CODEX_TPS_EXPECTED_TEAM_ID:-SVVC4TA784}"
 EXPECTED_BUNDLE_ID="${CODEX_TPS_EXPECTED_BUNDLE_ID:-io.github.gaofeng21cn.codex-tps}"
@@ -35,18 +35,12 @@ spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG
 hdiutil attach "$DMG_PATH" -readonly -nobrowse -mountpoint "$MOUNT_POINT" -quiet
 ATTACHED=1
 APP_PATH="$MOUNT_POINT/OPL Fleet Agent.app"
-LEGACY_APP_PATH="$MOUNT_POINT/Codex TPS.app"
 if [[ ! -d "$APP_PATH" ]]; then
   echo "OPL Fleet Agent.app is missing from the DMG." >&2
   exit 1
 fi
-if [[ ! -d "$LEGACY_APP_PATH" ]]; then
-  echo "The Codex TPS.app compatibility payload is missing from the DMG." >&2
-  exit 1
-fi
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-codesign --verify --deep --strict --verbose=2 "$LEGACY_APP_PATH"
 xcrun stapler validate "$APP_PATH"
 SIGNATURE_DETAILS="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
 ACTUAL_TEAM_ID="$(sed -n 's/^TeamIdentifier=//p' <<<"$SIGNATURE_DETAILS")"
@@ -75,9 +69,6 @@ if [[ ! -x "$PROVIDER_PATH" ]]; then
   echo "OPLFleetAgentProvider is missing from the app bundle." >&2
   exit 1
 fi
-cmp "$APP_PATH/Contents/MacOS/CodexTPS" "$LEGACY_APP_PATH/Contents/MacOS/CodexTPS"
-cmp "$PROVIDER_PATH" "$LEGACY_APP_PATH/Contents/MacOS/OPLFleetAgentProvider"
-
 grep -q '^Authority=Developer ID Application:' <<<"$SIGNATURE_DETAILS"
 grep -q 'flags=.*runtime' <<<"$SIGNATURE_DETAILS"
 grep -q '^Timestamp=' <<<"$SIGNATURE_DETAILS"
@@ -85,4 +76,4 @@ spctl --assess --type execute --verbose=4 "$APP_PATH"
 lipo "$APP_PATH/Contents/MacOS/CodexTPS" -verify_arch arm64 x86_64
 lipo "$PROVIDER_PATH" -verify_arch arm64 x86_64
 
-echo "Verified notarized OPL Fleet Agent $ACTUAL_VERSION for Team $ACTUAL_TEAM_ID with legacy updater payload."
+echo "Verified notarized OPL Fleet Agent $ACTUAL_VERSION for Team $ACTUAL_TEAM_ID."

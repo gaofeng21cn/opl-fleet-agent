@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: codex-tps-release
+  group: opl-fleet-agent-release
   cancel-in-progress: false
 
 jobs:
@@ -102,8 +102,8 @@ jobs:
         with:
           name: release-macos
           path: |
-            dist/Codex-TPS.dmg
-            dist/Codex-TPS.dmg.sha256
+            dist/OPL-Fleet-Agent.dmg
+            dist/OPL-Fleet-Agent.dmg.sha256
 
       - name: Remove temporary Apple credentials
         if: ${{ always() }}
@@ -147,9 +147,7 @@ jobs:
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
           $assets = @(
             "./windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip",
-            "./windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe",
-            "./windows/dist/Codex-TPS-Windows-win-x64.zip",
-            "./windows/dist/Codex-TPS-Windows-win-x64-Setup.exe"
+            "./windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe"
           )
           foreach ($asset in $assets) {
             $expected = ((Get-Content "$asset.sha256" -Raw).Trim() -split "\s+")[0].ToLowerInvariant()
@@ -196,10 +194,6 @@ jobs:
         with:
           name: release-windows
           path: |
-            windows/dist/Codex-TPS-Windows-win-x64.zip
-            windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
-            windows/dist/Codex-TPS-Windows-win-x64-Setup.exe
-            windows/dist/Codex-TPS-Windows-win-x64-Setup.exe.sha256
             windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
             windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
             windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
@@ -221,9 +215,7 @@ jobs:
       - name: Verify checksums
         working-directory: release-assets
         run: |
-          sha256sum --check Codex-TPS.dmg.sha256
-          sha256sum --check Codex-TPS-Windows-win-x64.zip.sha256
-          sha256sum --check Codex-TPS-Windows-win-x64-Setup.exe.sha256
+          sha256sum --check OPL-Fleet-Agent.dmg.sha256
           sha256sum --check OPL-Fleet-Agent-Windows-win-x64.zip.sha256
           sha256sum --check OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
       - name: Create GitHub Release
@@ -231,21 +223,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat >release-notes.md <<'EOF'
-          ## macOS
+          ## Distribution
 
-          Version 0.2.38 replaces the retired Gateway label with `Fleet Gateway` in the compact menu-bar connection row and `OPL Fleet Gateway` in full settings, help text, and connection diagnostics. Discovery, pairing, telemetry, and Cockpit freshness behavior are unchanged. It includes the automatic LAN Gateway reporting recovery shipped in 0.2.37.
+          Version 0.2.39 retires the Codex TPS distribution compatibility layer. macOS now ships only `OPL-Fleet-Agent.dmg`; Windows ships only `OPL-Fleet-Agent-Windows-*` assets. The installers and in-app updaters no longer consume or migrate retired install names, and Homebrew is no longer an installation route.
 
-          ## Windows
+          ## Agent
 
-          The compact tray dashboard uses `Fleet Gateway`; settings and connection diagnostics use the full `OPL Fleet Gateway` name. Discovery, pairing, telemetry, and Cockpit freshness behavior are unchanged.
+          This release also includes the OPL Fleet provider package, durable sanitized last-known telemetry for Fleet doctor, and narrower GitHub Actions permissions.
           EOF
           gh release create "$GITHUB_REF_NAME" \
-            release-assets/Codex-TPS.dmg \
-            release-assets/Codex-TPS.dmg.sha256 \
-            release-assets/Codex-TPS-Windows-win-x64.zip \
-            release-assets/Codex-TPS-Windows-win-x64.zip.sha256 \
-            release-assets/Codex-TPS-Windows-win-x64-Setup.exe \
-            release-assets/Codex-TPS-Windows-win-x64-Setup.exe.sha256 \
+            release-assets/OPL-Fleet-Agent.dmg \
+            release-assets/OPL-Fleet-Agent.dmg.sha256 \
             release-assets/OPL-Fleet-Agent-Windows-win-x64.zip \
             release-assets/OPL-Fleet-Agent-Windows-win-x64.zip.sha256 \
             release-assets/OPL-Fleet-Agent-Windows-win-x64-Setup.exe \

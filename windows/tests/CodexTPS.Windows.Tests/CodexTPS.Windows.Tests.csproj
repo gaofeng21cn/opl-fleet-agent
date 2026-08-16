@@ -32,9 +32,6 @@
     <None Include="..\..\scripts\build-installer.ps1"
           Link="LaunchContracts\build-installer.ps1"
           CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\src\CodexTPS.Windows\LegacyExecutableBridge.cs"
-          Link="LaunchContracts\LegacyExecutableBridge.cs"
-          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\src\CodexTPS.Windows\WindowsUpdateWorker.cs"
           Link="LaunchContracts\WindowsUpdateWorker.cs"
           CopyToOutputDirectory="PreserveNewest" />

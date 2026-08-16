@@ -4,13 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALLER="$ROOT_DIR/scripts/install-release.sh"
 PREFERENCES_DOMAIN="io.github.gaofeng21cn.codex-tps"
-VERIFY_MODE="${CODEX_TPS_UPDATER_VERIFY_MODE:-strict}"
-DMG_PATH="${1:-$ROOT_DIR/dist/Codex-TPS.dmg}"
+VERIFY_MODE="${OPL_FLEET_AGENT_UPDATER_VERIFY_MODE:-strict}"
+DMG_PATH="${1:-$ROOT_DIR/dist/OPL-Fleet-Agent.dmg}"
 CHECKSUM_PATH="${2:-$DMG_PATH.sha256}"
-EXPECTED_VERSION="${CODEX_TPS_EXPECTED_VERSION:-$(
+EXPECTED_VERSION="${OPL_FLEET_AGENT_EXPECTED_VERSION:-$(
   plutil -extract CFBundleShortVersionString raw "$ROOT_DIR/Resources/Info.plist"
 )}"
-TEST_ROOT="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/codex-tps-updater.XXXXXX")"
+TEST_ROOT="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/opl-fleet-agent-updater.XXXXXX")"
 TEST_ROOT="$(
   cd "$TEST_ROOT"
   /bin/pwd -P
@@ -18,7 +18,6 @@ TEST_ROOT="$(
 TEST_BIN="$TEST_ROOT/bin"
 TARGET_ROOT="$TEST_ROOT/target"
 TARGET_APP="$TARGET_ROOT/OPL Fleet Agent.app"
-LEGACY_TARGET_APP="$TARGET_ROOT/Codex TPS.app"
 OTHER_APP="$TEST_ROOT/other/OPL Fleet Agent.app"
 DIRECT_OPEN="$TEST_ROOT/direct-open"
 FAKE_OPEN="$TEST_ROOT/fake-open"
@@ -127,7 +126,6 @@ cleanup() {
   local exit_status=$?
 
   stop_app_processes "$TARGET_APP" || true
-  stop_app_processes "$LEGACY_TARGET_APP" || true
   stop_app_processes "$OTHER_APP" || true
   /usr/bin/chflags -R nouchg "$TEST_ROOT" 2>/dev/null || true
   rm -rf "$TEST_ROOT"
@@ -155,23 +153,23 @@ start_stub_app() {
 run_installer() {
   local hidden_pid="${4:-}"
   local installer_environment=(
-    "CODEX_TPS_DMG_URL=file://$DMG_PATH"
-    "CODEX_TPS_CHECKSUM_URL=file://$CHECKSUM_PATH"
-    "CODEX_TPS_EXPECTED_VERSION=$EXPECTED_VERSION"
-    "CODEX_TPS_INSTALL_DIR=$TARGET_ROOT"
-    "CODEX_TPS_RUNNING_PID=$1"
-    "CODEX_TPS_RUNNING_APP=$2"
-    "CODEX_TPS_OPEN_COMMAND=${3:-/usr/bin/open}"
+    "OPL_FLEET_AGENT_DMG_URL=file://$DMG_PATH"
+    "OPL_FLEET_AGENT_CHECKSUM_URL=file://$CHECKSUM_PATH"
+    "OPL_FLEET_AGENT_EXPECTED_VERSION=$EXPECTED_VERSION"
+    "OPL_FLEET_AGENT_INSTALL_DIR=$TARGET_ROOT"
+    "OPL_FLEET_AGENT_RUNNING_PID=$1"
+    "OPL_FLEET_AGENT_RUNNING_APP=$2"
+    "OPL_FLEET_AGENT_OPEN_COMMAND=${3:-/usr/bin/open}"
   )
 
   if [[ -n "$hidden_pid" ]]; then
     installer_environment+=(
       "PATH=$TEST_BIN:$PATH"
-      "CODEX_TPS_TEST_HIDDEN_PID=$hidden_pid"
+      "OPL_FLEET_AGENT_TEST_HIDDEN_PID=$hidden_pid"
     )
   fi
   if [[ "$VERIFY_MODE" == "adhoc" ]]; then
-    installer_environment+=("CODEX_TPS_UPDATER_TEST_ROOT=$TEST_ROOT")
+    installer_environment+=("OPL_FLEET_AGENT_UPDATER_TEST_ROOT=$TEST_ROOT")
   fi
   /usr/bin/env "${installer_environment[@]}" "$INSTALLER"
 }
@@ -195,8 +193,8 @@ EOF
 xcrun clang -Os "$STUB_SOURCE" -o "$STUB_EXECUTABLE"
 
 mkdir -p "$ISOLATED_HOME/Library/Preferences" "$ISOLATED_CODEX_HOME/sessions"
-export CODEX_TPS_TEST_HOME="$ISOLATED_HOME"
-export CODEX_TPS_TEST_CODEX_HOME="$ISOLATED_CODEX_HOME"
+export OPL_FLEET_AGENT_TEST_HOME="$ISOLATED_HOME"
+export OPL_FLEET_AGENT_TEST_CODEX_HOME="$ISOLATED_CODEX_HOME"
 
 # Launch directly without network or preference writes so the test stays isolated.
 cat >"$DIRECT_OPEN" <<'EOF'
@@ -208,9 +206,9 @@ if [[ "$#" -ne 1 ]]; then
   exit 64
 fi
 app_path="$1"
-export CFFIXED_USER_HOME="$CODEX_TPS_TEST_HOME"
-export HOME="$CODEX_TPS_TEST_HOME"
-export CODEX_HOME="$CODEX_TPS_TEST_CODEX_HOME"
+export CFFIXED_USER_HOME="$OPL_FLEET_AGENT_TEST_HOME"
+export HOME="$OPL_FLEET_AGENT_TEST_HOME"
+export CODEX_HOME="$OPL_FLEET_AGENT_TEST_CODEX_HOME"
 nohup /usr/bin/sandbox-exec \
   -p '(version 1)(allow default)(deny network*)(deny file-write*)(deny mach-lookup (global-name "com.apple.cfprefsd.agent"))(deny mach-lookup (global-name "com.apple.cfprefsd.xpc.agent"))(deny mach-lookup (global-name "com.apple.cfprefsd.daemon"))' \
   "$app_path/Contents/MacOS/CodexTPS" --preview-window >/dev/null 2>&1 &
@@ -223,7 +221,7 @@ cat >"$TEST_BIN/pgrep" <<'EOF'
 set -euo pipefail
 
 while IFS= read -r pid; do
-  if [[ "$pid" != "${CODEX_TPS_TEST_HIDDEN_PID:-}" ]]; then
+  if [[ "$pid" != "${OPL_FLEET_AGENT_TEST_HIDDEN_PID:-}" ]]; then
     printf '%s\n' "$pid"
   fi
 done < <(/usr/bin/pgrep "$@" 2>/dev/null || true)
@@ -231,23 +229,23 @@ EOF
 chmod 755 "$TEST_BIN/pgrep"
 
 mkdir -p "$TARGET_ROOT"
-make_stub_app "$LEGACY_TARGET_APP" "original"
+make_stub_app "$TARGET_APP" "original"
 make_stub_app "$OTHER_APP" "unrelated"
-start_stub_app "$LEGACY_TARGET_APP"
+start_stub_app "$TARGET_APP"
 OLD_PID="$STARTED_PID"
-start_stub_app "$LEGACY_TARGET_APP"
+start_stub_app "$TARGET_APP"
 SECOND_OLD_PID="$STARTED_PID"
 start_stub_app "$OTHER_APP"
 OTHER_PID="$STARTED_PID"
 
 if [[ "$VERIFY_MODE" == "adhoc" ]]; then
-  if CODEX_TPS_UPDATER_TEST_ROOT="$TEST_ROOT" \
-    CODEX_TPS_DMG_URL="file://$DMG_PATH" \
-    CODEX_TPS_CHECKSUM_URL="file://$CHECKSUM_PATH" \
-    CODEX_TPS_INSTALL_DIR="/Applications" \
-    CODEX_TPS_RUNNING_PID="$OLD_PID" \
-    CODEX_TPS_RUNNING_APP="$LEGACY_TARGET_APP" \
-    CODEX_TPS_OPEN_COMMAND="$DIRECT_OPEN" \
+  if OPL_FLEET_AGENT_UPDATER_TEST_ROOT="$TEST_ROOT" \
+    OPL_FLEET_AGENT_DMG_URL="file://$DMG_PATH" \
+    OPL_FLEET_AGENT_CHECKSUM_URL="file://$CHECKSUM_PATH" \
+    OPL_FLEET_AGENT_INSTALL_DIR="/Applications" \
+    OPL_FLEET_AGENT_RUNNING_PID="$OLD_PID" \
+    OPL_FLEET_AGENT_RUNNING_APP="$TARGET_APP" \
+    OPL_FLEET_AGENT_OPEN_COMMAND="$DIRECT_OPEN" \
     "$INSTALLER" >"$TEST_ROOT/unsafe-test-root.log" 2>&1
   then
     echo "Updater verification allowed test trust outside its test root." >&2
@@ -259,11 +257,11 @@ if [[ "$VERIFY_MODE" == "adhoc" ]]; then
   fi
 fi
 
-if CODEX_TPS_RUNNING_PID="not-a-pid" \
-  CODEX_TPS_RUNNING_APP="$LEGACY_TARGET_APP" \
-  CODEX_TPS_INSTALL_DIR="$TARGET_ROOT" \
-  CODEX_TPS_DMG_URL="file:///does-not-exist" \
-  CODEX_TPS_CHECKSUM_URL="file:///does-not-exist" \
+if OPL_FLEET_AGENT_RUNNING_PID="not-a-pid" \
+  OPL_FLEET_AGENT_RUNNING_APP="$TARGET_APP" \
+  OPL_FLEET_AGENT_INSTALL_DIR="$TARGET_ROOT" \
+  OPL_FLEET_AGENT_DMG_URL="file:///does-not-exist" \
+  OPL_FLEET_AGENT_CHECKSUM_URL="file:///does-not-exist" \
   "$INSTALLER" >"$TEST_ROOT/invalid-pid.log" 2>&1; then
   echo "Updater verification accepted an invalid process ID." >&2
   exit 1
@@ -277,7 +275,7 @@ if ! kill -0 "$OLD_PID" 2>/dev/null || ! kill -0 "$SECOND_OLD_PID" 2>/dev/null; 
   exit 1
 fi
 
-if run_installer "$OTHER_PID" "$LEGACY_TARGET_APP" "$DIRECT_OPEN" >"$TEST_ROOT/wrong-process.log" 2>&1; then
+if run_installer "$OTHER_PID" "$TARGET_APP" "$DIRECT_OPEN" >"$TEST_ROOT/wrong-process.log" 2>&1; then
   echo "Updater verification accepted a process from another app." >&2
   exit 1
 fi
@@ -292,18 +290,13 @@ then
   exit 1
 fi
 
-run_installer "$OLD_PID" "$LEGACY_TARGET_APP" "$DIRECT_OPEN" "$OLD_PID"
+run_installer "$OLD_PID" "$TARGET_APP" "$DIRECT_OPEN" "$OLD_PID"
 if ! wait_for_exit "$OLD_PID" || ! wait_for_exit "$SECOND_OLD_PID"; then
   echo "Updater verification left an old target process running." >&2
   exit 1
 fi
 if ! kill -0 "$OTHER_PID" 2>/dev/null; then
   echo "Updater verification stopped an unrelated OPL Fleet Agent process." >&2
-  exit 1
-fi
-
-if [[ -e "$LEGACY_TARGET_APP" ]]; then
-  echo "Updater verification left the legacy Codex TPS.app path in place." >&2
   exit 1
 fi
 
@@ -336,12 +329,12 @@ if [[ "$#" -ne 1 ]]; then
   exit 64
 fi
 count=0
-if [[ -f "$CODEX_TPS_TEST_OPEN_STATE" ]]; then
-  read -r count <"$CODEX_TPS_TEST_OPEN_STATE"
+if [[ -f "$OPL_FLEET_AGENT_TEST_OPEN_STATE" ]]; then
+  read -r count <"$OPL_FLEET_AGENT_TEST_OPEN_STATE"
 fi
 count=$((count + 1))
-printf '%s\n' "$count" >"$CODEX_TPS_TEST_OPEN_STATE"
-printf '%s\n' "$*" >>"$CODEX_TPS_TEST_OPEN_LOG"
+printf '%s\n' "$count" >"$OPL_FLEET_AGENT_TEST_OPEN_STATE"
+printf '%s\n' "$*" >>"$OPL_FLEET_AGENT_TEST_OPEN_LOG"
 
 if [[ "$count" -eq 1 ]]; then
   exit 1
@@ -352,8 +345,8 @@ nohup "$app_path/Contents/MacOS/CodexTPS" >/dev/null 2>&1 &
 EOF
 chmod 755 "$FAKE_OPEN"
 
-if CODEX_TPS_TEST_OPEN_STATE="$OPEN_STATE" \
-  CODEX_TPS_TEST_OPEN_LOG="$OPEN_LOG" \
+if OPL_FLEET_AGENT_TEST_OPEN_STATE="$OPEN_STATE" \
+  OPL_FLEET_AGENT_TEST_OPEN_LOG="$OPEN_LOG" \
   run_installer "$ROLLBACK_OLD_PID" "$TARGET_APP" "$FAKE_OPEN" \
   >"$TEST_ROOT/rollback.log" 2>&1; then
   echo "Updater verification expected the injected launch failure." >&2
@@ -438,6 +431,6 @@ if [[ "$(preferences_digest)" != "$PREFERENCES_BEFORE" ]]; then
   exit 1
 fi
 
-echo "Verified legacy-path migration and updater handoff $OLD_PID,$SECOND_OLD_PID -> $NEW_PID for OPL Fleet Agent $INSTALLED_VERSION."
+echo "Verified updater handoff $OLD_PID,$SECOND_OLD_PID -> $NEW_PID for OPL Fleet Agent $INSTALLED_VERSION."
 echo "Verified failed-launch rollback $ROLLBACK_SUCCESS_OLD_PID -> $ROLLBACK_PID."
 echo "Verified failed rollback file operation preserved the previous app backup."

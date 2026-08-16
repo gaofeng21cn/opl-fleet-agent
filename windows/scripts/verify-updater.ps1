@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
-    [string]$PreviousVersion = "0.2.32",
+    [string]$PreviousVersion = "0.2.38",
     [string]$Runtime = "win-x64"
 )
 
@@ -13,7 +13,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$' -or
 
 $windowsRoot = Split-Path -Parent $PSScriptRoot
 $installer = (Resolve-Path (
-    Join-Path $windowsRoot "dist/Codex-TPS-Windows-$Runtime-Setup.exe"
+    Join-Path $windowsRoot "dist/OPL-Fleet-Agent-Windows-$Runtime-Setup.exe"
 )).Path
 $publishedExecutable = (Resolve-Path (
     Join-Path $windowsRoot "dist/$Runtime/OPLFleetAgent.exe"
@@ -25,8 +25,7 @@ $expectedSha256 = (
 $testRoot = Join-Path $env:RUNNER_TEMP "opl-fleet-agent-updater-$([Guid]::NewGuid().ToString('N'))"
 $previousInstaller = Join-Path $testRoot "previous-setup.exe"
 $previousChecksum = "$previousInstaller.sha256"
-$installDirectory = Join-Path $testRoot "Codex TPS"
-$canonicalInstallDirectory = Join-Path $testRoot "OPL Fleet Agent"
+$installDirectory = Join-Path $testRoot "OPL Fleet Agent"
 $stagingDirectory = Join-Path $testRoot "staging"
 $helper = Join-Path $stagingDirectory "OPLFleetAgent.Updater.exe"
 $requestPath = Join-Path $stagingDirectory "update-request.json"
@@ -44,18 +43,15 @@ try {
     } else {
         $env:GITHUB_REPOSITORY
     }
-    if ($releaseRepository -notin @(
-        "gaofeng21cn/opl-fleet-agent",
-        "gaofeng21cn/codex-tps"
-    )) {
+    if ($releaseRepository -ne "gaofeng21cn/opl-fleet-agent") {
         throw "Unsupported previous-release repository: $releaseRepository"
     }
     $releaseRoot = "https://github.com/$releaseRepository/releases/download/v$PreviousVersion"
     Invoke-WebRequest `
-        "$releaseRoot/Codex-TPS-Windows-win-x64-Setup.exe" `
+        "$releaseRoot/OPL-Fleet-Agent-Windows-win-x64-Setup.exe" `
         -OutFile $previousInstaller
     Invoke-WebRequest `
-        "$releaseRoot/Codex-TPS-Windows-win-x64-Setup.exe.sha256" `
+        "$releaseRoot/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256" `
         -OutFile $previousChecksum
     $previousExpected = (
         (Get-Content $previousChecksum -Raw).Trim() -split "\s+"
@@ -83,7 +79,7 @@ try {
         throw "Previous installer exited with $($installResult.ExitCode)."
     }
 
-    $targetExecutable = Join-Path $installDirectory "CodexTPS.exe"
+    $targetExecutable = Join-Path $installDirectory "OPLFleetAgent.exe"
     $oldVersion = (Get-Item $targetExecutable).VersionInfo.ProductVersion
     if (-not $oldVersion.StartsWith($PreviousVersion)) {
         throw "Expected previous version $PreviousVersion, got $oldVersion."
@@ -126,7 +122,7 @@ try {
         throw "Updater helper exited with $($helperProcess.ExitCode)."
     }
 
-    $canonicalExecutable = Join-Path $canonicalInstallDirectory "OPLFleetAgent.exe"
+    $canonicalExecutable = Join-Path $installDirectory "OPLFleetAgent.exe"
     $installedVersion = (Get-Item $canonicalExecutable).VersionInfo.ProductVersion
     $installedProductName = (Get-Item $canonicalExecutable).VersionInfo.ProductName
     if (-not $installedVersion.StartsWith($Version)) {
@@ -156,14 +152,6 @@ try {
         throw "Updated OPL Fleet Agent process was not running after handoff."
     }
 
-    $cleanupDeadline = (Get-Date).AddSeconds(15)
-    while ((Test-Path $targetExecutable) -and (Get-Date) -lt $cleanupDeadline) {
-        Start-Sleep -Milliseconds 250
-    }
-    if (Test-Path $targetExecutable) {
-        throw "Legacy CodexTPS.exe bridge was not removed after migration."
-    }
-
     Write-Output (
         "Verified in-app updater handoff: " +
         "$PreviousVersion PID $($oldProcess.Id) -> $Version PID $($newProcess.Id)."
@@ -176,7 +164,7 @@ finally {
     if ($newProcess -and -not $newProcess.HasExited) {
         Stop-Process -Id $newProcess.Id -Force -ErrorAction SilentlyContinue
     }
-    Get-Process -Name @("OPLFleetAgent", "CodexTPS") -ErrorAction SilentlyContinue |
+    Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
         Stop-Process -Force -ErrorAction SilentlyContinue
     if (Test-Path $uninstaller) {
         $uninstallResult = Start-Process `

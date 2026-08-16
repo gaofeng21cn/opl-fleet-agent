@@ -72,3 +72,31 @@ fi
 /usr/bin/grep --quiet --fixed-strings 'gatewayShortName = "Fleet Gateway"' Sources/CodexTPSCore/FleetAgentProtocol.swift
 /usr/bin/grep --quiet --fixed-strings 'GatewayProductName = "OPL Fleet Gateway"' windows/src/CodexTPS.Core/AmbientOps.cs
 /usr/bin/grep --quiet --fixed-strings 'GatewayShortName = "Fleet Gateway"' windows/src/CodexTPS.Core/AmbientOps.cs
+
+retired_distribution_surfaces=(
+  README.md
+  README.zh-CN.md
+  docs/architecture.md
+  windows/README.md
+  .github/workflows/ci.yml
+  .github/workflows/release.yml
+  scripts/build-dmg.sh
+  scripts/install-release.sh
+  scripts/notarize-dmg.sh
+  scripts/verify-release.sh
+  windows/scripts/build.ps1
+  windows/scripts/build-installer.ps1
+  windows/installer/CodexTPS.iss
+  Sources/CodexTPS/UpdateManager.swift
+  plugins/opl-fleet-agent/bin/opl-fleet-agent.mjs
+)
+
+if /usr/bin/grep --line-number --extended-regexp \
+  'Codex-TPS\.dmg|Codex-TPS-Windows|Codex TPS\.app|gaofeng21cn/codex-tps/releases|brew install --cask gaofeng21cn/codex-tps' \
+  "${retired_distribution_surfaces[@]}"; then
+  echo "Retired Codex TPS install and release names must not remain distribution surfaces." >&2
+  exit 1
+fi
+
+/usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' scripts/build-dmg.sh
+/usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' Sources/CodexTPS/UpdateManager.swift

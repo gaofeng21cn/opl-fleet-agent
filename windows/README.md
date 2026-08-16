@@ -73,14 +73,10 @@ Start-Process $installer -Wait
 The standard installer is self-contained and does not require a separate .NET
 runtime. It installs for the current user under
 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`, adds a Start-menu shortcut, supports
-in-place upgrades, and registers a normal Windows uninstaller. The fixed AppId keeps
-upgrades compatible with earlier Codex TPS releases. New builds run as
-`OPLFleetAgent.exe`, and new payloads do not contain `CodexTPS.exe`. Only an installer
-that detects an existing legacy installation creates a transitional bridge in the old
-directory so the old client can finish one in-app upgrade; the bridge then removes itself.
-Uninstalling the app preserves
-the legacy `%LOCALAPPDATA%\Codex TPS\settings.json` settings authority; it removes
-both the current and legacy login-startup registry values.
+in-place upgrades, and registers a normal Windows uninstaller. The executable is
+`OPLFleetAgent.exe`, settings live under `%LOCALAPPDATA%\OPL Fleet Agent`, and startup
+uses the `OPL Fleet Agent` registry value. Retired installation names are not emitted,
+migrated, or used as update fallbacks.
 
 After launch, the app checks the latest GitHub Release and repeats the check
 every six hours. It never installs silently without user confirmation. After
@@ -112,14 +108,12 @@ creates:
 ```text
 windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip
 windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
-windows/dist/Codex-TPS-Windows-win-x64.zip (legacy compatibility alias)
-windows/dist/Codex-TPS-Windows-win-x64.zip.sha256
 ```
 
 To build the standard installer, also install Inno Setup 6 and run:
 
 ```powershell
-pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.38
+pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.39
 ```
 
 This additionally creates:
@@ -127,8 +121,6 @@ This additionally creates:
 ```text
 windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
 windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
-windows/dist/Codex-TPS-Windows-win-x64-Setup.exe (legacy compatibility alias)
-windows/dist/Codex-TPS-Windows-win-x64-Setup.exe.sha256
 ```
 
 The GitHub `CI` workflow builds `win-x64` on a real Windows runner, installs and
@@ -152,9 +144,7 @@ pwsh ./windows/scripts/install.ps1 `
 ```
 
 The PowerShell installer stages and verifies the archive before replacing
-`%LOCALAPPDATA%\Programs\OPL Fleet Agent`. When the default legacy directory exists,
-it is migrated in the same guarded replacement transaction and restored if the
-replacement fails. The sibling `.sha256` file is mandatory and checked before
+`%LOCALAPPDATA%\Programs\OPL Fleet Agent`. The sibling `.sha256` file is mandatory and checked before
 extraction. Neither installation route enables startup automatically; use the
 checkbox in Settings.
 

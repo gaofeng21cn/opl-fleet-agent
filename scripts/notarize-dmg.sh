@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="${0:A:h:h}"
-DMG_PATH="${1:-$ROOT_DIR/dist/Codex-TPS.dmg}"
+DMG_PATH="${1:-$ROOT_DIR/dist/OPL-Fleet-Agent.dmg}"
 CHECKSUM_PATH="${2:-$DMG_PATH.sha256}"
 APP_PATH="${CODEX_TPS_APP_PATH:-$ROOT_DIR/dist/OPL Fleet Agent.app}"
 BUILD_DMG_SCRIPT="${CODEX_TPS_BUILD_DMG_SCRIPT:-$ROOT_DIR/scripts/build-dmg.sh}"
@@ -82,7 +82,7 @@ xcrun stapler staple "$APP_PATH"
 xcrun stapler validate "$APP_PATH"
 
 CODEX_TPS_SKIP_APP_BUILD=1 \
-CODEX_TPS_DMG_NAME="${DMG_PATH:t}" \
+OPL_FLEET_AGENT_DMG_NAME="${DMG_PATH:t}" \
   "$BUILD_DMG_SCRIPT"
 
 if [[ ! -f "$DMG_PATH" ]]; then

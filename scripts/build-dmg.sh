@@ -4,8 +4,7 @@ set -euo pipefail
 ROOT_DIR="${0:A:h:h}"
 DIST_DIR="$ROOT_DIR/dist"
 APP_NAME="OPL Fleet Agent.app"
-LEGACY_APP_NAME="Codex TPS.app"
-DMG_NAME="${CODEX_TPS_DMG_NAME:-Codex-TPS.dmg}"
+DMG_NAME="${OPL_FLEET_AGENT_DMG_NAME:-OPL-Fleet-Agent.dmg}"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 CHECKSUM_PATH="$DMG_PATH.sha256"
 SIGNING_IDENTITY="${CODEX_TPS_SIGNING_IDENTITY:--}"
@@ -28,7 +27,6 @@ else
 fi
 
 ditto "$DIST_DIR/$APP_NAME" "$STAGING_DIR/$APP_NAME"
-ditto "$DIST_DIR/$APP_NAME" "$STAGING_DIR/$LEGACY_APP_NAME"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 rm -f "$DMG_PATH" "$CHECKSUM_PATH"
