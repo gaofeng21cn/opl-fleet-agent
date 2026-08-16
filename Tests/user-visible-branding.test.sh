@@ -68,14 +68,17 @@ if [[ "$found_other_product_name" -ne 0 ]]; then
   exit 1
 fi
 
-/usr/bin/grep --quiet --fixed-strings 'gatewayProductName = "OPL Fleet Gateway"' Sources/CodexTPSCore/FleetAgentProtocol.swift
-/usr/bin/grep --quiet --fixed-strings 'gatewayShortName = "Fleet Gateway"' Sources/CodexTPSCore/FleetAgentProtocol.swift
-/usr/bin/grep --quiet --fixed-strings 'GatewayProductName = "OPL Fleet Gateway"' windows/src/CodexTPS.Core/AmbientOps.cs
-/usr/bin/grep --quiet --fixed-strings 'GatewayShortName = "Fleet Gateway"' windows/src/CodexTPS.Core/AmbientOps.cs
+/usr/bin/grep --quiet --fixed-strings 'gatewayProductName = "OPL Fleet Gateway"' Sources/OPLFleetAgentCore/FleetAgentProtocol.swift
+/usr/bin/grep --quiet --fixed-strings 'gatewayShortName = "Fleet Gateway"' Sources/OPLFleetAgentCore/FleetAgentProtocol.swift
+/usr/bin/grep --quiet --fixed-strings 'GatewayProductName = "OPL Fleet Gateway"' windows/src/OPLFleetAgent.Core/AmbientOps.cs
+/usr/bin/grep --quiet --fixed-strings 'GatewayShortName = "Fleet Gateway"' windows/src/OPLFleetAgent.Core/AmbientOps.cs
 
-retired_distribution_surfaces=(
+identity_surfaces=(
+  AGENTS.md
+  Package.swift
   README.md
   README.zh-CN.md
+  Resources
   docs/architecture.md
   windows/README.md
   .github/workflows/ci.yml
@@ -86,17 +89,33 @@ retired_distribution_surfaces=(
   scripts/verify-release.sh
   windows/scripts/build.ps1
   windows/scripts/build-installer.ps1
-  windows/installer/CodexTPS.iss
-  Sources/CodexTPS/UpdateManager.swift
+  windows/installer/OPLFleetAgent.iss
+  Sources/OPLFleetAgent/UpdateManager.swift
   plugins/opl-fleet-agent/bin/opl-fleet-agent.mjs
 )
 
-if /usr/bin/grep --line-number --extended-regexp \
-  'Codex-TPS\.dmg|Codex-TPS-Windows|Codex TPS\.app|gaofeng21cn/codex-tps/releases|brew install --cask gaofeng21cn/codex-tps' \
-  "${retired_distribution_surfaces[@]}"; then
-  echo "Retired Codex TPS install and release names must not remain distribution surfaces." >&2
-  exit 1
-fi
+legacy_pascal="Codex""TPS"
+legacy_kebab="codex""-tps"
+legacy_env="CODEX""_TPS"
+legacy_spaced="Codex"" TPS"
+legacy_release="Codex""-TPS"
+for legacy_identity in \
+  "$legacy_pascal" \
+  "$legacy_kebab" \
+  "$legacy_env" \
+  "$legacy_spaced" \
+  "$legacy_release"
+do
+  if git grep --line-number --fixed-strings "$legacy_identity" -- \
+    "${identity_surfaces[@]}" \
+    ':!docs/plan.md'
+  then
+    echo "Retired Fleet Agent identity remains in a live source or distribution surface." >&2
+    exit 1
+  fi
+done
 
 /usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' scripts/build-dmg.sh
-/usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' Sources/CodexTPS/UpdateManager.swift
+/usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' Sources/OPLFleetAgent/UpdateManager.swift
+/usr/bin/grep --quiet --fixed-strings 'io.github.gaofeng21cn.opl-fleet-agent' Resources/Info.plist
+/usr/bin/grep --quiet --fixed-strings '_opl-fleet-agent._tcp' Resources/Info.plist

@@ -3,7 +3,7 @@ param(
     [string]$Runtime = "win-x64",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$Version = "0.2.39",
+    [string]$Version = "0.2.40",
     [switch]$SkipTests,
     [switch]$SkipAppBuild
 )
@@ -17,7 +17,7 @@ $windowsRoot = Split-Path -Parent $PSScriptRoot
 $repositoryRoot = Split-Path -Parent $windowsRoot
 $publishRoot = Join-Path $windowsRoot "dist/$Runtime"
 $distRoot = Join-Path $windowsRoot "dist"
-$definition = Join-Path $windowsRoot "installer/CodexTPS.iss"
+$definition = Join-Path $windowsRoot "installer/OPLFleetAgent.iss"
 $installer = Join-Path $distRoot "OPL-Fleet-Agent-Windows-$Runtime-Setup.exe"
 $checksum = "$installer.sha256"
 
@@ -34,9 +34,11 @@ $executable = Join-Path $publishRoot "OPLFleetAgent.exe"
 if (-not (Test-Path $executable)) {
     throw "Published OPLFleetAgent.exe is missing."
 }
-$legacyExecutable = Join-Path $publishRoot "CodexTPS.exe"
-if (Test-Path $legacyExecutable) {
-    throw "Published payload must not include CodexTPS.exe."
+$allowedExecutables = @("OPLFleetAgent.exe", "OPLFleetAgentProvider.exe")
+$unexpectedExecutables = Get-ChildItem $publishRoot -File -Filter "*.exe" |
+    Where-Object { $_.Name -notin $allowedExecutables }
+if ($unexpectedExecutables) {
+    throw "Published payload contains an unexpected executable: $($unexpectedExecutables.Name -join ', ')."
 }
 
 $compilerCandidates = @(

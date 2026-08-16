@@ -70,7 +70,7 @@ The product is presented to users only as `OPL Fleet Agent`. Windows now uses th
 `OPLFleetAgent.exe` executable and branded release assets. macOS ships
 `OPL-Fleet-Agent.dmg`; Windows ships only `OPL-Fleet-Agent-Windows-*` assets. Retired
 install names are neither emitted nor migrated. Internal module, bundle, preference,
-Keychain, and `_codex-tps._tcp` protocol identities remain implementation details and
+Keychain, and `_opl-fleet-agent._tcp` protocol identities remain implementation details and
 are not alternate installation routes.
 The `oplFleet` extension is a versioned, aggregate-only envelope. It describes
 the local Agent's observation, doctor, execution-constraint, and sanitized-receipt

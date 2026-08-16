@@ -93,7 +93,7 @@ test('forwards a sanitized native projection', async (t) => {
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.39',
+      agent_version: '0.2.40',
     },
     payload: { doctor_state: 'healthy', capability_currentness: 'current', checks: [] },
   });
@@ -138,7 +138,7 @@ test('discovers the canonical current-user macOS app helper', {
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.39',
+      agent_version: '0.2.40',
     },
     payload: { doctor_state: 'healthy', capability_currentness: 'current', checks: [] },
   });
@@ -171,7 +171,7 @@ test('fails closed on recursively sensitive native keys without exposing helper 
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.39',
+      agent_version: '0.2.40',
     },
     payload: { nested: { prompt: 'must-never-escape' } },
   });
@@ -208,7 +208,7 @@ test('fails closed when native unavailable freshness still carries observations'
       stable_node_id: 'fixture-node',
       display_name: 'Fixture Node',
       platform: 'test',
-      agent_version: '0.2.39',
+      agent_version: '0.2.40',
     },
     payload: {
       collection_status: 'unavailable',

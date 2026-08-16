@@ -5,9 +5,9 @@ ROOT_DIR="${0:A:h:h}"
 APP_NAME="OPL Fleet Agent.app"
 DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$DIST_DIR/$APP_NAME"
-SIGNING_IDENTITY="${CODEX_TPS_SIGNING_IDENTITY:--}"
-EXPECTED_TEAM_ID="${CODEX_TPS_EXPECTED_TEAM_ID:-}"
-REQUIRE_DEVELOPER_ID="${CODEX_TPS_REQUIRE_DEVELOPER_ID:-0}"
+SIGNING_IDENTITY="${OPL_FLEET_AGENT_SIGNING_IDENTITY:--}"
+EXPECTED_TEAM_ID="${OPL_FLEET_AGENT_EXPECTED_TEAM_ID:-}"
+REQUIRE_DEVELOPER_ID="${OPL_FLEET_AGENT_REQUIRE_DEVELOPER_ID:-0}"
 
 if [[ "$REQUIRE_DEVELOPER_ID" == "1" && "$SIGNING_IDENTITY" == "-" ]]; then
   echo "Developer ID signing is required for this build." >&2
@@ -15,9 +15,9 @@ if [[ "$REQUIRE_DEVELOPER_ID" == "1" && "$SIGNING_IDENTITY" == "-" ]]; then
 fi
 
 cd "$ROOT_DIR"
-BUILD_ARGS=(-c release --product CodexTPS)
-if [[ -n "${CODEX_TPS_ARCHS:-}" ]]; then
-  for ARCH in ${=CODEX_TPS_ARCHS}; do
+BUILD_ARGS=(-c release --product OPLFleetAgent)
+if [[ -n "${OPL_FLEET_AGENT_ARCHS:-}" ]]; then
+  for ARCH in ${=OPL_FLEET_AGENT_ARCHS}; do
     BUILD_ARGS+=(--arch "$ARCH")
   done
 fi
@@ -25,8 +25,8 @@ fi
 swift build "${BUILD_ARGS[@]}"
 BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 PROVIDER_BUILD_ARGS=(-c release --product OPLFleetAgentProvider)
-if [[ -n "${CODEX_TPS_ARCHS:-}" ]]; then
-  for ARCH in ${=CODEX_TPS_ARCHS}; do
+if [[ -n "${OPL_FLEET_AGENT_ARCHS:-}" ]]; then
+  for ARCH in ${=OPL_FLEET_AGENT_ARCHS}; do
     PROVIDER_BUILD_ARGS+=(--arch "$ARCH")
   done
 fi
@@ -35,16 +35,16 @@ swift build "${PROVIDER_BUILD_ARGS[@]}"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
-ditto "$BIN_DIR/CodexTPS" "$APP_DIR/Contents/MacOS/CodexTPS"
+ditto "$BIN_DIR/OPLFleetAgent" "$APP_DIR/Contents/MacOS/OPLFleetAgent"
 ditto "$BIN_DIR/OPLFleetAgentProvider" "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider"
 ditto "$ROOT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 ditto "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 ditto "$ROOT_DIR/scripts/install-release.sh" "$APP_DIR/Contents/Resources/install-release.sh"
 chmod 755 "$APP_DIR/Contents/Resources/install-release.sh"
 
-if [[ -n "${CODEX_TPS_ARCHS:-}" ]]; then
-  for ARCH in ${=CODEX_TPS_ARCHS}; do
-    lipo "$APP_DIR/Contents/MacOS/CodexTPS" -verify_arch "$ARCH"
+if [[ -n "${OPL_FLEET_AGENT_ARCHS:-}" ]]; then
+  for ARCH in ${=OPL_FLEET_AGENT_ARCHS}; do
+    lipo "$APP_DIR/Contents/MacOS/OPLFleetAgent" -verify_arch "$ARCH"
     lipo "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider" -verify_arch "$ARCH"
   done
 fi

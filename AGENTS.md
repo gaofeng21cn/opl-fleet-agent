@@ -25,12 +25,12 @@ conversation content.
 
 - Build: `swift build`
 - Test: `swift test`
-- Snapshot: `swift run codex-tps-snapshot --json`
+- Snapshot: `swift run opl-fleet-agent-snapshot --json`
 - Package: `./scripts/build-app.sh`
 - Universal DMG: `./scripts/build-dmg.sh`
 - Install: `./scripts/install.sh`
 - Install latest release: `./scripts/install-release.sh`
-- Windows test: `dotnet test windows/tests/CodexTPS.Core.Tests -c Release`
+- Windows test: `dotnet test windows/tests/OPLFleetAgent.Core.Tests -c Release`
 - Windows package: `pwsh ./windows/scripts/build.ps1 -Runtime win-x64`
 
 Runtime and packaging claims require a real installed-app readback in addition

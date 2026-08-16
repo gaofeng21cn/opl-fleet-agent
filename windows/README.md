@@ -113,7 +113,7 @@ windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
 To build the standard installer, also install Inno Setup 6 and run:
 
 ```powershell
-pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.39
+pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version 0.2.40
 ```
 
 This additionally creates:
@@ -158,9 +158,9 @@ and WSL stores.
 
 ## Source layout
 
-- `src/CodexTPS.Core`: parser, replay deduplication, rolling metrics and payload contract
-- `src/CodexTPS.Windows`: WinForms tray, settings, DPAPI, startup and DNS-SD
-- `tests/CodexTPS.Core.Tests`: deterministic accounting/privacy/discovery tests
+- `src/OPLFleetAgent.Core`: parser, replay deduplication, rolling metrics and payload contract
+- `src/OPLFleetAgent.Windows`: WinForms tray, settings, DPAPI, startup and DNS-SD
+- `tests/OPLFleetAgent.Core.Tests`: deterministic accounting/privacy/discovery tests
 
 Before calling a Windows build production-ready, verify on a clean Windows 11
 machine: first launch, tray interaction, DPAPI persistence, startup after sign-in,

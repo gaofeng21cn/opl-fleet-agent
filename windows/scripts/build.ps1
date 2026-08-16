@@ -3,18 +3,18 @@ param(
     [string]$Runtime = "win-x64",
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$Version = "0.2.39",
+    [string]$Version = "0.2.40",
     [switch]$SkipTests
 )
 
 $ErrorActionPreference = "Stop"
 $windowsRoot = Split-Path -Parent $PSScriptRoot
 $repositoryRoot = Split-Path -Parent $windowsRoot
-$solution = Join-Path $windowsRoot "CodexTPS.Windows.sln"
-$appProject = Join-Path $windowsRoot "src/CodexTPS.Windows/CodexTPS.Windows.csproj"
-$providerProject = Join-Path $windowsRoot "src/CodexTPS.Provider/CodexTPS.Provider.csproj"
-$coreTestProject = Join-Path $windowsRoot "tests/CodexTPS.Core.Tests/CodexTPS.Core.Tests.csproj"
-$windowsTestProject = Join-Path $windowsRoot "tests/CodexTPS.Windows.Tests/CodexTPS.Windows.Tests.csproj"
+$solution = Join-Path $windowsRoot "OPLFleetAgent.Windows.sln"
+$appProject = Join-Path $windowsRoot "src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj"
+$providerProject = Join-Path $windowsRoot "src/OPLFleetAgent.Provider/OPLFleetAgent.Provider.csproj"
+$coreTestProject = Join-Path $windowsRoot "tests/OPLFleetAgent.Core.Tests/OPLFleetAgent.Core.Tests.csproj"
+$windowsTestProject = Join-Path $windowsRoot "tests/OPLFleetAgent.Windows.Tests/OPLFleetAgent.Windows.Tests.csproj"
 $distRoot = Join-Path $windowsRoot "dist"
 $publishRoot = Join-Path $distRoot $Runtime
 $archive = Join-Path $distRoot "OPL-Fleet-Agent-Windows-$Runtime.zip"
@@ -81,13 +81,15 @@ if (-not (Test-Path (Join-Path $publishRoot "OPLFleetAgent.exe"))) {
 if (-not (Test-Path (Join-Path $publishRoot "OPLFleetAgentProvider.exe"))) {
     throw "Published OPLFleetAgentProvider.exe is missing."
 }
-$legacyExecutable = Join-Path $publishRoot "CodexTPS.exe"
-if (Test-Path $legacyExecutable) {
-    throw "Published payload must not include CodexTPS.exe."
+$allowedExecutables = @("OPLFleetAgent.exe", "OPLFleetAgentProvider.exe")
+$unexpectedExecutables = Get-ChildItem $publishRoot -File -Filter "*.exe" |
+    Where-Object { $_.Name -notin $allowedExecutables }
+if ($unexpectedExecutables) {
+    throw "Published payload contains an unexpected executable: $($unexpectedExecutables.Name -join ', ')."
 }
 Copy-Item (Join-Path $repositoryRoot "LICENSE") (Join-Path $publishRoot "LICENSE.txt")
 Copy-Item (Join-Path $windowsRoot "THIRD-PARTY-NOTICES.md") $publishRoot
-Copy-Item (Join-Path $windowsRoot "src/CodexTPS.Windows/app.ico") $publishRoot
+Copy-Item (Join-Path $windowsRoot "src/OPLFleetAgent.Windows/app.ico") $publishRoot
 if (Test-Path $archive) { Remove-Item -Force $archive }
 if (Test-Path $checksum) { Remove-Item -Force $checksum }
 Compress-Archive -Path (Join-Path $publishRoot "*") -DestinationPath $archive -CompressionLevel Optimal

@@ -4,10 +4,10 @@ set -euo pipefail
 ROOT_DIR="${0:A:h:h}"
 DMG_PATH="${1:-$ROOT_DIR/dist/OPL-Fleet-Agent.dmg}"
 CHECKSUM_PATH="${2:-$DMG_PATH.sha256}"
-EXPECTED_TEAM_ID="${CODEX_TPS_EXPECTED_TEAM_ID:-SVVC4TA784}"
-EXPECTED_BUNDLE_ID="${CODEX_TPS_EXPECTED_BUNDLE_ID:-io.github.gaofeng21cn.codex-tps}"
-EXPECTED_VERSION="${CODEX_TPS_EXPECTED_VERSION:-}"
-MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/codex-tps-verify.XXXXXX")"
+EXPECTED_TEAM_ID="${OPL_FLEET_AGENT_EXPECTED_TEAM_ID:-SVVC4TA784}"
+EXPECTED_BUNDLE_ID="${OPL_FLEET_AGENT_EXPECTED_BUNDLE_ID:-io.github.gaofeng21cn.opl-fleet-agent}"
+EXPECTED_VERSION="${OPL_FLEET_AGENT_EXPECTED_VERSION:-}"
+MOUNT_POINT="$(mktemp -d "${TMPDIR:-/tmp}/opl-fleet-agent-verify.XXXXXX")"
 ATTACHED=0
 
 cleanup() {
@@ -73,7 +73,7 @@ grep -q '^Authority=Developer ID Application:' <<<"$SIGNATURE_DETAILS"
 grep -q 'flags=.*runtime' <<<"$SIGNATURE_DETAILS"
 grep -q '^Timestamp=' <<<"$SIGNATURE_DETAILS"
 spctl --assess --type execute --verbose=4 "$APP_PATH"
-lipo "$APP_PATH/Contents/MacOS/CodexTPS" -verify_arch arm64 x86_64
+lipo "$APP_PATH/Contents/MacOS/OPLFleetAgent" -verify_arch arm64 x86_64
 lipo "$PROVIDER_PATH" -verify_arch arm64 x86_64
 
 echo "Verified notarized OPL Fleet Agent $ACTUAL_VERSION for Team $ACTUAL_TEAM_ID."
