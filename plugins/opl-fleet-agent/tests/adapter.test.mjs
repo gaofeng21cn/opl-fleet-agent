@@ -7,6 +7,8 @@ import test from 'node:test';
 
 import { handleRequest } from '../bin/opl-fleet-agent.mjs';
 
+const pluginRoot = path.resolve(import.meta.dirname, '..');
+
 const request = (ref) => ({
   schema_version: 'opl-package-app-contribution-request.v1',
   operation: 'read',
@@ -14,26 +16,33 @@ const request = (ref) => ({
   input: {},
 });
 
-test('package content lock matches the shipped plugin bytes', async () => {
-  const manifest = JSON.parse(await readFile(
-    new URL('../opl-package.json', import.meta.url),
-    'utf8',
-  ));
+test('keeps Agent Plugins 1.0 authority aligned with the Codex compatibility manifest', async () => {
+  const authority = JSON.parse(await readFile(path.join(pluginRoot, 'plugin.json'), 'utf8'));
+  const compatibility = JSON.parse(
+    await readFile(path.join(pluginRoot, '.codex-plugin', 'plugin.json'), 'utf8'),
+  );
+
+  assert.equal(authority.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
+  assert.equal(authority.name, compatibility.name);
+  assert.equal(authority.version, compatibility.version);
+  assert.deepEqual(authority.extensions?.['com.openai']?.interface, compatibility.interface);
+  assert.equal('skills' in authority, false);
+  assert.equal('interface' in authority, false);
+});
+
+test('keeps the Package content lock bound to the ordered carrier bytes', async () => {
+  const descriptor = JSON.parse(await readFile(path.join(pluginRoot, 'opl-package.json'), 'utf8'));
   const digest = createHash('sha256');
-  for (const relativePath of manifest.content_lock.paths) {
+  for (const relativePath of descriptor.content_lock.paths) {
     const pathBytes = Buffer.from(relativePath, 'utf8');
-    const fileBytes = await readFile(new URL(`../${relativePath}`, import.meta.url));
-    const pathLength = Buffer.allocUnsafe(8);
-    const fileLength = Buffer.allocUnsafe(8);
+    const fileBytes = await readFile(path.join(pluginRoot, relativePath));
+    const pathLength = Buffer.alloc(8);
+    const fileLength = Buffer.alloc(8);
     pathLength.writeBigUInt64BE(BigInt(pathBytes.length));
     fileLength.writeBigUInt64BE(BigInt(fileBytes.length));
-    digest.update(pathLength);
-    digest.update(pathBytes);
-    digest.update(fileLength);
-    digest.update(fileBytes);
+    digest.update(pathLength).update(pathBytes).update(fileLength).update(fileBytes);
   }
-
-  assert.equal(manifest.content_lock.digest, `sha256:${digest.digest('hex')}`);
+  assert.equal(descriptor.content_lock.digest, `sha256:${digest.digest('hex')}`);
 });
 
 test('rejects unknown refs without invoking native code', async () => {
