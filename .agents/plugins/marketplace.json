@@ -1,0 +1,20 @@
+{
+  "name": "opl-fleet-agent",
+  "interface": {
+    "displayName": "OPL Fleet Agent"
+  },
+  "plugins": [
+    {
+      "name": "opl-fleet-agent",
+      "source": {
+        "source": "local",
+        "path": "./plugins/opl-fleet-agent"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

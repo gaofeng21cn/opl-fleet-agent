@@ -8,6 +8,7 @@ import test from 'node:test';
 import { handleRequest } from '../bin/opl-fleet-agent.mjs';
 
 const pluginRoot = path.resolve(import.meta.dirname, '..');
+const repositoryRoot = path.resolve(pluginRoot, '..', '..');
 
 const request = (ref) => ({
   schema_version: 'opl-package-app-contribution-request.v1',
@@ -28,6 +29,38 @@ test('keeps Agent Plugins 1.0 authority aligned with the Codex compatibility man
   assert.deepEqual(authority.extensions?.['com.openai']?.interface, compatibility.interface);
   assert.equal('skills' in authority, false);
   assert.equal('interface' in authority, false);
+});
+
+test('exposes one configured native Codex marketplace carrier', async () => {
+  const marketplace = JSON.parse(
+    await readFile(path.join(repositoryRoot, '.agents', 'plugins', 'marketplace.json'), 'utf8'),
+  );
+  const descriptor = JSON.parse(await readFile(path.join(pluginRoot, 'opl-package.json'), 'utf8'));
+
+  assert.equal(marketplace.name, 'opl-fleet-agent');
+  assert.deepEqual(marketplace.plugins, [{
+    name: 'opl-fleet-agent',
+    source: {
+      source: 'local',
+      path: './plugins/opl-fleet-agent',
+    },
+    policy: {
+      installation: 'AVAILABLE',
+      authentication: 'ON_INSTALL',
+    },
+    category: 'Productivity',
+  }]);
+  assert.equal(
+    path.resolve(repositoryRoot, marketplace.plugins[0].source.path),
+    pluginRoot,
+  );
+  assert.deepEqual(descriptor.codex_surface.configured_codex_plugin_carrier, {
+    kind: 'codex_plugin_manager',
+    plugin_selector: 'opl-fleet-agent@opl-fleet-agent',
+    executor_route: 'codex_cli',
+    marketplace_source: 'gaofeng21cn/opl-fleet-agent',
+    publication_ref: null,
+  });
 });
 
 test('keeps the Package content lock bound to the ordered carrier bytes', async () => {

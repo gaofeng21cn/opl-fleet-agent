@@ -41,6 +41,13 @@
     "plugin_id": "opl-fleet-agent",
     "plugin_source_path": ".",
     "codex_default_exposure": false,
+    "configured_codex_plugin_carrier": {
+      "kind": "codex_plugin_manager",
+      "plugin_selector": "opl-fleet-agent@opl-fleet-agent",
+      "executor_route": "codex_cli",
+      "marketplace_source": "gaofeng21cn/opl-fleet-agent",
+      "publication_ref": null
+    },
     "optional_install_policy": "all_exported_skills",
     "app_contribution_abi": {
       "schema_version": "opl-package-app-contribution-cli.v1",
