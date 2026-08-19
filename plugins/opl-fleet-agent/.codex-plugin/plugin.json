@@ -1,7 +1,7 @@
 {
   "name": "opl-fleet-agent",
   "version": "0.2.40",
-  "description": "Read-only local OPL Fleet Agent telemetry and doctor projections.",
+  "description": "Optional read-only OPL Fleet Agent integration (OPL Fleet Agent 集成) for sanitized local telemetry and doctor projections.",
   "author": {
     "name": "OPL"
   },
@@ -15,9 +15,9 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "OPL Fleet Agent",
-    "shortDescription": "Inspect local Fleet Agent health and telemetry.",
-    "longDescription": "Read sanitized node-local OPL Fleet Agent telemetry and bounded doctor results without exposing conversation content or fleet authority decisions.",
+    "displayName": "OPL Fleet Agent Integration",
+    "shortDescription": "Inspect local Fleet Agent health and telemetry through an optional read-only integration.",
+    "longDescription": "An optional read-only integration that exposes sanitized node-local OPL Fleet Agent telemetry and bounded doctor results without exposing conversation content or fleet authority decisions. It is not required to install or run the native OPL Fleet Agent.app.",
     "developerName": "OPL",
     "category": "Productivity",
     "capabilities": [

@@ -1,13 +1,13 @@
 {
   "surface_kind": "opl_capability_package_manifest.v2",
   "package_id": "opl-fleet-agent",
-  "display_name": "OPL Fleet Agent",
+  "display_name": "OPL Fleet Agent Integration",
   "publisher": "one-person-lab",
   "version": "0.2.40",
   "source": "first_party",
   "package_role": "capability_package",
   "source_repo": "https://github.com/gaofeng21cn/opl-fleet-agent.git",
-  "machine_boundary": "This Package projects sanitized node-local observations from the installed native OPL Fleet Agent. It does not own native installation, collection, upgrade, fleet admission, leases, dispatch, task completion, execution constraints, receipts, or Cordis Host truth.",
+  "machine_boundary": "This optional read-only adapter projects sanitized node-local observations from the installed native OPL Fleet Agent. It is not a dependency of installing or running the native OPL Fleet Agent.app. It does not own native installation, collection, upgrade, fleet admission, leases, dispatch, task completion, execution constraints, receipts, or Cordis Host truth.",
   "capability_abi": {
     "id": "opl-fleet-agent.capabilities",
     "version": "1.0.0",
@@ -35,7 +35,7 @@
       "skills/opl-fleet-agent/SKILL.md",
       "skills/opl-fleet-agent/agents/openai.yaml"
     ],
-    "digest": "sha256:bfaa5318bbe5212be7e601089f1de6375f79d2b98c6864d7dcf2165a87fc4b0d"
+    "digest": "sha256:e31ecdef2a18e45af57a871af70732aebf137bf56f123f3ea0047ad3e415383f"
   },
   "codex_surface": {
     "plugin_id": "opl-fleet-agent",
@@ -107,25 +107,6 @@
         "tone": "neutral"
       }
     ],
-    "ui": [
-      {
-        "contribution_id": "fleet.agent.telemetry-settings",
-        "slot": "settings.section",
-        "contribution_kind": "view",
-        "trust_tier": "declarative",
-        "scope": "root",
-        "sort_order": 300,
-        "view_id": "fleet.agent.telemetry"
-      },
-      {
-        "contribution_id": "fleet.agent.doctor-settings",
-        "slot": "settings.section",
-        "contribution_kind": "view",
-        "trust_tier": "declarative",
-        "scope": "root",
-        "sort_order": 310,
-        "view_id": "fleet.agent.doctor"
-      }
-    ]
+    "ui": []
   }
 }

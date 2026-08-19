@@ -31,6 +31,41 @@ test('keeps Agent Plugins 1.0 authority aligned with the Codex compatibility man
   assert.equal('interface' in authority, false);
 });
 
+test('describes an optional read-only integration without default Settings sections', async () => {
+  const descriptor = JSON.parse(await readFile(path.join(pluginRoot, 'opl-package.json'), 'utf8'));
+  const authority = JSON.parse(await readFile(path.join(pluginRoot, 'plugin.json'), 'utf8'));
+  const compatibility = JSON.parse(
+    await readFile(path.join(pluginRoot, '.codex-plugin', 'plugin.json'), 'utf8'),
+  );
+  const skill = await readFile(
+    path.join(pluginRoot, 'skills', 'opl-fleet-agent', 'SKILL.md'),
+    'utf8',
+  );
+  const displayName = 'OPL Fleet Agent Integration';
+
+  assert.equal(descriptor.display_name, displayName);
+  assert.equal(authority.extensions?.['com.openai']?.interface?.displayName, displayName);
+  assert.equal(compatibility.interface?.displayName, displayName);
+  assert.match(descriptor.machine_boundary, /optional read-only adapter/);
+  assert.match(descriptor.machine_boundary, /not a dependency of installing or running/);
+  assert.match(skill, /optional, read-only adapter/);
+  assert.match(skill, /no default OPL Settings section/);
+  assert.deepEqual(descriptor.app_contributions.ui, []);
+  assert.deepEqual(
+    descriptor.app_contributions.views.map(({ view_id, data_ref }) => ({ view_id, data_ref })),
+    [
+      {
+        view_id: 'fleet.agent.telemetry',
+        data_ref: 'fleet.agent.telemetry.v1#local',
+      },
+      {
+        view_id: 'fleet.agent.doctor',
+        data_ref: 'fleet.agent.doctor.v1#current',
+      },
+    ],
+  );
+});
+
 test('exposes one configured native Codex marketplace carrier', async () => {
   const marketplace = JSON.parse(
     await readFile(path.join(repositoryRoot, '.agents', 'plugins', 'marketplace.json'), 'utf8'),
