@@ -210,7 +210,7 @@ public static class OplFleetAgentProtocol
     public const string ProductName = "OPL Fleet Agent";
     public const string GatewayProductName = "OPL Fleet Gateway";
     public const string GatewayShortName = "Fleet Gateway";
-    public const string AgentVersion = "0.2.40";
+    public const string AgentVersion = "0.2.41";
     public static readonly string[] Modes = ["local", "direct", "fleet"];
     public static readonly string[] Capabilities =
     [

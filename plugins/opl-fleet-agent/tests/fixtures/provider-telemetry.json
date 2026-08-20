@@ -16,7 +16,7 @@
     "status": "ready"
   },
   "node": {
-    "agent_version": "0.2.40",
+    "agent_version": "0.2.41",
     "display_name": "Fixture Node",
     "platform": "macOS",
     "stable_node_id": "fixture-node"
