@@ -41,6 +41,7 @@
     "plugin_id": "opl-fleet-agent",
     "plugin_source_path": ".",
     "codex_default_exposure": false,
+    "interaction_mode": "headless_internal",
     "configured_codex_plugin_carrier": {
       "kind": "codex_plugin_manager",
       "plugin_selector": "opl-fleet-agent@opl-fleet-agent",
