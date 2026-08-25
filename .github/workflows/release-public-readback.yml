@@ -1,0 +1,173 @@
+name: Release Public Readback
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Release public readback for source run {0}', inputs.source_run_id) || format('Release public readback for Release run {0}', github.event.workflow_run.id) }}
+
+on:
+  workflow_run:
+    workflows:
+      - Release
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Exact successful Release run to verify publicly.
+        required: true
+        type: string
+
+# This follower only reads the source run and public release. It never owns a
+# tag, public release, public asset, or repository-content mutation; its own
+# short-lived readback receipt is the only artifact it uploads.
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: opl-fleet-agent-release-public-readback-${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id || github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  readback:
+    name: Read back public Release assets
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch'
+        || (
+          github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push'
+          && startsWith(github.event.workflow_run.head_branch, 'v')
+        )
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Resolve exact successful Release run
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.source_run_id || github.event.workflow_run.id }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$EXPECTED_REPOSITORY/actions/runs/$SOURCE_RUN_ID" > "$RUNNER_TEMP/source-run.json"
+
+          jq -e \
+            --arg run "$SOURCE_RUN_ID" \
+            --arg repository "$EXPECTED_REPOSITORY" \
+            '
+              (.id | tostring) == $run
+              and .repository.full_name == $repository
+              and .head_repository.full_name == $repository
+              and .name == "Release"
+              and .path == ".github/workflows/release.yml"
+              and .event == "push"
+              and .status == "completed"
+              and .conclusion == "success"
+              and (.head_branch | test("^v[0-9]+\\.[0-9]+\\.[0-9]+([.-][0-9A-Za-z.-]+)?$"))
+              and (.head_sha | test("^[0-9a-f]{40}$"))
+            ' "$RUNNER_TEMP/source-run.json" >/dev/null
+
+          tag="$(jq -er '.head_branch' "$RUNNER_TEMP/source-run.json")"
+          source_sha="$(jq -er '.head_sha' "$RUNNER_TEMP/source-run.json")"
+          gh api "repos/$EXPECTED_REPOSITORY/commits/$tag" > "$RUNNER_TEMP/tag-commit.json"
+          jq -e --arg expected "$source_sha" '.sha == $expected' "$RUNNER_TEMP/tag-commit.json" >/dev/null
+
+          {
+            echo "source_run_id=$SOURCE_RUN_ID"
+            echo "tag=$tag"
+            echo "source_sha=$source_sha"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Read public Release metadata and assets anonymously
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPOSITORY"
+          public_release="$RUNNER_TEMP/public-release.json"
+          expected_names="$RUNNER_TEMP/expected-assets.txt"
+          public_assets="$RUNNER_TEMP/public-assets"
+
+          curl -fsSL --retry 3 --retry-all-errors \
+            -H 'Accept: application/vnd.github+json' \
+            "$api/releases/tags/$RELEASE_TAG" > "$public_release"
+          jq -e --arg tag "$RELEASE_TAG" '
+            .tag_name == $tag
+            and .draft == false
+            and (.assets | type == "array")
+          ' "$public_release" >/dev/null
+
+          cat > "$expected_names" <<'EOF'
+          OPL-Fleet-Agent-Windows-win-x64-Setup.exe
+          OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
+          OPL-Fleet-Agent-Windows-win-x64.zip
+          OPL-Fleet-Agent-Windows-win-x64.zip.sha256
+          OPL-Fleet-Agent.dmg
+          OPL-Fleet-Agent.dmg.sha256
+          EOF
+          LC_ALL=C sort -o "$expected_names" "$expected_names"
+          jq -r '.assets[].name' "$public_release" | LC_ALL=C sort > "$RUNNER_TEMP/actual-assets.txt"
+          if ! diff -u "$expected_names" "$RUNNER_TEMP/actual-assets.txt"; then
+            echo "Public Release asset set differs from the canonical six-asset set." >&2
+            exit 1
+          fi
+
+          mkdir -p "$public_assets"
+          while IFS= read -r name; do
+            url="$(jq -er --arg name "$name" '.assets[] | select(.name == $name) | .browser_download_url' "$public_release")"
+            case "$url" in
+              "https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/"*) ;;
+              *) echo "Unexpected public asset URL for $name: $url" >&2; exit 1 ;;
+            esac
+            curl -fsSL --retry 3 --retry-all-errors "$url" -o "$public_assets/$name"
+          done < "$expected_names"
+
+          (
+            cd "$public_assets"
+            sha256sum --check --strict \
+              OPL-Fleet-Agent.dmg.sha256 \
+              OPL-Fleet-Agent-Windows-win-x64.zip.sha256 \
+              OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
+          )
+
+          jq -n \
+            --arg schema "opl_fleet_agent_release_public_readback.v1" \
+            --arg repository "$REPOSITORY" \
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg source_sha "$SOURCE_SHA" \
+            --arg checked_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --slurpfile release "$public_release" \
+            '{
+              schema: $schema,
+              status: "passed",
+              repository: $repository,
+              source_run_id: ($source_run_id | tonumber),
+              release_tag: $release_tag,
+              source_sha: $source_sha,
+              public_release_id: $release[0].id,
+              draft: $release[0].draft,
+              prerelease: $release[0].prerelease,
+              assets: ($release[0].assets | map(.name) | sort),
+              anonymous_downloads: true,
+              checked_at: $checked_at
+            }' > release-public-readback.json
+
+          printf 'Public Release %s passed anonymous asset and checksum readback for source run %s (%s).\n' \
+            "$RELEASE_TAG" "$SOURCE_RUN_ID" "$SOURCE_SHA"
+
+      - name: Upload readback receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: opl-fleet-agent-release-public-readback-${{ steps.source.outputs.source_run_id }}
+          path: release-public-readback.json
+          if-no-files-found: error
+          retention-days: 14

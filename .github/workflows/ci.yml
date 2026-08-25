@@ -25,5 +25,6 @@ jobs:
           xcrun swift-format lint --recursive Sources Tests Package.swift
           bash -n scripts/install-release.sh scripts/verify-updater.sh
           ./Tests/user-visible-branding.test.sh
+          ./Tests/release-public-readback.test.sh
           swift test
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
