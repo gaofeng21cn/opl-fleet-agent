@@ -160,6 +160,84 @@ final class AmbientOpsKeychainTests: XCTestCase {
     XCTAssertEqual(AmbientOpsRetryPolicy.delay(forFailureCount: 6), 300)
     XCTAssertEqual(AmbientOpsRetryPolicy.delay(forFailureCount: 20), 300)
   }
+
+  func testManualLocalAddressDoesNotRequireSchemeOrPort() throws {
+    XCTAssertEqual(
+      AmbientOpsManualEndpoint.resolve("192.168.50.20"),
+      try XCTUnwrap(URL(string: "http://192.168.50.20:8787"))
+    )
+    XCTAssertEqual(
+      AmbientOpsManualEndpoint.resolve("fleet-gateway.local"),
+      try XCTUnwrap(URL(string: "http://fleet-gateway.local:8787"))
+    )
+    XCTAssertEqual(
+      AmbientOpsManualEndpoint.resolve("fleet-gateway"),
+      try XCTUnwrap(URL(string: "http://fleet-gateway:8787"))
+    )
+    XCTAssertEqual(
+      AmbientOpsManualEndpoint.resolve("192.168.50.20:9000"),
+      try XCTUnwrap(URL(string: "http://192.168.50.20:9000"))
+    )
+  }
+
+  func testManualPublicAddressDefaultsToHTTPS() throws {
+    XCTAssertEqual(
+      AmbientOpsManualEndpoint.resolve("fleet.example.com"),
+      try XCTUnwrap(URL(string: "https://fleet.example.com"))
+    )
+    XCTAssertEqual(
+      AmbientOpsManualEndpoint.resolve("fcfleet.example.com"),
+      try XCTUnwrap(URL(string: "https://fcfleet.example.com"))
+    )
+  }
+
+  func testLegacyLocalHTTPSHandshakeFailureFallsBackToHTTP() throws {
+    let endpoint = try XCTUnwrap(URL(string: "https://192.168.50.20:8787"))
+    let expected = try XCTUnwrap(URL(string: "http://192.168.50.20:8787"))
+    let failures: [Error] = [
+      URLError(.secureConnectionFailed),
+      NSError(domain: NSURLErrorDomain, code: NSURLErrorSecureConnectionFailed),
+    ]
+
+    for failure in failures {
+      XCTAssertEqual(
+        AmbientOpsManualEndpoint.httpFallback(
+          for: failure,
+          endpoint: endpoint,
+          autoDiscover: false
+        ),
+        expected
+      )
+    }
+  }
+
+  func testHTTPFallbackDoesNotDowngradePublicOrAutomaticallyDiscoveredGateways() throws {
+    let failure = URLError(.secureConnectionFailed)
+    let publicEndpoint = try XCTUnwrap(URL(string: "https://fleet.example.com:8787"))
+    let localEndpoint = try XCTUnwrap(URL(string: "https://gateway.local:8787"))
+
+    XCTAssertNil(
+      AmbientOpsManualEndpoint.httpFallback(
+        for: failure,
+        endpoint: publicEndpoint,
+        autoDiscover: false
+      )
+    )
+    XCTAssertNil(
+      AmbientOpsManualEndpoint.httpFallback(
+        for: failure,
+        endpoint: localEndpoint,
+        autoDiscover: true
+      )
+    )
+    XCTAssertNil(
+      AmbientOpsManualEndpoint.httpFallback(
+        for: URLError(.timedOut),
+        endpoint: localEndpoint,
+        autoDiscover: false
+      )
+    )
+  }
 }
 
 private final class FakeKeychainBackend: AmbientOpsKeychainBackend {

@@ -232,7 +232,7 @@ jobs:
 
           ## Agent
 
-          This release also includes the OPL Fleet provider package, durable sanitized last-known telemetry for Fleet doctor, and narrower GitHub Actions permissions.
+          macOS manual Gateway setup now accepts a LAN IP address or hostname without requiring users to choose HTTP, HTTPS, or the default port.
           EOF
           } >release-notes.md
           gh release create "$GITHUB_REF_NAME" \

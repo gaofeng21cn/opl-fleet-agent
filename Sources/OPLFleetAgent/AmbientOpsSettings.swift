@@ -51,6 +51,89 @@ enum AmbientOpsConnectionState: Equatable {
   }
 }
 
+enum AmbientOpsManualEndpoint {
+  static let defaultLocalPort = 8787
+
+  static func resolve(_ input: String) -> URL? {
+    let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !value.isEmpty else { return nil }
+
+    let hasScheme =
+      value.range(
+        of: #"^[A-Za-z][A-Za-z0-9+.-]*://"#,
+        options: .regularExpression
+      ) != nil
+    guard var components = URLComponents(string: hasScheme ? value : "http://\(value)"),
+      let host = components.host,
+      !host.isEmpty,
+      components.user == nil,
+      components.password == nil,
+      components.query == nil,
+      components.fragment == nil
+    else { return nil }
+
+    if hasScheme {
+      guard ["http", "https"].contains(components.scheme?.lowercased() ?? "") else {
+        return nil
+      }
+      components.scheme = components.scheme?.lowercased()
+    } else {
+      components.scheme = isLocalNetworkHost(host) ? "http" : "https"
+    }
+    if isLocalNetworkHost(host), components.port == nil {
+      components.port = defaultLocalPort
+    }
+    return components.url
+  }
+
+  static func httpFallback(
+    for error: Error,
+    endpoint: URL,
+    autoDiscover: Bool
+  ) -> URL? {
+    guard
+      !autoDiscover,
+      (error as? URLError)?.code == .secureConnectionFailed,
+      endpoint.scheme?.lowercased() == "https",
+      let host = endpoint.host,
+      isLocalNetworkHost(host),
+      var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
+    else { return nil }
+
+    components.scheme = "http"
+    if components.port == nil {
+      components.port = defaultLocalPort
+    }
+    return components.url
+  }
+
+  private static func isLocalNetworkHost(_ host: String) -> Bool {
+    let normalized = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+    if normalized == "localhost" || normalized.hasSuffix(".local")
+      || normalized.hasSuffix(".lan") || normalized.hasSuffix(".home.arpa")
+      || (!normalized.contains(".") && !normalized.contains(":"))
+    {
+      return true
+    }
+    if normalized == "::1" || normalized.hasPrefix("fe80:")
+      || (normalized.contains(":")
+        && (normalized.hasPrefix("fc") || normalized.hasPrefix("fd")))
+    {
+      return true
+    }
+
+    let segments = normalized.split(separator: ".")
+    guard segments.count == 4 else { return false }
+    let octets = segments.compactMap { UInt8($0) }
+    guard octets.count == segments.count else { return false }
+    return octets[0] == 10
+      || (octets[0] == 172 && (16...31).contains(octets[1]))
+      || (octets[0] == 192 && octets[1] == 168)
+      || (octets[0] == 169 && octets[1] == 254)
+      || octets[0] == 127
+  }
+}
+
 enum AmbientOpsPetChoice: String, CaseIterable, Identifiable {
   case localCodex = "local-codex"
   case none

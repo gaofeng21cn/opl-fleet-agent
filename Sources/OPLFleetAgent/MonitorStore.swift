@@ -288,12 +288,7 @@ final class MonitorStore: ObservableObject {
   }
 
   private var manualAmbientEndpoint: URL? {
-    guard
-      let endpoint = URL(string: ambientManualURL),
-      ["http", "https"].contains(endpoint.scheme?.lowercased() ?? ""),
-      endpoint.host != nil
-    else { return nil }
-    return endpoint
+    AmbientOpsManualEndpoint.resolve(ambientManualURL)
   }
 
   private func pushAmbient(_ observation: AmbientOpsMachineObservation) {
@@ -369,6 +364,20 @@ final class MonitorStore: ObservableObject {
       } catch AmbientOpsPairingError.rejected {
         ambientConnection = .failed(message: "配对请求已拒绝 · 请重新发现后重试")
       } catch {
+        if let fallback = AmbientOpsManualEndpoint.httpFallback(
+          for: error,
+          endpoint: endpoint,
+          autoDiscover: ambientAutoDiscover
+        ) {
+          ambientManualURL = fallback.absoluteString
+          UserDefaults.standard.set(ambientManualURL, forKey: Self.ambientManualURLDefaultsKey)
+          resetAmbientPairing()
+          resetAmbientEndpointFailures()
+          ambientConnection = .ready(name: fallback.host ?? name, endpoint: fallback)
+          ambientPushTask = nil
+          Task { await refresh() }
+          return
+        }
         ambientConnection = .failed(message: "推送失败：\(error.localizedDescription)")
         scheduleAmbientRetry(
           behavior: AmbientOpsRetryBehavior.behavior(

@@ -240,6 +240,9 @@ choice.
 For desktop apps, prefer automatic discovery and the visible one-time approval flow.
 An agent may open settings, trigger rediscovery, and guide the user through code
 verification. It must not approve an unknown device or extract the private key.
+Manual desktop setup accepts a LAN IP address or hostname without a scheme or port.
+The macOS app selects HTTP port `8787` for local addresses and migrates a legacy local
+HTTPS value only after the TLS handshake proves that the endpoint is not serving HTTPS.
 
 The headless agent also discovers OPL Fleet Gateway when `OPL_FLEET_AGENT_AMBIENT_URL` is absent.
 Set `OPL_FLEET_AGENT_AMBIENT_INSTANCE_ID` to prefer one advertised instance. An explicit

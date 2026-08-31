@@ -263,7 +263,7 @@ struct MonitorPanel: View {
 
       if store.ambientEnabled && !store.ambientAutoDiscover {
         TextField(
-          "http://opl-fleet-gateway.local:8787",
+          "192.168.50.20 或 opl-fleet-gateway.local",
           text: Binding(
             get: { store.ambientManualURL },
             set: { value in store.setAmbientManualURL(value) }
