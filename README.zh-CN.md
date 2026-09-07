@@ -55,11 +55,11 @@ OPL Fleet Agent 是一个本机优先的桌面小工具。它增量读取 Codex 
 - 最近 `1 分钟 / 5 分钟 / 30 分钟 / 1 小时` 的 Token 每秒吞吐
 - 输入、缓存输入、输出和推理 Token 分项
 - 每分钟请求数、活跃会话数和缓存占比
-- `5 秒 / 15 秒 / 30 秒 / 1 分钟` 自动刷新
+- 可配置刷新频率（macOS 为 `5 秒 / 15 秒 / 30 秒 / 1 分钟`）
 - 菜单栏统计区间记忆、手动刷新、会话目录快捷入口和登录时启动
 - 自动检查 GitHub 发布版本，并在用户确认后执行校验过的更新
 - 面向脚本和自动化的 JSON 快照命令
-- 可选的 OPL Fleet Gateway 局域网发现与汇总指标上报
+- macOS 的 Direct 局域网发现，以及可选的 OPL Fleet Gateway 汇总指标上报
 
 Codex 通常在一次模型请求完成后才写入用量，因此这里显示的是“完成时吞吐”，
 不是按流式输出分片实时变化的瞬时速度。
@@ -106,7 +106,7 @@ Windows 版是基于 .NET 8 WinForms 的 Windows 11 原生系统托盘应用。�
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
 安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`，主程序为 `OPLFleetAgent.exe`；
-退役安装名和发布别名不会再生成或迁移。当前安装器尚未使用 Authenticode 签名，因此 Windows 可能显示未知发布者
+当前安装器尚未使用 Authenticode 签名，因此 Windows 可能显示未知发布者
 或 SmartScreen 提示；发布页、SHA-256 和持续集成记录可以证明仓库来源，但不能替代
 Windows 代码签名信任。
 
@@ -133,7 +133,7 @@ WSL UNC 路径，例如 `\\wsl.localhost\Ubuntu\home\<user>\.codex`。
 | 输出 | 输出 Token，包含推理输出子集 |
 | 推理 | 推理输出 Token，单独展示但不会重复加总 |
 | 请求/分钟 | 选定窗口内完成请求的频率 |
-| 活跃会话 | 最近仍有用量事件的会话数量 |
+| 活跃会话 | 最近两分钟修改过的会话文件数，包括尚未完成的请求 |
 
 ### 与 OPL Fleet Gateway 协同
 
@@ -149,7 +149,7 @@ macOS 版 OPL Fleet Agent 会发布既有协议服务名 `_opl-fleet-agent._tcp.
 开始发送签名快照，不需要复制共享令牌。
 
 macOS 私钥保存在 Keychain，Windows 私钥只以当前用户 DPAPI 密文保存。OPL Fleet Gateway
-仅保存对应公钥。上报内容只包括：
+仅保存对应公钥。上报内容包括：
 
 - 稳定机器标识、机器名和平台
 - 采集时间与采集状态
@@ -157,139 +157,27 @@ macOS 私钥保存在 Keychain，Windows 私钥只以当前用户 DPAPI 密文�
 - 活跃会话数
 - 可选宠物定义与活动状态
 
-可选的 `oplFleet` 扩展使用 `opl_fleet_agent_telemetry.v1` schema，声明
-`local`、`direct`、`fleet` 三种模式，以及本机观测、doctor、执行约束和脱敏回执
-能力。Agent 不拥有 registry、policy、admission、lease 或 dispatch 权威；这些仍由
-OPL Flow、私人 OPL Fleet Controller 和批准的 Instance 管理。Gateway 只做遥测接收、
-聚合和只读投影，不形成第二套调度权威。上报不会包含接口名、地址、凭据、原始日志、
-会话标识、路径、提示词、回复正文或工具内容。该集成默认关闭，可在应用设置中随时
-停用、重新发现或改用手动 HTTP(S) 地址。
+上报还可包含可用的 CPU 和网络汇总观测。会话标识、本地路径、网络接口身份、
+地址、提示词、回复正文、凭据、原始日志和工具内容均不在上报字段中。两个桌面版本默认启用 Gateway 发现，
+签名上报需要先批准设备；可在设置中停用或配置。手工连接见 [Agent 运维](docs/operations.md)，
+协议和只读权威边界见[架构](docs/architecture.md)。
 
 ### 隐私边界
 
-- 只解析统计和去重所需的结构化事件，不读取或展示对话正文。
+- 只解析统计和去重所需的结构化事件；扫描器读取日志字节，但不解码、保留或展示对话正文。
 - 网络访问用于检查和下载 GitHub 发布版本；macOS 还会在局域网广播只含汇总数据的
   Direct 服务。
 - 启用 OPL Fleet Gateway 后，只在用户选择的局域网服务端上报允许清单内的汇总指标。
 - 没有分析 SDK、账户系统或云端会话同步。
 - 本机日志格式属于实现依赖；未来 Codex 版本变化可能需要更新解析器。
 
-## 面向 Agent
+## 文档导航
 
-### 安装与配置原则
-
-Agent 应优先安装已发布、已校验的正式版，而不是把本地构建当作用户安装结果。
-
-通过 Homebrew 安装 macOS 正式版：
-
-```bash
-brew tap gaofeng21cn/one-person-lab
-brew install --cask opl-fleet-agent
-```
-
-直接使用正式版安装脚本：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
-```
-
-macOS 从源码安装：
-
-```bash
-git clone https://github.com/gaofeng21cn/opl-fleet-agent.git
-cd opl-fleet-agent
-./scripts/install.sh
-```
-
-源码安装会为当前 Mac 构建、临时签名、安装并启动应用；它不等同于 Developer ID
-签名、公证和正式发布版本。需要自定义目录时使用 `OPL_FLEET_AGENT_INSTALL_DIR`，不立即
-启动时传入 `--no-launch`。
-
-Windows 应优先使用最新发布版本中的标准安装器，并在打开前校验同名
-`.sha256` 文件。不要把未签名安装器描述为已获得 Authenticode 信任。
-
-### 配置非默认 Codex 数据目录
-
-先验证目标目录确实包含 `sessions`，再设置 `CODEX_HOME`。不要自动在多个目录之间
-猜测或合并，也不要改动 Codex 自身的执行环境。
-
-```bash
-CODEX_HOME=/path/to/codex-home swift run opl-fleet-agent-snapshot --json
-```
-
-Windows 原生目录与 WSL UNC 目录是不同的数据来源，必须由用户明确选择。
-
-### 配置 OPL Fleet Gateway
-
-桌面应用优先使用图形界面中的自动发现和一次性批准流程。Agent 可以打开设置、
-触发重新发现并引导用户核对配对码，但不得代替用户批准未知设备，也不得读取或
-导出设备私钥。
-桌面应用的手工连接只需填写局域网 IP 或主机名，无需填写协议或端口。macOS 应用
-会为局域网地址选择 HTTP `8787`；旧的本地 HTTPS 配置只有在 TLS 握手证实服务端
-没有提供 HTTPS 后才会迁移并重试。
-
-无界面 Agent 在未设置 `OPL_FLEET_AGENT_AMBIENT_URL` 时同样可以自动发现服务。需要固定
-实例时设置 `OPL_FLEET_AGENT_AMBIENT_INSTANCE_ID`；显式地址始终覆盖自动发现。
-
-旧版或无界面共享令牌路径：
-
-```bash
-OPL_FLEET_AGENT_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
-OPL_FLEET_AGENT_AMBIENT_TOKEN='<agent-token>' \
-OPL_FLEET_AGENT_MACHINE_ID=primary-mac \
-OPL_FLEET_AGENT_MACHINE_NAME='Primary Mac' \
-swift run opl-fleet-agent-headless --once
-```
-
-不要把真实令牌写进任务描述、仓库、日志或长期 shell 历史。macOS 可通过
-`OPL_FLEET_AGENT_AMBIENT_TOKEN_KEYCHAIN_SERVICE` 和可选的
-`OPL_FLEET_AGENT_KEYCHAIN_ACCOUNT` 从通用密码 Keychain 项读取令牌。
-
-### Agent 验收
-
-```bash
-swift test
-swift run opl-fleet-agent-snapshot --json
-```
-
-Windows 核心测试：
-
-```powershell
-dotnet test windows/tests/OPLFleetAgent.Core.Tests -c Release
-```
-
-完成安装时还应回读：
-
-- 实际安装路径和应用版本
-- macOS 签名、公证与 Gatekeeper 状态，或 Windows 安装文件版本
-- 目标 `CODEX_HOME/sessions` 是否被正确读取
-- 面板刷新后是否出现真实统计
-- 启用 OPL Fleet Gateway 时，批准状态和服务端接受的机器身份是否一致
-
-测试通过、本地构建成功或发现了发布版本，都不等于已经完成安装与运行验收。
-
-### 不可破坏的实现边界
-
-- 不持久化、记录、传输或渲染提示词与回复正文。
-- `total_tokens` 是吞吐总量；缓存输入与推理输出是子集，不能重复相加。
-- 保留跨文件去重和分叉会话重放逻辑，避免同一请求被重复统计。
-- OPL Fleet Gateway 只能接收允许清单内的聚合字段。
-- 发布仍需经过仓库既有的签名、公证、校验和安装后回读流程。
-
-## 文档与开发
-
-- [统计与架构](docs/architecture.md)
-- [Windows 原生版](windows/README.md)
-- [OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit)
-- [项目 Agent 合同](AGENTS.md)
-
-```bash
-xcrun swift-format lint --recursive Sources Tests Package.swift
-swift test
-swift run opl-fleet-agent-snapshot --json
-./scripts/build-app.sh
-./scripts/build-dmg.sh
-```
+- [Agent 运维](docs/operations.md)：配置、无界面上报与安装后验收
+- [架构](docs/architecture.md)：采集、统计口径、隐私与 Package 边界
+- [开发](docs/development.md)：构建、测试与发布验证
+- [Windows 安装](windows/README.md)：标准安装器、便携包与 WSL
+- [贡献者规则](AGENTS.md)：编辑约束与文档生命周期
 
 项目采用 [Apache License 2.0](LICENSE)。统计口径参考了公开的
 [Tokscale](https://github.com/junhoyeo/tokscale) 项目，但 OPL Fleet Agent 是独立实现，

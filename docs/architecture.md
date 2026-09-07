@@ -1,126 +1,120 @@
 # Architecture
 
-## Goal
+This document owns collection, telemetry, and integration boundaries. Use
+[operations](operations.md) for configuration and [development](development.md)
+for builds and release qualification.
 
-Display local Codex token throughput in the macOS menu bar with minute-level
-freshness, low steady-state overhead, and no prompt-content processing outside
-the local process.
-
-## Data flow
+## Collection and accounting
 
 ```text
-~/.codex/sessions/YYYY/MM/DD/*.jsonl
-        -> incremental line reader
-        -> stateful token_count parser
-        -> replay/duplicate filter
-        -> rolling event window
-        -> MenuBarExtra, snapshot CLI, and optional OPL Fleet Gateway push agent
+CODEX_HOME/sessions/**/*.jsonl
+        -> incremental byte reader
+        -> structural token-event parser
+        -> fork replay and cross-file duplicate filters
+        -> rolling aggregate windows
+        -> native UI, snapshot CLI, native provider, Direct, or Gateway push
 ```
 
-The scanner discovers files in today's and yesterday's session directories,
-parses recently modified files once to establish state, then reads only appended
-bytes. The UI refresh cadence is selectable while rolling windows remain fixed
-at 1 minute, 5 minutes, 30 minutes, and 1 hour. The selected window is shared
-by the panel and menu bar and persisted in `UserDefaults`, so changing the
-segmented control updates the compact menu bar value immediately.
+The Swift [scanner](../Sources/OPLFleetAgentCore/SessionScanner.swift) and
+[Windows scanner](../windows/src/OPLFleetAgent.Core/SessionScanner.cs) recursively
+discover session files, admit recently modified files and previously tracked
+files, then read appended bytes. They retain 65 minutes of accounting events.
+Active sessions count files modified in the last two minutes, including activity
+that has not yet produced a completed token event. Missing directories and read
+failures produce collection status, not a successful empty observation.
 
-## Update flow
+The [Swift parser](../Sources/OPLFleetAgentCore/TokenEventParser.swift) and its
+[Windows counterpart](../windows/src/OPLFleetAgent.Core/TokenEventParser.cs) own
+these accounting rules:
 
-```text
-github.com/.../releases/latest (HEAD redirect)
-        -> validate release tag and required asset URLs
-        -> user confirms Update now
-        -> download DMG and published SHA-256
-        -> verify checksum, expected version, Developer ID team, and Gatekeeper
-        -> stage, back up, atomically replace, and relaunch
-```
+- `last_token_usage` supplies the request increment. Cumulative
+  `total_token_usage` supports fallback accounting and duplicate detection;
+  it is not another increment when last usage is present.
+- `total_tokens` is the throughput numerator. Cached input and reasoning
+  output are subsets and must not be added to the total again.
+- Inherited fork history can have rewritten timestamps. A verifiable child
+  UUIDv7 turn establishes the replay boundary; replayed UUIDv4 turns do not.
+  Stable event identity provides the subsequent cross-file duplicate guard.
+- Only structural `session_meta`, `task_started`, `turn_context`, and
+  `token_count` data is decoded. Conversation and tool-content lines are read
+  as bytes but are not decoded, retained, rendered, or transmitted as bodies.
 
-The updater checks once after launch and every six hours while the app remains
-running. It is independent of the session scanner: requests contain no Codex
-log data, and only GitHub release metadata and assets are accessed. Automatic
-checking never silently installs or terminates the app.
+Rates divide completed usage by the entire selected `1m`, `5m`, `30m`, or `1h`
+window. UI refresh cadence is separate from the accounting window. On macOS the
+selected window is persisted and shared by the panel and menu-bar readout.
+Tokscale is not called on the refresh path. Local log observations are not
+provider billing or API-key attribution authority.
 
-## Optional OPL Fleet Gateway push flow
+## Native and Package ownership
 
-```text
-rolling aggregate snapshot
-        -> explicit field allowlist
-        -> mDNS discovery
-        -> one-time visible pairing approval
-        -> per-device P-256 signed POST
-        -> user-configured OPL Fleet Telemetry Gateway
-```
+The native app and command targets are defined by [Package.swift](../Package.swift)
+and the [Windows solution](../windows/OPLFleetAgent.Windows.sln). Native code owns
+local collection, sanitization, persistence, and platform installation.
 
-The menu bar app discovers compatible servers and uses a private P-256 device
-key stored in the macOS Keychain. The server receives only the public key after
-the user confirms a six-digit code on the local approval page. Each push signs
-the method, path, timestamp, nonce, and body hash. Existing bearer tokens remain
-a compatibility path, and the headless source agent still requires one.
+The optional [Package descriptor](../plugins/opl-fleet-agent/opl-package.json)
+exports read-only telemetry and doctor contributions through the Framework
+broker. Its [adapter](../plugins/opl-fleet-agent/bin/opl-fleet-agent.mjs) invokes
+the installed native provider; it must not collect Codex logs itself. The
+Package is not required to install or run the native app. Missing native carrier
+and stale last-known values remain explicit availability/freshness states.
+The [Skill](../plugins/opl-fleet-agent/skills/opl-fleet-agent/SKILL.md) owns broker
+invocation instructions.
 
-The payload contains only aggregate token totals/rates, request counts,
-active-session count, machine labels, collection status, and timestamps.
-Session identifiers, paths, prompts, responses, and tool content never cross
-the process boundary. Collection failures retain the last successful aggregate
-values and mark the snapshot as an error; transport failures retry without
-affecting local collection.
+The `opl_fleet_agent_telemetry.v1` envelope is defined in
+[FleetAgentProtocol.swift](../Sources/OPLFleetAgentCore/FleetAgentProtocol.swift)
+and [AmbientOps.cs](../windows/src/OPLFleetAgent.Core/AmbientOps.cs). Its advertised
+modes are `local`, `direct`, and `fleet`; these names do not prove each platform
+publishes every transport. Current capabilities cover observation, doctor, local
+Codex telemetry, and the host dashboard. Neither the native Agent nor the
+Package owns admission, registry, policy, leases, dispatch, execution constraints,
+receipts, or task completion. Those decisions remain with their external owners.
 
-## OPL Fleet Agent boundary
+## Direct and Gateway transports
 
-The product is presented to users only as `OPL Fleet Agent`. Windows now uses the
-`OPLFleetAgent.exe` executable and branded release assets. macOS ships
-`OPL-Fleet-Agent.dmg`; Windows ships only `OPL-Fleet-Agent-Windows-*` assets. Retired
-install names are neither emitted nor migrated. Internal module, bundle, preference,
-Keychain, and `_opl-fleet-agent._tcp` protocol identities remain implementation details and
-are not alternate installation routes.
-The `oplFleet` extension is a versioned, aggregate-only envelope. It describes
-the local Agent's observation, doctor, execution-constraint, and sanitized-receipt
-capabilities across Local, Direct, and Fleet modes. The Agent can constrain and
-report its own host execution, but it never owns registry, policy, admission,
-lease, or dispatch authority. OPL Flow, the private Instance, and the Fleet
-Controller remain authoritative. OPL Fleet Gateway is presented as `OPL Fleet Cockpit`
-and its Gateway only stores, aggregates, and projects telemetry; it does not
-schedule or dispatch work.
+On macOS, [AmbientOpsDirectServer](../Sources/OPLFleetAgent/AmbientOpsDirectServer.swift)
+publishes `_opl-fleet-agent._tcp` and serves read-only aggregate status and pet
+assets on the LAN, independently of Gateway push settings. Windows has Direct
+status models but does not publish a Direct server. The Direct projection
+includes token rates, session count, available host CPU/network telemetry, and
+the selected pet. It has no persistent network history or dispatch endpoint.
 
-## Release trust flow
+Desktop Gateway discovery is enabled by default and can be disabled in Settings.
+Discovery uses `_ambient-ops._tcp`; desktop pairing
+generates a per-device P-256 key, displays a six-digit code, and requires visible
+approval. macOS stores the private key in Keychain; Windows uses current-user
+DPAPI. Signed requests bind method, path, timestamp, nonce, and body hash.
+The headless command currently uses bearer authentication, which also remains
+implemented in desktop settings. Configuration belongs in [operations](operations.md).
 
-```text
-universal app
-        -> Developer ID + Hardened Runtime + trusted timestamp
-        -> signed DMG
-        -> Apple notarization
-        -> stapled ticket
-        -> Gatekeeper, signature, architecture, and checksum verification
-        -> GitHub Release assets pinned by SHA-256
-```
+[AmbientOpsPush.swift](../Sources/OPLFleetAgentCore/AmbientOpsPush.swift) and its
+Windows equivalent define the outbound fields: stable machine identity and
+labels, time/status, one- and five-minute token/request aggregates, active
+sessions, optional aggregate CPU/network observations, pet state/assets, and
+the `oplFleet` envelope. Session identities, file paths, interface identities,
+addresses, credentials, raw logs, prompts, responses, and tool bodies are excluded.
+On collection failure, Gateway snapshots retain available last-successful
+aggregates with error status. Transport retry does not block local collection.
 
-The release workflow fails closed when protected Apple credentials are missing.
-Local development builds may remain ad-hoc signed, but public release assets
-must carry Team ID `SVVC4TA784` and pass the final notarized-byte verifier.
+OPL Fleet Cockpit owns display composition; its OPL Fleet Gateway receives and
+projects telemetry. Neither is a scheduler by virtue of this integration.
+Network use consists of GitHub release metadata/assets, the macOS Direct
+service, and configured Gateway discovery, pairing, and pushes.
 
-## Accounting invariants
+## Native updates
 
-1. `last_token_usage` is the request increment.
-2. `total_token_usage` is cumulative state, never a direct increment when a
-   `last_token_usage` value exists.
-3. `total_tokens` is the throughput numerator. `cached_input_tokens` is a subset
-   of input and `reasoning_output_tokens` is a subset of output.
-4. Forked children can rewrite replay timestamps. The parser reads fork metadata
-   and ignores inherited history until a verifiable child UUIDv7 turn begins;
-   legacy UUIDv4 turns inside replay do not establish that boundary.
-5. A stable event identity provides a second cross-file duplicate guard after
-   fork replay filtering.
-6. Collection decodes only `session_meta`, `task_started`, `turn_context`, and
-   `token_count` records; message and tool-content lines remain opaque bytes.
-7. No message body crosses the parser boundary.
+Both desktop updaters check after launch and every six hours, then require user
+confirmation before installation. Session collection is independent and no log
+content is attached to release requests.
 
-## Product boundaries
+The [macOS updater](../Sources/OPLFleetAgent/UpdateManager.swift) discovers the
+latest release through the release-page redirect and delegates installation to
+the bundled [release installer](../scripts/install-release.sh). The transaction
+validates checksum, expected version, signature/team and Gatekeeper state before
+staging, backup, replacement, and relaunch. Replacement failure restores the
+previous app. Windows uses an exact-process handoff, re-verifies the installer,
+reads back its installed version, and relaunches; its platform transaction is
+documented in [Windows installation](../windows/README.md).
 
-- Tokscale remains the historical analysis/export surface; it is not invoked on
-  the menu bar refresh path.
-- Local usage events are operational telemetry, not billing authority. The app
-  does not attribute usage to an API key or reconcile provider-side charges.
-- Codex JSONL is an implementation surface. Fixture tests cover the shapes used
-  here so schema drift fails visibly.
-- Network access is restricted to GitHub release checks/update downloads and
-  the explicitly configured OPL Fleet Gateway push endpoint. There is no analytics,
-  login, or conversation-content upload path.
+This repository owns release identity and assets. The Homebrew Tap is a
+downstream Cask projection. Public release trust and workflow boundaries belong
+to [development](development.md), not to historical build receipts.

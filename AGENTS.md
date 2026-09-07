@@ -1,45 +1,48 @@
 # OPL Fleet Agent Repository Guide
 
-This repository owns local-only macOS menu bar and Windows tray monitors for
+This repository owns local-first macOS menu bar and Windows tray monitors for
 Codex token throughput. They read Codex session JSONL files and never upload
 conversation content.
 
 ## Runtime Contract
 
-- Live input is `$CODEX_HOME/sessions` when `CODEX_HOME` is set. Defaults are
-  `~/.codex/sessions` on macOS and `%USERPROFILE%\.codex\sessions` on Windows.
-- Count only `event_msg` entries whose payload type is `token_count`.
-- Treat `last_token_usage` as the request increment. Use
-  `total_token_usage` only for replay and duplicate detection.
-- `total_tokens` is authoritative for throughput. Cached input and reasoning
-  output are subsets used for breakdowns and must not be added again.
-- Forked and subagent logs can rewrite parent history timestamps during replay.
-  Legacy replay can mix UUIDv4 turn IDs with current UUIDv7 IDs. Preserve the
-  fork state machine and cross-file deduplication tests.
+- Follow [architecture](docs/architecture.md) for accounting, replay, transport,
+  and native/Package ownership. Verify changes against the source and current
+  callers; prose is not a second runtime contract.
+- Preserve the parser's fork state machine and cross-file deduplication tests.
 - Do not persist, log, transmit, or render prompt or response bodies.
-- Network access is limited to GitHub release metadata/assets and opt-in
-  aggregate Ambient Ops discovery/push. Conversation records never cross the
-  network boundary.
+- Network access includes GitHub release metadata/assets, the macOS aggregate
+  Direct LAN server, and configured aggregate Gateway discovery/pairing/push.
+  Conversation records never cross the network boundary.
 
 ## Development
 
-- Build: `swift build`
-- Test: `swift test`
-- Snapshot: `swift run opl-fleet-agent-snapshot --json`
-- Package: `./scripts/build-app.sh`
-- Universal DMG: `./scripts/build-dmg.sh`
-- Install: `./scripts/install.sh`
-- Install latest release: `./scripts/install-release.sh`
-- Install from the unified OPL Homebrew Tap: `brew install --cask gaofeng21cn/one-person-lab/opl-fleet-agent`
-- Windows test: `dotnet test windows/tests/OPLFleetAgent.Core.Tests -c Release`
-- Windows package: `pwsh ./windows/scripts/build.ps1 -Runtime win-x64`
+Use [development](docs/development.md) for commands and qualification boundaries,
+and [operations](docs/operations.md) for installed-runtime acceptance. Do not
+infer installed or published state from source tests or old release receipts.
 
-Runtime and packaging claims require a real installed-app readback in addition
-to unit tests.
+## Documentation Lifecycle
 
-This repository owns Fleet Agent release truth. `homebrew-one-person-lab` is a
-downstream Cask projection and must not define a second version, checksum, asset,
-or retired installation alias.
+- Root READMEs are English/Chinese user-entry equivalents; keep their meaning
+  aligned in the same change. They summarize capabilities and link to owners.
+- `docs/architecture.md` owns implementation boundaries and invariants;
+  `docs/operations.md` owns operator procedures; `docs/development.md` owns
+  builds and release qualification. `windows/README.md` owns Windows installation
+  and desktop operation. The Package Skill owns broker invocation only.
+- Put each new subject in its existing owner. Split a document only when a new
+  audience or independent task needs a separate entry. Link instead of copying
+  detailed procedures, capability inventories, or acceptance records.
+- When code, descriptors, callers, packaging, or workflows change, update the
+  owning document and inbound references in the same change. Remove retired
+  instructions instead of preserving aliases or completed checklists.
+- Keep proposals separate from current behavior and state their unresolved
+  decision. Once resolved, integrate durable rationale into its owner and delete
+  the plan. Git and release/workflow records retain completed execution history;
+  archive prose only when unique decision provenance still has future value.
+- Legal notices retain their legal provenance purpose. Do not edit third-party
+  license text as documentation cleanup.
+- Verify local links/assets and `git diff --check`. Judge currentness from
+  source and contracts; do not add prose-keyword, heading, or length assertions.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph

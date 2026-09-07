@@ -55,7 +55,7 @@ already present in local session logs easier to see.
 - Rolling token rates for `1m`, `5m`, `30m`, and `1h`
 - Input, cached-input, output, and reasoning breakdowns
 - Requests per minute, active sessions, and cache ratio
-- `5s`, `15s`, `30s`, or `1min` refresh cadence
+- Configurable refresh cadence (`5s`, `15s`, `30s`, or `1min` on macOS)
 - Remembered menu-bar window, manual refresh, session-folder access, and launch at login
 - User-confirmed, checksum-verified GitHub Release updates
 - A JSON snapshot command for scripts and integrations
@@ -109,8 +109,7 @@ Download both files from the
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
 Installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent` and use `OPLFleetAgent.exe`.
-Retired install names and release aliases are not emitted or migrated. The installer is
-not yet Authenticode-signed, so Windows
+The installer is not yet Authenticode-signed, so Windows
 may show an unknown-publisher or SmartScreen warning. GitHub Release provenance,
 SHA-256, and CI receipts do not replace Windows code-signing trust.
 
@@ -137,7 +136,7 @@ accessible WSL UNC path such as `\\wsl.localhost\Ubuntu\home\<user>\.codex`.
 | Output | Output tokens, including the reasoning subset |
 | Reasoning | Reasoning output shown separately and never added twice |
 | Requests/min | Completion rate inside the selected window |
-| Active sessions | Sessions with recent usage events |
+| Active sessions | Session files modified in the last two minutes, including requests still in progress |
 
 ### OPL Fleet Gateway integration
 
@@ -147,9 +146,9 @@ Android ambient displays.
 
 On macOS, OPL Fleet Agent publishes the established protocol service name
 `_opl-fleet-agent._tcp.local` and a read-only local status endpoint so OPL Fleet Cockpit can
-display this Mac without enabling Gateway pushes. The Direct provider exposes only
-aggregate TPS, active sessions, host CPU and network throughput, and the selected pet
-asset. Windows does not publish the Direct provider yet.
+display this Mac without enabling Gateway pushes. The Direct provider exposes
+aggregate TPS, active sessions, host CPU and network throughput, and the selected
+pet asset. Windows does not publish the Direct provider yet.
 
 For fleet mode, the Agent discovers `_ambient-ops._tcp.local` automatically. On first
 connection, the desktop app creates a local per-device key and opens the approval page.
@@ -157,7 +156,7 @@ After the user verifies the six-digit code, signed pushes begin without copying 
 shared token.
 
 The private key stays in macOS Keychain or as current-user DPAPI ciphertext on Windows.
-OPL Fleet Gateway stores only the corresponding public key. The payload is limited to:
+OPL Fleet Gateway stores only the corresponding public key. Telemetry includes:
 
 - stable machine identity, machine name, and platform;
 - collection time and status;
@@ -165,148 +164,31 @@ OPL Fleet Gateway stores only the corresponding public key. The payload is limit
 - active-session count; and
 - optional pet definition and activity state.
 
-The optional `oplFleet` extension uses schema `opl_fleet_agent_telemetry.v1` and
-advertises Local, Direct, and Fleet modes plus node-local observation, doctor,
-execution-constraint, and sanitized-receipt capabilities. The Agent does not own
-registry, policy, admission, lease, or dispatch; OPL Flow, the private Fleet
-Controller, and the approved Instance remain authoritative. The Gateway only
-aggregates and projects telemetry and is never a second scheduler.
-
-Session identifiers, local paths, interface names, addresses, prompts, responses,
-credentials, raw logs, and tool content are never sent.
-The integration is opt-in and can be disabled, rediscovered, or pointed at a manual
-HTTP(S) endpoint from settings.
+Available aggregate CPU and network observations may also be included. Session
+identifiers, local paths, interface identities, addresses, prompts, responses,
+credentials, raw logs, and tool content are excluded. Gateway discovery is enabled
+by default on both desktops; signed pushes wait for device approval. Integration
+can be disabled or configured in Settings. See [Agent operations](docs/operations.md)
+for manual connections and [architecture](docs/architecture.md) for protocol and
+read-only ownership boundaries.
 
 ### Privacy boundary
 
 - Parses only structural events required for accounting and deduplication.
-- Does not read or render conversation bodies.
+- Reads log bytes but does not decode, retain, or render conversation bodies.
 - Uses the network for GitHub Release checks and, on macOS, the aggregate-only local
   Direct provider advertised on the LAN.
 - Sends only allowlisted aggregates when OPL Fleet Gateway is enabled.
 - Includes no analytics SDK, account system, or cloud session synchronization.
 - Treats the Codex log format as an implementation dependency that may evolve.
 
-## For Agents
+## Documentation
 
-### Installation and configuration rules
-
-Prefer a published, verified release for user installation. A successful local build
-is not the same terminal state as an installed release.
-
-Install the macOS release through Homebrew:
-
-```bash
-brew tap gaofeng21cn/one-person-lab
-brew install --cask opl-fleet-agent
-```
-
-Direct release installer:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
-```
-
-Build and install from source on macOS:
-
-```bash
-git clone https://github.com/gaofeng21cn/opl-fleet-agent.git
-cd opl-fleet-agent
-./scripts/install.sh
-```
-
-The source path builds for the current Mac, ad-hoc signs, installs, and launches the
-app. It does not create a Developer ID signed, notarized release. Use
-`OPL_FLEET_AGENT_INSTALL_DIR` for another destination or `--no-launch` to skip launch.
-
-On Windows, prefer the standard installer from the latest release and verify its
-sibling `.sha256` file before opening it. Do not describe the unsigned installer as
-Authenticode-trusted.
-
-### Configure a non-default Codex home
-
-Verify that the selected root contains `sessions` before setting `CODEX_HOME`. Do not
-silently guess, merge, or switch between multiple roots.
-
-```bash
-CODEX_HOME=/path/to/codex-home swift run opl-fleet-agent-snapshot --json
-```
-
-Native Windows and WSL UNC roots are separate sources and require an explicit user
-choice.
-
-### Configure OPL Fleet Gateway
-
-For desktop apps, prefer automatic discovery and the visible one-time approval flow.
-An agent may open settings, trigger rediscovery, and guide the user through code
-verification. It must not approve an unknown device or extract the private key.
-Manual desktop setup accepts a LAN IP address or hostname without a scheme or port.
-The macOS app selects HTTP port `8787` for local addresses and migrates a legacy local
-HTTPS value only after the TLS handshake proves that the endpoint is not serving HTTPS.
-
-The headless agent also discovers OPL Fleet Gateway when `OPL_FLEET_AGENT_AMBIENT_URL` is absent.
-Set `OPL_FLEET_AGENT_AMBIENT_INSTANCE_ID` to prefer one advertised instance. An explicit
-URL always overrides discovery.
-
-Legacy or headless bearer-token path:
-
-```bash
-OPL_FLEET_AGENT_AMBIENT_URL=http://opl-fleet-gateway.local:8787 \
-OPL_FLEET_AGENT_AMBIENT_TOKEN='<agent-token>' \
-OPL_FLEET_AGENT_MACHINE_ID=primary-mac \
-OPL_FLEET_AGENT_MACHINE_NAME='Primary Mac' \
-swift run opl-fleet-agent-headless --once
-```
-
-Do not put a real token in a task prompt, repository, log, or persistent shell history.
-On macOS, `OPL_FLEET_AGENT_AMBIENT_TOKEN_KEYCHAIN_SERVICE` and optional
-`OPL_FLEET_AGENT_KEYCHAIN_ACCOUNT` can read a generic-password Keychain item.
-
-### Agent acceptance
-
-```bash
-swift test
-swift run opl-fleet-agent-snapshot --json
-```
-
-Windows core tests:
-
-```powershell
-dotnet test windows/tests/OPLFleetAgent.Core.Tests -c Release
-```
-
-An installation is complete only after reading back:
-
-- the actual installed path and app version;
-- macOS signing, notarization, and Gatekeeper state, or the Windows installed file version;
-- successful access to the intended `CODEX_HOME/sessions` root;
-- real metrics after a panel refresh; and
-- when OPL Fleet Gateway is enabled, matching approval and accepted machine identity.
-
-Tests, a local build, or discovery of a release are not installed-runtime acceptance.
-
-### Invariants to preserve
-
-- Never persist, log, transmit, or render prompt and response bodies.
-- `total_tokens` is the throughput total; cached input and reasoning output are subsets.
-- Preserve cross-file deduplication and fork/replay handling.
-- Keep OPL Fleet Gateway payloads limited to the allowlisted aggregate contract.
-- Keep release claims behind signing, notarization, checksum, and installed-app readback.
-
-## Documentation and Development
-
-- [Architecture and accounting](docs/architecture.md)
-- [Native Windows app](windows/README.md)
-- [OPL Fleet Gateway](https://github.com/gaofeng21cn/opl-fleet-cockpit)
-- [Repository Agent contract](AGENTS.md)
-
-```bash
-xcrun swift-format lint --recursive Sources Tests Package.swift
-swift test
-swift run opl-fleet-agent-snapshot --json
-./scripts/build-app.sh
-./scripts/build-dmg.sh
-```
+- [Agent operations](docs/operations.md): configuration, headless push, and installed-runtime acceptance
+- [Architecture](docs/architecture.md): collection, accounting, privacy, and Package boundaries
+- [Development](docs/development.md): builds, tests, and release qualification
+- [Windows installation](windows/README.md): native installer, portable archive, and WSL
+- [Contributor instructions](AGENTS.md): editing rules and documentation lifecycle
 
 OPL Fleet Agent is available under the [Apache License 2.0](LICENSE). Its accounting semantics were
 informed by the public [Tokscale](https://github.com/junhoyeo/tokscale) project, but

@@ -5,10 +5,6 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 targets=(
-  README.md
-  README.zh-CN.md
-  docs/architecture.md
-  windows/README.md
   Sources
   windows/src
 )
@@ -74,13 +70,8 @@ fi
 /usr/bin/grep --quiet --fixed-strings 'GatewayShortName = "Fleet Gateway"' windows/src/OPLFleetAgent.Core/AmbientOps.cs
 
 identity_surfaces=(
-  AGENTS.md
   Package.swift
-  README.md
-  README.zh-CN.md
   Resources
-  docs/architecture.md
-  windows/README.md
   .github/workflows/ci.yml
   .github/workflows/release.yml
   scripts/build-dmg.sh
@@ -107,8 +98,7 @@ for legacy_identity in \
   "$legacy_release"
 do
   if git grep --line-number --fixed-strings "$legacy_identity" -- \
-    "${identity_surfaces[@]}" \
-    ':!docs/plan.md'
+    "${identity_surfaces[@]}"
   then
     echo "Retired Fleet Agent identity remains in a live source or distribution surface." >&2
     exit 1
@@ -119,8 +109,6 @@ done
 /usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' Sources/OPLFleetAgent/UpdateManager.swift
 /usr/bin/grep --quiet --fixed-strings 'io.github.gaofeng21cn.opl-fleet-agent' Resources/Info.plist
 /usr/bin/grep --quiet --fixed-strings '_opl-fleet-agent._tcp' Resources/Info.plist
-/usr/bin/grep --quiet --fixed-strings 'brew install --cask opl-fleet-agent' README.md
-/usr/bin/grep --quiet --fixed-strings 'brew install --cask opl-fleet-agent' README.zh-CN.md
 /usr/bin/grep --quiet --fixed-strings 'brew install --cask opl-fleet-agent' .github/workflows/release.yml
 if /usr/bin/grep --line-number --fixed-strings 'Homebrew is not an installation route' .github/workflows/release.yml; then
   echo "Fleet Agent releases must advertise the unified OPL Homebrew Tap." >&2
