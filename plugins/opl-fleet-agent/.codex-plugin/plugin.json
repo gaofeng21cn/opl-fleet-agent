@@ -1,6 +1,6 @@
 {
   "name": "opl-fleet-agent",
-  "version": "0.2.42",
+  "version": "0.2.43",
   "description": "Read-only local OPL Fleet Agent telemetry and doctor projections.",
   "author": {
     "name": "OPL"
