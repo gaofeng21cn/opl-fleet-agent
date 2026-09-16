@@ -52,3 +52,5 @@ infer installed or published state from source tests or old release receipts.
   literal text searches.
 - Run `codegraph init .` or `codegraph sync .` when the index is missing or stale.
 <!-- CODEGRAPH_END -->
+
+- Write new GitHub-visible text in English: commit subjects and bodies, pull request and issue titles and bodies, comments, and release notes. Product names, code identifiers, paths, commands, and verbatim quotations are excepted. When replying to an issue, pull request, or comment written by someone else, reply in that author language instead of converting the thread to English; commits already recorded in another language stay in history as they are.
