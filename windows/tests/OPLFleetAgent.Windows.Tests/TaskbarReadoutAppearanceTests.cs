@@ -5,9 +5,9 @@ namespace OPLFleetAgent.Windows.Tests;
 public sealed class TaskbarReadoutAppearanceTests
 {
     [Theory]
-    [InlineData((int)TaskbarEdge.Bottom, 96, 15)]
-    [InlineData((int)TaskbarEdge.Bottom, 144, 22.5f)]
-    [InlineData((int)TaskbarEdge.Top, 192, 30)]
+    [InlineData((int)TaskbarEdge.Bottom, 96, 14)]
+    [InlineData((int)TaskbarEdge.Bottom, 144, 21)]
+    [InlineData((int)TaskbarEdge.Top, 192, 28)]
     [InlineData((int)TaskbarEdge.Left, 96, 11)]
     [InlineData((int)TaskbarEdge.Right, 192, 22)]
     public void FontPixelSizeScalesWithTaskbarDpi(
@@ -24,7 +24,7 @@ public sealed class TaskbarReadoutAppearanceTests
     public void InvalidDpiFallsBackToNinetySix()
     {
         Assert.Equal(
-            15,
+            14,
             TaskbarReadoutAppearance.FontPixelSize(TaskbarEdge.Bottom, 0));
     }
 
@@ -64,7 +64,7 @@ public sealed class TaskbarReadoutAppearanceTests
     }
 
     [Fact]
-    public void RenderKeepsBackgroundTransparentAndClickTargetPresent()
+    public void RenderHasTransparentCornersAndReadableBadge()
     {
         using var bitmap = TaskbarReadoutAppearance.Render(
             new Size(128, 32),
@@ -76,15 +76,14 @@ public sealed class TaskbarReadoutAppearanceTests
         Assert.Equal(
             TaskbarReadoutAppearance.TransparentHitTestAlpha,
             bitmap.GetPixel(0, 0).A);
+        Assert.Equal(255, bitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2).A);
 
         var alphaValues = Enumerable.Range(0, bitmap.Height)
             .SelectMany(y => Enumerable.Range(0, bitmap.Width)
                 .Select(x => bitmap.GetPixel(x, y).A))
             .ToArray();
         Assert.Contains(alphaValues, alpha => alpha > 128);
-        Assert.True(
-            alphaValues.Count(alpha => alpha > TaskbarReadoutAppearance.TransparentHitTestAlpha) <
-            alphaValues.Length / 2);
+        Assert.True(alphaValues.Count(alpha => alpha > 128) > alphaValues.Length / 2);
     }
 
     [Theory]

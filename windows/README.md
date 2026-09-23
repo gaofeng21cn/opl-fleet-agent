@@ -10,9 +10,11 @@ The default source is `%USERPROFILE%\.codex\sessions`. Set `CODEX_HOME` or choos
 a Codex home in Settings for another source. Local refresh is configurable;
 Gateway pushes are limited to once per ten seconds.
 
-Click the taskbar TPS readout to open the dashboard. It returns to the
+Click the taskbar TPS badge or the numeric notification icon to open the dashboard.
+The badge follows the taskbar's light or dark theme. The dashboard returns to the
 notification area when it loses focus and provides an explicit minimize-to-tray
-button. Settings also controls per-user startup through
+button. The tray menu provides the Codex sessions shortcut. Settings also
+controls per-user startup through
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` and optional pet display.
 
 The dashboard reports one-minute total, input, cached input, output, and reasoning

@@ -231,40 +231,54 @@ internal sealed class HeroMetricsControl : Control
         var primary = Color.FromArgb(36, 36, 38);
         var secondary = Color.FromArgb(128, 128, 132);
         var leftWidth = Width * 72 / 100;
-        var mainSize = rateText.Length switch
-        {
-            >= 9 => Height * 0.42f,
-            >= 7 => Height * 0.48f,
-            _ => Height * 0.55f,
-        };
-        using var mainFont = new Font("Segoe UI Semibold", mainSize, GraphicsUnit.Pixel);
         using var unitFont = new Font("Microsoft YaHei UI", Height * 0.17f, GraphicsUnit.Pixel);
         using var requestFont = new Font("Segoe UI Semibold", Height * 0.30f, GraphicsUnit.Pixel);
         using var captionFont = new Font("Microsoft YaHei UI", Height * 0.18f, GraphicsUnit.Pixel);
-
-        var mainSizeMeasured = TextRenderer.MeasureText(
-            rateText,
-            mainFont,
+        var unitWidth = TextRenderer.MeasureText(
+            "token/s",
+            unitFont,
             Size.Empty,
-            TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-        TextRenderer.DrawText(
-            eventArgs.Graphics,
-            rateText,
-            mainFont,
-            new Rectangle(0, 0, leftWidth, Height),
-            primary,
-            TextFormatFlags.Left |
-            TextFormatFlags.VerticalCenter |
-            TextFormatFlags.NoPadding |
-            TextFormatFlags.SingleLine);
+            TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
+        var maximumValueWidth = Math.Max(1, leftWidth - unitWidth - 10);
+        var mainSize = Height * 0.55f;
+        Font mainFont;
+        int valueWidth;
+        do
+        {
+            mainFont = new Font("Segoe UI Semibold", mainSize, GraphicsUnit.Pixel);
+            valueWidth = TextRenderer.MeasureText(
+                rateText,
+                mainFont,
+                Size.Empty,
+                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
+            if (valueWidth <= maximumValueWidth || mainSize <= 12f)
+            {
+                break;
+            }
+            mainFont.Dispose();
+            mainSize -= 1f;
+        } while (true);
+        using (mainFont)
+        {
+            TextRenderer.DrawText(
+                eventArgs.Graphics,
+                rateText,
+                mainFont,
+                new Rectangle(0, 0, maximumValueWidth, Height),
+                primary,
+                TextFormatFlags.Left |
+                TextFormatFlags.VerticalCenter |
+                TextFormatFlags.NoPadding |
+                TextFormatFlags.SingleLine);
+        }
         TextRenderer.DrawText(
             eventArgs.Graphics,
             "token/s",
             unitFont,
             new Rectangle(
-                Math.Min(leftWidth - 60, mainSizeMeasured.Width + Math.Max(7, Height / 9)),
+                Math.Min(maximumValueWidth + 7, valueWidth + 7),
                 Height / 8,
-                Math.Max(60, leftWidth - mainSizeMeasured.Width),
+                unitWidth,
                 Height * 3 / 4),
             secondary,
             TextFormatFlags.Left |

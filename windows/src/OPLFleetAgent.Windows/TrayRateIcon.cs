@@ -19,8 +19,12 @@ internal static class TrayRateIcon
         using var background = RoundedRectangle(
             new Rectangle(1, 1, IconSize - 2, IconSize - 2),
             7f);
-        using var backgroundBrush = new SolidBrush(Color.FromArgb(0, 122, 255));
+        using var backgroundBrush = new SolidBrush(Color.FromArgb(32, 39, 48));
+        using var borderPen = new Pen(Color.FromArgb(80, 95, 109));
+        using var accentBrush = new SolidBrush(Color.FromArgb(38, 183, 168));
         graphics.FillPath(backgroundBrush, background);
+        graphics.DrawPath(borderPen, background);
+        graphics.FillEllipse(accentBrush, 4, 13, 4, 4);
 
         var fontSize = label.Length switch
         {
@@ -36,7 +40,7 @@ internal static class TrayRateIcon
             LineAlignment = StringAlignment.Center,
             FormatFlags = StringFormatFlags.NoWrap,
         };
-        graphics.DrawString(label, font, textBrush, new RectangleF(0, 0, IconSize, IconSize), format);
+        graphics.DrawString(label, font, textBrush, new RectangleF(7, 0, 23, IconSize), format);
 
         var handle = bitmap.GetHicon();
         try

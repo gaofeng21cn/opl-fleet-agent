@@ -159,7 +159,6 @@ internal sealed class DashboardForm : RoundedPopupForm
     public event EventHandler? RefreshRequested;
     public event EventHandler? CheckForUpdatesRequested;
     public event EventHandler? InstallUpdateRequested;
-    public event EventHandler? SessionsFolderRequested;
     public event EventHandler? ExitRequested;
     public event Action<int>? RefreshCadenceChanged;
     public event Action<bool>? StartupChanged;
@@ -211,6 +210,7 @@ internal sealed class DashboardForm : RoundedPopupForm
     public void UpdateSessionsRoot(string nextSessionsRoot)
     {
         sessionsRoot = nextSessionsRoot;
+        toolTip.SetToolTip(sessionValue, sessionsRoot);
     }
 
     public void SetRefreshCadence(int seconds)
@@ -308,7 +308,7 @@ internal sealed class DashboardForm : RoundedPopupForm
         };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
 
         header.Paint += (_, eventArgs) => eventArgs.Graphics.DrawImage(
             applicationImage,
@@ -361,16 +361,12 @@ internal sealed class DashboardForm : RoundedPopupForm
         toolTip.SetToolTip(updateHeaderButton, "检查更新");
         var settingsButton = HeaderButton("\uE713", "打开设置");
         settingsButton.Click += (_, _) => SettingsRequested?.Invoke(this, EventArgs.Empty);
-        var folderButton = HeaderButton("\uE8B7", "打开 Codex 会话目录");
-        folderButton.Click += (_, _) => SessionsFolderRequested?.Invoke(this, EventArgs.Empty);
-        toolTip.SetToolTip(folderButton, sessionsRoot);
         var minimizeButton = HeaderButton("\uE921", "最小化到通知区域");
         minimizeButton.Click += (_, _) => HideToTray();
         toolTip.SetToolTip(minimizeButton, "最小化到通知区域");
         actions.Controls.Add(refreshButton);
         actions.Controls.Add(updateHeaderButton);
         actions.Controls.Add(settingsButton);
-        actions.Controls.Add(folderButton);
         actions.Controls.Add(minimizeButton);
         header.Controls.Add(actions, 2, 0);
 
@@ -459,6 +455,7 @@ internal sealed class DashboardForm : RoundedPopupForm
         var sessionsIcon = TextLabel(10, Secondary, "Segoe MDL2 Assets", text: "\uE81E");
         sessionsIcon.Margin = new Padding(0, 0, 7, 0);
         sessionValue.Margin = Padding.Empty;
+        toolTip.SetToolTip(sessionValue, sessionsRoot);
         sessions.Controls.Add(sessionsIcon);
         sessions.Controls.Add(sessionValue);
         summary.Controls.Add(sessions, 0, 0);

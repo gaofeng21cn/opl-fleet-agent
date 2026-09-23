@@ -51,6 +51,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         trayMenu = new ContextMenuStrip();
         trayMenu.Items.Add("打开", null, (_, _) => ShowDashboard());
         trayMenu.Items.Add("刷新", null, async (_, _) => await RefreshAsync(forcePush: true));
+        trayMenu.Items.Add("打开 Codex 会话目录", null, (_, _) => OpenSessionsDirectory());
         updateMenuItem = new ToolStripMenuItem("检查更新");
         updateMenuItem.Click += async (_, _) => await RunUpdateActionAsync();
         trayMenu.Items.Add(updateMenuItem);
@@ -138,7 +139,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             manual: true,
             cancellation.Token);
         form.InstallUpdateRequested += async (_, _) => await InstallAvailableUpdateAsync();
-        form.SessionsFolderRequested += (_, _) => OpenSessionsDirectory();
         form.ExitRequested += (_, _) => ExitThread();
         form.RefreshCadenceChanged += SetRefreshCadence;
         form.StartupChanged += SetStartupEnabled;

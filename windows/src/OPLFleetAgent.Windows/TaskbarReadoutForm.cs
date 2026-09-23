@@ -143,7 +143,8 @@ internal sealed class TaskbarReadoutForm : Form
             rateText,
             edge,
             taskbarDpi,
-            textColor);
+            textColor,
+            SystemInformation.HighContrast);
         LayeredWindow.Update(Handle, readoutBounds, bitmap);
     }
 
@@ -344,7 +345,7 @@ internal sealed class TaskbarReadoutForm : Form
 internal static class TaskbarReadoutAppearance
 {
     internal const byte TransparentHitTestAlpha = 1;
-    private const float HorizontalFontLogicalPixels = 15f;
+    private const float HorizontalFontLogicalPixels = 14f;
     private const float VerticalFontLogicalPixels = 11f;
 
     public static FontStyle TextFontStyle => FontStyle.Regular;
@@ -382,7 +383,8 @@ internal static class TaskbarReadoutAppearance
         string rateText,
         TaskbarEdge edge,
         int dpi,
-        Color textColor)
+        Color textColor,
+        bool highContrast = false)
     {
         var bitmap = new Bitmap(
             Math.Max(1, size.Width),
@@ -395,25 +397,77 @@ internal static class TaskbarReadoutAppearance
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
+        var vertical = edge is TaskbarEdge.Left or TaskbarEdge.Right;
+        var inset = Math.Max(2, (int)Math.Round(dpi / 48d));
+        var badge = new Rectangle(
+            inset,
+            inset,
+            Math.Max(1, bitmap.Width - inset * 2 - 1),
+            Math.Max(1, bitmap.Height - inset * 2 - 1));
+        var background = highContrast
+            ? SystemColors.Window
+            : textColor.GetBrightness() < 0.5f
+                ? Color.FromArgb(246, 248, 250)
+                : Color.FromArgb(32, 39, 48);
+        var border = highContrast
+            ? SystemColors.WindowText
+            : textColor.GetBrightness() < 0.5f
+                ? Color.FromArgb(201, 208, 215)
+                : Color.FromArgb(80, 95, 109);
+        using var badgePath = RoundedPopupForm.RoundedRectangle(
+            badge,
+            Math.Min(vertical ? 7 : 9, badge.Height / 3f));
+        using var backgroundBrush = new SolidBrush(background);
+        using var borderPen = new Pen(border);
+        graphics.FillPath(backgroundBrush, badgePath);
+        graphics.DrawPath(borderPen, badgePath);
+
+        if (!highContrast)
+        {
+            using var accentBrush = new SolidBrush(Color.FromArgb(38, 183, 168));
+            var accentSize = Math.Max(3, (int)Math.Round(dpi / 32d));
+            graphics.FillEllipse(
+                accentBrush,
+                badge.Left + (vertical ? (badge.Width - accentSize) / 2 : accentSize + 2),
+                badge.Top + (vertical ? accentSize : (badge.Height - accentSize) / 2),
+                accentSize,
+                accentSize);
+        }
+
         var displayText = DisplayText(rateText, edge);
         using var textBrush = new SolidBrush(textColor);
-        using var font = new Font(
-            TextFontFamily,
-            FontPixelSize(edge, dpi),
-            TextFontStyle,
-            GraphicsUnit.Pixel);
-        using var format = new StringFormat
+        var textBounds = vertical
+            ? new Rectangle(badge.Left + 2, badge.Top + 5, badge.Width - 4, badge.Height - 7)
+            : new Rectangle(badge.Left + 16, badge.Top + 1, badge.Width - 20, badge.Height - 2);
+        var fontSize = FontPixelSize(edge, dpi);
+        Font font;
+        do
         {
-            Alignment = StringAlignment.Center,
-            LineAlignment = StringAlignment.Center,
-            FormatFlags = StringFormatFlags.NoWrap,
-        };
-        graphics.DrawString(
-            displayText,
-            font,
-            textBrush,
-            new Rectangle(Point.Empty, bitmap.Size),
-            format);
+            font = new Font(TextFontFamily, fontSize, TextFontStyle, GraphicsUnit.Pixel);
+            var measured = graphics.MeasureString(displayText, font);
+            if (measured.Width <= textBounds.Width && measured.Height <= textBounds.Height ||
+                fontSize <= 8f)
+            {
+                break;
+            }
+            font.Dispose();
+            fontSize -= 0.5f;
+        } while (true);
+        using (font)
+        {
+            using var format = new StringFormat
+            {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center,
+                FormatFlags = StringFormatFlags.NoWrap,
+            };
+            graphics.DrawString(
+                displayText,
+                font,
+                textBrush,
+                textBounds,
+                format);
+        }
         return bitmap;
     }
 }
