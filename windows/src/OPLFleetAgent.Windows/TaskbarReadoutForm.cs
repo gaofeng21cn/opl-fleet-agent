@@ -345,12 +345,14 @@ internal sealed class TaskbarReadoutForm : Form
 internal static class TaskbarReadoutAppearance
 {
     internal const byte TransparentHitTestAlpha = 1;
-    private const float HorizontalFontLogicalPixels = 14f;
-    private const float VerticalFontLogicalPixels = 11f;
+    private const float HorizontalFontLogicalPixels = 13f;
+    private const float VerticalFontLogicalPixels = 10.5f;
+    private const float UnitFontScale = 0.74f;
+    private const float TextGapLogicalPixels = 4f;
 
-    public static FontStyle TextFontStyle => FontStyle.Regular;
+    public static FontStyle TextFontStyle => FontStyle.Bold;
 
-    public static string TextFontFamily => "Segoe UI Semibold";
+    public static string TextFontFamily => "Segoe UI Variable Text";
 
     public static float FontPixelSize(TaskbarEdge edge, int dpi)
     {
@@ -362,8 +364,8 @@ internal static class TaskbarReadoutAppearance
     }
 
     public static Color TextColor(bool lightTheme) => lightTheme
-        ? Color.Black
-        : Color.White;
+        ? Color.FromArgb(36, 36, 38)
+        : Color.FromArgb(248, 248, 250);
 
     public static string DisplayText(string rateText, TaskbarEdge edge)
     {
@@ -404,16 +406,14 @@ internal static class TaskbarReadoutAppearance
             inset,
             Math.Max(1, bitmap.Width - inset * 2 - 1),
             Math.Max(1, bitmap.Height - inset * 2 - 1));
+        var lightSurface = textColor.GetBrightness() < 0.5f;
+        var surfaceColor = lightSurface ? Color.White : Color.Black;
         var background = highContrast
             ? SystemColors.Window
-            : textColor.GetBrightness() < 0.5f
-                ? Color.FromArgb(246, 248, 250)
-                : Color.FromArgb(32, 39, 48);
+            : Color.FromArgb(lightSurface ? 48 : 64, surfaceColor);
         var border = highContrast
             ? SystemColors.WindowText
-            : textColor.GetBrightness() < 0.5f
-                ? Color.FromArgb(201, 208, 215)
-                : Color.FromArgb(80, 95, 109);
+            : Color.FromArgb(lightSurface ? 64 : 80, surfaceColor);
         using var badgePath = RoundedPopupForm.RoundedRectangle(
             badge,
             Math.Min(vertical ? 7 : 9, badge.Height / 3f));
@@ -424,51 +424,141 @@ internal static class TaskbarReadoutAppearance
 
         if (!highContrast)
         {
-            using var accentBrush = new SolidBrush(Color.FromArgb(38, 183, 168));
-            var accentSize = Math.Max(3, (int)Math.Round(dpi / 32d));
+            using var accentBrush = new SolidBrush(Color.FromArgb(230, 38, 183, 168));
+            var accentSize = Math.Max(3, (int)Math.Round(dpi / 36d));
             graphics.FillEllipse(
                 accentBrush,
-                badge.Left + (vertical ? (badge.Width - accentSize) / 2 : accentSize + 2),
+                badge.Left + (vertical ? (badge.Width - accentSize) / 2 : accentSize + 3),
                 badge.Top + (vertical ? accentSize : (badge.Height - accentSize) / 2),
                 accentSize,
                 accentSize);
         }
 
         var displayText = DisplayText(rateText, edge);
-        using var textBrush = new SolidBrush(textColor);
         var textBounds = vertical
-            ? new Rectangle(badge.Left + 2, badge.Top + 5, badge.Width - 4, badge.Height - 7)
-            : new Rectangle(badge.Left + 16, badge.Top + 1, badge.Width - 20, badge.Height - 2);
+            ? new Rectangle(badge.Left + 2, badge.Top + 4, badge.Width - 4, badge.Height - 6)
+            : new Rectangle(badge.Left + 14, badge.Top + 1, badge.Width - 18, badge.Height - 2);
         var fontSize = FontPixelSize(edge, dpi);
-        Font font;
-        do
+        if (vertical)
         {
-            font = new Font(TextFontFamily, fontSize, TextFontStyle, GraphicsUnit.Pixel);
-            var measured = graphics.MeasureString(displayText, font);
-            if (measured.Width <= textBounds.Width && measured.Height <= textBounds.Height ||
-                fontSize <= 8f)
-            {
-                break;
-            }
-            font.Dispose();
-            fontSize -= 0.5f;
-        } while (true);
-        using (font)
-        {
+            using var font = new Font(TextFontFamily, fontSize, TextFontStyle, GraphicsUnit.Pixel);
+            using var textBrush = new SolidBrush(textColor);
             using var format = new StringFormat
             {
                 Alignment = StringAlignment.Center,
                 LineAlignment = StringAlignment.Center,
                 FormatFlags = StringFormatFlags.NoWrap,
             };
-            graphics.DrawString(
-                displayText,
-                font,
-                textBrush,
-                textBounds,
-                format);
+            DrawTextWithShadow(graphics, displayText, font, textBrush, textBounds, format, textColor);
+        }
+        else
+        {
+            var valueText = rateText;
+            var unitText = string.Empty;
+            var separator = rateText.IndexOf(' ');
+            if (separator > 0)
+            {
+                valueText = rateText[..separator];
+                unitText = rateText[(separator + 1)..];
+            }
+
+            var unitSize = Math.Max(8f, fontSize * UnitFontScale);
+            Font mainFont;
+            Font unitFont;
+            SizeF valueMeasurement;
+            SizeF unitMeasurement;
+            do
+            {
+                mainFont = new Font(TextFontFamily, fontSize, TextFontStyle, GraphicsUnit.Pixel);
+                unitFont = new Font(TextFontFamily, unitSize, FontStyle.Regular, GraphicsUnit.Pixel);
+                valueMeasurement = graphics.MeasureString(valueText, mainFont);
+                unitMeasurement = graphics.MeasureString(unitText, unitFont);
+                var totalWidth = valueMeasurement.Width + (unitText.Length > 0 ?
+                    Scale(TextGapLogicalPixels, dpi) + unitMeasurement.Width : 0);
+                if (totalWidth <= textBounds.Width &&
+                    Math.Max(valueMeasurement.Height, unitMeasurement.Height) <= textBounds.Height ||
+                    fontSize <= 8f)
+                {
+                    break;
+                }
+                mainFont.Dispose();
+                unitFont.Dispose();
+                fontSize -= 0.5f;
+                unitSize = Math.Max(8f, fontSize * UnitFontScale);
+            } while (true);
+
+            using (mainFont)
+            using (unitFont)
+            using (var mainBrush = new SolidBrush(textColor))
+            using (var unitBrush = new SolidBrush(Color.FromArgb(
+                Math.Min(220, (int)textColor.A),
+                textColor.R,
+                textColor.G,
+                textColor.B)))
+            {
+                var gap = unitText.Length > 0 ? Scale(TextGapLogicalPixels, dpi) : 0;
+                var totalWidth = valueMeasurement.Width + gap + unitMeasurement.Width;
+                var x = textBounds.Left + Math.Max(0, (textBounds.Width - totalWidth) / 2f);
+                var y = textBounds.Top + (textBounds.Height - Math.Max(
+                    valueMeasurement.Height,
+                    unitMeasurement.Height)) / 2f - 1f;
+                DrawTextWithShadow(graphics, valueText, mainFont, mainBrush, new PointF(x, y), textColor);
+                if (unitText.Length > 0)
+                {
+                    DrawTextWithShadow(
+                        graphics,
+                        unitText,
+                        unitFont,
+                        unitBrush,
+                        new PointF(x + valueMeasurement.Width + gap, y + 1f),
+                        textColor);
+                }
+            }
         }
         return bitmap;
+    }
+
+    private static int Scale(float logicalPixels, int dpi)
+    {
+        var effectiveDpi = dpi > 0 ? dpi : 96;
+        return (int)Math.Round(logicalPixels * effectiveDpi / 96d, MidpointRounding.AwayFromZero);
+    }
+
+    private static void DrawTextWithShadow(
+        Graphics graphics,
+        string text,
+        Font font,
+        Brush brush,
+        Rectangle bounds,
+        StringFormat format,
+        Color textColor)
+    {
+        var shadow = textColor.GetBrightness() < 0.5f
+            ? Color.FromArgb(34, 255, 255, 255)
+            : Color.FromArgb(44, 0, 0, 0);
+        using var shadowBrush = new SolidBrush(shadow);
+        graphics.DrawString(text, font, shadowBrush, new Rectangle(
+            bounds.Left,
+            bounds.Top + 1,
+            bounds.Width,
+            bounds.Height), format);
+        graphics.DrawString(text, font, brush, bounds, format);
+    }
+
+    private static void DrawTextWithShadow(
+        Graphics graphics,
+        string text,
+        Font font,
+        Brush brush,
+        PointF point,
+        Color textColor)
+    {
+        var shadow = textColor.GetBrightness() < 0.5f
+            ? Color.FromArgb(34, 255, 255, 255)
+            : Color.FromArgb(44, 0, 0, 0);
+        using var shadowBrush = new SolidBrush(shadow);
+        graphics.DrawString(text, font, shadowBrush, new PointF(point.X, point.Y + 1f));
+        graphics.DrawString(text, font, brush, point);
     }
 }
 

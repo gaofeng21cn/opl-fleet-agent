@@ -5,11 +5,11 @@ namespace OPLFleetAgent.Windows.Tests;
 public sealed class TaskbarReadoutAppearanceTests
 {
     [Theory]
-    [InlineData((int)TaskbarEdge.Bottom, 96, 14)]
-    [InlineData((int)TaskbarEdge.Bottom, 144, 21)]
-    [InlineData((int)TaskbarEdge.Top, 192, 28)]
-    [InlineData((int)TaskbarEdge.Left, 96, 11)]
-    [InlineData((int)TaskbarEdge.Right, 192, 22)]
+    [InlineData((int)TaskbarEdge.Bottom, 96, 13)]
+    [InlineData((int)TaskbarEdge.Bottom, 144, 19.5)]
+    [InlineData((int)TaskbarEdge.Top, 192, 26)]
+    [InlineData((int)TaskbarEdge.Left, 96, 10.5)]
+    [InlineData((int)TaskbarEdge.Right, 192, 21)]
     public void FontPixelSizeScalesWithTaskbarDpi(
         int edgeValue,
         int dpi,
@@ -24,20 +24,20 @@ public sealed class TaskbarReadoutAppearanceTests
     public void InvalidDpiFallsBackToNinetySix()
     {
         Assert.Equal(
-            14,
+            13,
             TaskbarReadoutAppearance.FontPixelSize(TaskbarEdge.Bottom, 0));
     }
 
     [Fact]
     public void UsesSemiboldFamilyForNativeTaskbarText()
     {
-        Assert.Equal(FontStyle.Regular, TaskbarReadoutAppearance.TextFontStyle);
-        Assert.Equal("Segoe UI Semibold", TaskbarReadoutAppearance.TextFontFamily);
+        Assert.Equal(FontStyle.Bold, TaskbarReadoutAppearance.TextFontStyle);
+        Assert.Equal("Segoe UI Variable Text", TaskbarReadoutAppearance.TextFontFamily);
     }
 
     [Theory]
-    [InlineData(true, 0, 0, 0)]
-    [InlineData(false, 255, 255, 255)]
+    [InlineData(true, 36, 36, 38)]
+    [InlineData(false, 248, 248, 250)]
     public void TextColorTracksTaskbarTheme(
         bool lightTheme,
         int red,
@@ -76,14 +76,16 @@ public sealed class TaskbarReadoutAppearanceTests
         Assert.Equal(
             TaskbarReadoutAppearance.TransparentHitTestAlpha,
             bitmap.GetPixel(0, 0).A);
-        Assert.Equal(255, bitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2).A);
-
         var alphaValues = Enumerable.Range(0, bitmap.Height)
             .SelectMany(y => Enumerable.Range(0, bitmap.Width)
                 .Select(x => bitmap.GetPixel(x, y).A))
             .ToArray();
-        Assert.Contains(alphaValues, alpha => alpha > 128);
-        Assert.True(alphaValues.Count(alpha => alpha > 128) > alphaValues.Length / 2);
+        Assert.Contains(
+            alphaValues,
+            alpha => alpha > TaskbarReadoutAppearance.TransparentHitTestAlpha);
+        Assert.True(
+            alphaValues.Count(alpha => alpha > TaskbarReadoutAppearance.TransparentHitTestAlpha) >
+            alphaValues.Length / 2);
     }
 
     [Theory]
