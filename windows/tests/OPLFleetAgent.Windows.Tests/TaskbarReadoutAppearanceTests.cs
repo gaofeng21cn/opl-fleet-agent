@@ -5,11 +5,11 @@ namespace OPLFleetAgent.Windows.Tests;
 public sealed class TaskbarReadoutAppearanceTests
 {
     [Theory]
-    [InlineData((int)TaskbarEdge.Bottom, 96, 13)]
-    [InlineData((int)TaskbarEdge.Bottom, 144, 19.5)]
-    [InlineData((int)TaskbarEdge.Top, 192, 26)]
-    [InlineData((int)TaskbarEdge.Left, 96, 10.5)]
-    [InlineData((int)TaskbarEdge.Right, 192, 21)]
+    [InlineData((int)TaskbarEdge.Bottom, 96, 16)]
+    [InlineData((int)TaskbarEdge.Bottom, 144, 24)]
+    [InlineData((int)TaskbarEdge.Top, 192, 32)]
+    [InlineData((int)TaskbarEdge.Left, 96, 11.5)]
+    [InlineData((int)TaskbarEdge.Right, 192, 23)]
     public void FontPixelSizeScalesWithTaskbarDpi(
         int edgeValue,
         int dpi,
@@ -24,7 +24,7 @@ public sealed class TaskbarReadoutAppearanceTests
     public void InvalidDpiFallsBackToNinetySix()
     {
         Assert.Equal(
-            13,
+            16,
             TaskbarReadoutAppearance.FontPixelSize(TaskbarEdge.Bottom, 0));
     }
 

@@ -345,10 +345,10 @@ internal sealed class TaskbarReadoutForm : Form
 internal static class TaskbarReadoutAppearance
 {
     internal const byte TransparentHitTestAlpha = 1;
-    private const float HorizontalFontLogicalPixels = 13f;
-    private const float VerticalFontLogicalPixels = 10.5f;
-    private const float UnitFontScale = 0.74f;
-    private const float TextGapLogicalPixels = 4f;
+    private const float HorizontalFontLogicalPixels = 16f;
+    private const float VerticalFontLogicalPixels = 11.5f;
+    private const float UnitFontScale = 0.68f;
+    private const float TextGapLogicalPixels = 3f;
 
     public static FontStyle TextFontStyle => FontStyle.Bold;
 
@@ -410,10 +410,14 @@ internal static class TaskbarReadoutAppearance
         var surfaceColor = lightSurface ? Color.White : Color.Black;
         var background = highContrast
             ? SystemColors.Window
-            : Color.FromArgb(lightSurface ? 48 : 64, surfaceColor);
+            : lightSurface
+                ? Color.FromArgb(210, 255, 255, 255)
+                : Color.FromArgb(150, 27, 31, 37);
         var border = highContrast
             ? SystemColors.WindowText
-            : Color.FromArgb(lightSurface ? 64 : 80, surfaceColor);
+            : lightSurface
+                ? Color.FromArgb(120, 170, 176, 184)
+                : Color.FromArgb(110, 170, 180, 190);
         using var badgePath = RoundedPopupForm.RoundedRectangle(
             badge,
             Math.Min(vertical ? 7 : 9, badge.Height / 3f));
@@ -424,8 +428,8 @@ internal static class TaskbarReadoutAppearance
 
         if (!highContrast)
         {
-            using var accentBrush = new SolidBrush(Color.FromArgb(230, 38, 183, 168));
-            var accentSize = Math.Max(3, (int)Math.Round(dpi / 36d));
+            using var accentBrush = new SolidBrush(Color.FromArgb(245, 38, 183, 168));
+            var accentSize = Math.Max(4, (int)Math.Round(dpi / 28d));
             graphics.FillEllipse(
                 accentBrush,
                 badge.Left + (vertical ? (badge.Width - accentSize) / 2 : accentSize + 3),
@@ -437,7 +441,7 @@ internal static class TaskbarReadoutAppearance
         var displayText = DisplayText(rateText, edge);
         var textBounds = vertical
             ? new Rectangle(badge.Left + 2, badge.Top + 4, badge.Width - 4, badge.Height - 6)
-            : new Rectangle(badge.Left + 14, badge.Top + 1, badge.Width - 18, badge.Height - 2);
+            : new Rectangle(badge.Left + 17, badge.Top + 1, badge.Width - 22, badge.Height - 2);
         var fontSize = FontPixelSize(edge, dpi);
         if (vertical)
         {
@@ -449,7 +453,7 @@ internal static class TaskbarReadoutAppearance
                 LineAlignment = StringAlignment.Center,
                 FormatFlags = StringFormatFlags.NoWrap,
             };
-            DrawTextWithShadow(graphics, displayText, font, textBrush, textBounds, format, textColor);
+            DrawText(graphics, displayText, font, textBrush, textBounds, format);
         }
         else
         {
@@ -501,17 +505,16 @@ internal static class TaskbarReadoutAppearance
                 var x = textBounds.Left + Math.Max(0, (textBounds.Width - totalWidth) / 2f);
                 var y = textBounds.Top + (textBounds.Height - Math.Max(
                     valueMeasurement.Height,
-                    unitMeasurement.Height)) / 2f - 1f;
-                DrawTextWithShadow(graphics, valueText, mainFont, mainBrush, new PointF(x, y), textColor);
+                    unitMeasurement.Height)) / 2f - 1.5f;
+                DrawText(graphics, valueText, mainFont, mainBrush, new PointF(x, y));
                 if (unitText.Length > 0)
                 {
-                    DrawTextWithShadow(
+                    DrawText(
                         graphics,
                         unitText,
                         unitFont,
                         unitBrush,
-                        new PointF(x + valueMeasurement.Width + gap, y + 1f),
-                        textColor);
+                        new PointF(x + valueMeasurement.Width + gap, y + 2f));
                 }
             }
         }
@@ -524,40 +527,24 @@ internal static class TaskbarReadoutAppearance
         return (int)Math.Round(logicalPixels * effectiveDpi / 96d, MidpointRounding.AwayFromZero);
     }
 
-    private static void DrawTextWithShadow(
+    private static void DrawText(
         Graphics graphics,
         string text,
         Font font,
         Brush brush,
         Rectangle bounds,
-        StringFormat format,
-        Color textColor)
+        StringFormat format)
     {
-        var shadow = textColor.GetBrightness() < 0.5f
-            ? Color.FromArgb(34, 255, 255, 255)
-            : Color.FromArgb(44, 0, 0, 0);
-        using var shadowBrush = new SolidBrush(shadow);
-        graphics.DrawString(text, font, shadowBrush, new Rectangle(
-            bounds.Left,
-            bounds.Top + 1,
-            bounds.Width,
-            bounds.Height), format);
         graphics.DrawString(text, font, brush, bounds, format);
     }
 
-    private static void DrawTextWithShadow(
+    private static void DrawText(
         Graphics graphics,
         string text,
         Font font,
         Brush brush,
-        PointF point,
-        Color textColor)
+        PointF point)
     {
-        var shadow = textColor.GetBrightness() < 0.5f
-            ? Color.FromArgb(34, 255, 255, 255)
-            : Color.FromArgb(44, 0, 0, 0);
-        using var shadowBrush = new SolidBrush(shadow);
-        graphics.DrawString(text, font, shadowBrush, new PointF(point.X, point.Y + 1f));
         graphics.DrawString(text, font, brush, point);
     }
 }
