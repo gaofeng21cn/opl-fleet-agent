@@ -345,10 +345,10 @@ internal sealed class TaskbarReadoutForm : Form
 internal static class TaskbarReadoutAppearance
 {
     internal const byte TransparentHitTestAlpha = 1;
-    private const float HorizontalFontLogicalPixels = 16f;
-    private const float VerticalFontLogicalPixels = 11.5f;
+    private const float HorizontalFontLogicalPixels = 15f;
+    private const float VerticalFontLogicalPixels = 11f;
     private const float UnitFontScale = 0.68f;
-    private const float TextGapLogicalPixels = 3f;
+    private const float TextGapLogicalPixels = 4f;
 
     public static FontStyle TextFontStyle => FontStyle.Bold;
 
@@ -400,48 +400,14 @@ internal static class TaskbarReadoutAppearance
         graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
         var vertical = edge is TaskbarEdge.Left or TaskbarEdge.Right;
-        var inset = Math.Max(2, (int)Math.Round(dpi / 48d));
-        var badge = new Rectangle(
-            inset,
-            inset,
-            Math.Max(1, bitmap.Width - inset * 2 - 1),
-            Math.Max(1, bitmap.Height - inset * 2 - 1));
-        var lightSurface = textColor.GetBrightness() < 0.5f;
-        var surfaceColor = lightSurface ? Color.White : Color.Black;
-        var background = highContrast
-            ? SystemColors.Window
-            : lightSurface
-                ? Color.FromArgb(210, 255, 255, 255)
-                : Color.FromArgb(150, 27, 31, 37);
-        var border = highContrast
-            ? SystemColors.WindowText
-            : lightSurface
-                ? Color.FromArgb(120, 170, 176, 184)
-                : Color.FromArgb(110, 170, 180, 190);
-        using var badgePath = RoundedPopupForm.RoundedRectangle(
-            badge,
-            Math.Min(vertical ? 7 : 9, badge.Height / 3f));
-        using var backgroundBrush = new SolidBrush(background);
-        using var borderPen = new Pen(border);
-        graphics.FillPath(backgroundBrush, badgePath);
-        graphics.DrawPath(borderPen, badgePath);
-
-        if (!highContrast)
-        {
-            using var accentBrush = new SolidBrush(Color.FromArgb(245, 38, 183, 168));
-            var accentSize = Math.Max(4, (int)Math.Round(dpi / 28d));
-            graphics.FillEllipse(
-                accentBrush,
-                badge.Left + (vertical ? (badge.Width - accentSize) / 2 : accentSize + 3),
-                badge.Top + (vertical ? accentSize : (badge.Height - accentSize) / 2),
-                accentSize,
-                accentSize);
-        }
-
         var displayText = DisplayText(rateText, edge);
         var textBounds = vertical
-            ? new Rectangle(badge.Left + 2, badge.Top + 4, badge.Width - 4, badge.Height - 6)
-            : new Rectangle(badge.Left + 17, badge.Top + 1, badge.Width - 22, badge.Height - 2);
+            ? new Rectangle(2, 2, bitmap.Width - 4, bitmap.Height - 4)
+            : new Rectangle(
+                Scale(13f, dpi),
+                1,
+                bitmap.Width - Scale(13f, dpi) - Scale(3f, dpi),
+                bitmap.Height - 2);
         var fontSize = FontPixelSize(edge, dpi);
         if (vertical)
         {
@@ -501,11 +467,23 @@ internal static class TaskbarReadoutAppearance
                 textColor.B)))
             {
                 var gap = unitText.Length > 0 ? Scale(TextGapLogicalPixels, dpi) : 0;
-                var totalWidth = valueMeasurement.Width + gap + unitMeasurement.Width;
-                var x = textBounds.Left + Math.Max(0, (textBounds.Width - totalWidth) / 2f);
+                var textWidth = valueMeasurement.Width + gap + unitMeasurement.Width;
+                var accentSize = Math.Max(3, Scale(3f, dpi));
+                var accentGap = Scale(8f, dpi);
+                var contentWidth = accentSize + accentGap + textWidth;
+                var contentX = textBounds.Right - contentWidth;
+                var x = contentX + accentSize + accentGap;
                 var y = textBounds.Top + (textBounds.Height - Math.Max(
                     valueMeasurement.Height,
-                    unitMeasurement.Height)) / 2f - 1.5f;
+                    unitMeasurement.Height)) / 2f - 1f;
+                using var accentBrush = new SolidBrush(
+                    highContrast ? textColor : Color.FromArgb(242, 38, 183, 168));
+                graphics.FillEllipse(
+                    accentBrush,
+                    contentX,
+                    (bitmap.Height - accentSize) / 2,
+                    accentSize,
+                    accentSize);
                 DrawText(graphics, valueText, mainFont, mainBrush, new PointF(x, y));
                 if (unitText.Length > 0)
                 {

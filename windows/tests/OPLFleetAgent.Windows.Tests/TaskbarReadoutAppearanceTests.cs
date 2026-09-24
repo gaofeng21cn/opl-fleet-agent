@@ -5,11 +5,11 @@ namespace OPLFleetAgent.Windows.Tests;
 public sealed class TaskbarReadoutAppearanceTests
 {
     [Theory]
-    [InlineData((int)TaskbarEdge.Bottom, 96, 16)]
-    [InlineData((int)TaskbarEdge.Bottom, 144, 24)]
-    [InlineData((int)TaskbarEdge.Top, 192, 32)]
-    [InlineData((int)TaskbarEdge.Left, 96, 11.5)]
-    [InlineData((int)TaskbarEdge.Right, 192, 23)]
+    [InlineData((int)TaskbarEdge.Bottom, 96, 15)]
+    [InlineData((int)TaskbarEdge.Bottom, 144, 22.5)]
+    [InlineData((int)TaskbarEdge.Top, 192, 30)]
+    [InlineData((int)TaskbarEdge.Left, 96, 11)]
+    [InlineData((int)TaskbarEdge.Right, 192, 22)]
     public void FontPixelSizeScalesWithTaskbarDpi(
         int edgeValue,
         int dpi,
@@ -24,7 +24,7 @@ public sealed class TaskbarReadoutAppearanceTests
     public void InvalidDpiFallsBackToNinetySix()
     {
         Assert.Equal(
-            16,
+            15,
             TaskbarReadoutAppearance.FontPixelSize(TaskbarEdge.Bottom, 0));
     }
 
@@ -83,8 +83,9 @@ public sealed class TaskbarReadoutAppearanceTests
         Assert.Contains(
             alphaValues,
             alpha => alpha > TaskbarReadoutAppearance.TransparentHitTestAlpha);
-        Assert.True(
-            alphaValues.Count(alpha => alpha > TaskbarReadoutAppearance.TransparentHitTestAlpha) >
+        Assert.InRange(
+            alphaValues.Count(alpha => alpha > TaskbarReadoutAppearance.TransparentHitTestAlpha),
+            20,
             alphaValues.Length / 2);
     }
 
