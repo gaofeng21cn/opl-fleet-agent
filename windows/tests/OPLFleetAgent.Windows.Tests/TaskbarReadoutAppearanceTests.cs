@@ -5,11 +5,11 @@ namespace OPLFleetAgent.Windows.Tests;
 public sealed class TaskbarReadoutAppearanceTests
 {
     [Theory]
-    [InlineData((int)TaskbarEdge.Bottom, 96, 15)]
-    [InlineData((int)TaskbarEdge.Bottom, 144, 22.5)]
-    [InlineData((int)TaskbarEdge.Top, 192, 30)]
-    [InlineData((int)TaskbarEdge.Left, 96, 11)]
-    [InlineData((int)TaskbarEdge.Right, 192, 22)]
+    [InlineData((int)TaskbarEdge.Bottom, 96, 12)]
+    [InlineData((int)TaskbarEdge.Bottom, 144, 18)]
+    [InlineData((int)TaskbarEdge.Top, 192, 24)]
+    [InlineData((int)TaskbarEdge.Left, 96, 10)]
+    [InlineData((int)TaskbarEdge.Right, 192, 20)]
     public void FontPixelSizeScalesWithTaskbarDpi(
         int edgeValue,
         int dpi,
@@ -24,15 +24,15 @@ public sealed class TaskbarReadoutAppearanceTests
     public void InvalidDpiFallsBackToNinetySix()
     {
         Assert.Equal(
-            15,
+            12,
             TaskbarReadoutAppearance.FontPixelSize(TaskbarEdge.Bottom, 0));
     }
 
     [Fact]
-    public void UsesSemiboldFamilyForNativeTaskbarText()
+    public void UsesWindowsTaskbarFontForNativeText()
     {
-        Assert.Equal(FontStyle.Bold, TaskbarReadoutAppearance.TextFontStyle);
-        Assert.Equal("Segoe UI Variable Text", TaskbarReadoutAppearance.TextFontFamily);
+        Assert.Equal(FontStyle.Regular, TaskbarReadoutAppearance.TextFontStyle);
+        Assert.Equal("Segoe UI Variable Small", TaskbarReadoutAppearance.TextFontFamily);
     }
 
     [Theory]

@@ -345,14 +345,13 @@ internal sealed class TaskbarReadoutForm : Form
 internal static class TaskbarReadoutAppearance
 {
     internal const byte TransparentHitTestAlpha = 1;
-    private const float HorizontalFontLogicalPixels = 15f;
-    private const float VerticalFontLogicalPixels = 11f;
-    private const float UnitFontScale = 0.68f;
-    private const float TextGapLogicalPixels = 4f;
+    private const float HorizontalFontLogicalPixels = 12f;
+    private const float VerticalFontLogicalPixels = 10f;
+    private const float TextGapLogicalPixels = 8f;
 
-    public static FontStyle TextFontStyle => FontStyle.Bold;
+    public static FontStyle TextFontStyle => FontStyle.Regular;
 
-    public static string TextFontFamily => "Segoe UI Variable Text";
+    public static string TextFontFamily => "Segoe UI Variable Small";
 
     public static float FontPixelSize(TaskbarEdge edge, int dpi)
     {
@@ -403,11 +402,7 @@ internal static class TaskbarReadoutAppearance
         var displayText = DisplayText(rateText, edge);
         var textBounds = vertical
             ? new Rectangle(2, 2, bitmap.Width - 4, bitmap.Height - 4)
-            : new Rectangle(
-                Scale(13f, dpi),
-                1,
-                bitmap.Width - Scale(13f, dpi) - Scale(3f, dpi),
-                bitmap.Height - 2);
+            : new Rectangle(0, 1, bitmap.Width, bitmap.Height - 2);
         var fontSize = FontPixelSize(edge, dpi);
         if (vertical)
         {
@@ -423,78 +418,24 @@ internal static class TaskbarReadoutAppearance
         }
         else
         {
-            var valueText = rateText;
-            var unitText = string.Empty;
-            var separator = rateText.IndexOf(' ');
-            if (separator > 0)
-            {
-                valueText = rateText[..separator];
-                unitText = rateText[(separator + 1)..];
-            }
-
-            var unitSize = Math.Max(8f, fontSize * UnitFontScale);
-            Font mainFont;
-            Font unitFont;
-            SizeF valueMeasurement;
-            SizeF unitMeasurement;
-            do
-            {
-                mainFont = new Font(TextFontFamily, fontSize, TextFontStyle, GraphicsUnit.Pixel);
-                unitFont = new Font(TextFontFamily, unitSize, FontStyle.Regular, GraphicsUnit.Pixel);
-                valueMeasurement = graphics.MeasureString(valueText, mainFont);
-                unitMeasurement = graphics.MeasureString(unitText, unitFont);
-                var totalWidth = valueMeasurement.Width + (unitText.Length > 0 ?
-                    Scale(TextGapLogicalPixels, dpi) + unitMeasurement.Width : 0);
-                if (totalWidth <= textBounds.Width &&
-                    Math.Max(valueMeasurement.Height, unitMeasurement.Height) <= textBounds.Height ||
-                    fontSize <= 8f)
-                {
-                    break;
-                }
-                mainFont.Dispose();
-                unitFont.Dispose();
-                fontSize -= 0.5f;
-                unitSize = Math.Max(8f, fontSize * UnitFontScale);
-            } while (true);
-
-            using (mainFont)
-            using (unitFont)
-            using (var mainBrush = new SolidBrush(textColor))
-            using (var unitBrush = new SolidBrush(Color.FromArgb(
-                Math.Min(220, (int)textColor.A),
-                textColor.R,
-                textColor.G,
-                textColor.B)))
-            {
-                var gap = unitText.Length > 0 ? Scale(TextGapLogicalPixels, dpi) : 0;
-                var textWidth = valueMeasurement.Width + gap + unitMeasurement.Width;
-                var accentSize = Math.Max(3, Scale(3f, dpi));
-                var accentGap = Scale(8f, dpi);
-                var contentWidth = accentSize + accentGap + textWidth;
-                var contentX = textBounds.Right - contentWidth;
-                var x = contentX + accentSize + accentGap;
-                var y = textBounds.Top + (textBounds.Height - Math.Max(
-                    valueMeasurement.Height,
-                    unitMeasurement.Height)) / 2f - 1f;
-                using var accentBrush = new SolidBrush(
-                    highContrast ? textColor : Color.FromArgb(242, 38, 183, 168));
-                graphics.FillEllipse(
-                    accentBrush,
-                    contentX,
-                    (bitmap.Height - accentSize) / 2,
-                    accentSize,
-                    accentSize);
-                DrawText(graphics, valueText, mainFont, mainBrush, new PointF(x, y));
-                if (unitText.Length > 0)
-                {
-                    DrawText(
-                        graphics,
-                        unitText,
-                        unitFont,
-                        unitBrush,
-                        new PointF(x + valueMeasurement.Width + gap, y + 2f));
-                }
-            }
+            using var font = new Font(TextFontFamily, fontSize, TextFontStyle, GraphicsUnit.Pixel);
+            using var textBrush = new SolidBrush(textColor);
+            var measurement = graphics.MeasureString(displayText, font);
+            var accentSize = Math.Max(3, Scale(3f, dpi));
+            var accentGap = Scale(TextGapLogicalPixels, dpi);
+            var contentWidth = accentSize + accentGap + measurement.Width;
+            var contentX = textBounds.Right - contentWidth;
+            var textX = contentX + accentSize + accentGap;
+            var textY = textBounds.Top + (textBounds.Height - measurement.Height) / 2f - 1f;
+            using var accentBrush = new SolidBrush(
+                highContrast ? textColor : Color.FromArgb(242, 38, 183, 168));
+            graphics.FillEllipse(
+                accentBrush,
+                contentX,
+                (bitmap.Height - accentSize) / 2,
+                accentSize,
+                accentSize);
+            DrawText(graphics, displayText, font, textBrush, new PointF(textX, textY));
         }
         return bitmap;
     }
