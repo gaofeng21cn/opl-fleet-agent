@@ -33,7 +33,7 @@ jobs:
         env:
           OPL_FLEET_AGENT_UPDATER_VERIFY_MODE: adhoc
         run: ./scripts/verify-updater.sh
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: opl-fleet-agent-dmg
           path: |
@@ -109,7 +109,7 @@ jobs:
       - name: Verify Windows in-app updater handoff
         if: github.ref == 'refs/heads/main'
         run: ./windows/scripts/verify-updater.ps1 -Version 0.2.42
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: opl-fleet-agent-windows-win-x64
           path: |
