@@ -1,0 +1,30 @@
+{
+  "schema_version": "opl-package-app-contribution-adapter.v1",
+  "reads": {
+    "fleet.agent.telemetry.v1#local": {
+      "kind": "command",
+      "cwd": "package",
+      "argv": ["node", "./bin/opl-fleet-agent.mjs"],
+      "stdin": "request_json",
+      "transform": "fleet_status",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "fleet.agent.doctor.v1#current": {
+      "kind": "command",
+      "cwd": "package",
+      "argv": ["node", "./bin/opl-fleet-agent.mjs"],
+      "stdin": "request_json",
+      "transform": "fleet_status",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    }
+  },
+  "actions": {}
+}

@@ -57,6 +57,9 @@ broker. Its [adapter](../plugins/opl-fleet-agent/bin/opl-fleet-agent.mjs) invoke
 the installed native provider; it must not collect Codex logs itself. The
 Package is not required to install or run the native app. Missing native carrier
 and stale last-known values remain explicit availability/freshness states.
+The Package also exposes both results as conversational MCP App views for
+Agent-led inspection. Those views are read-only and do not move the native menu
+bar, tray, or dashboard into the conversation surface.
 The [Skill](../plugins/opl-fleet-agent/skills/opl-fleet-agent/SKILL.md) owns broker
 invocation instructions.
 
