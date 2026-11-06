@@ -31,14 +31,32 @@ test('keeps Agent Plugins 1.0 authority aligned with the Codex compatibility man
   assert.equal('interface' in authority, false);
 });
 
-test('describes an optional read-only integration without default Settings sections', async () => {
+test('describes an optional read-only integration with conversational Package views', async () => {
   const descriptor = JSON.parse(await readFile(path.join(pluginRoot, 'opl-package.json'), 'utf8'));
   const displayName = 'OPL Fleet Agent Integration';
 
   assert.equal(descriptor.display_name, displayName);
   assert.match(descriptor.machine_boundary, /optional read-only adapter/);
   assert.match(descriptor.machine_boundary, /not a dependency of installing or running/);
-  assert.deepEqual(descriptor.app_contributions.ui, []);
+  assert.deepEqual(
+    descriptor.app_contributions.ui.map(({ view_id, slot }) => ({ view_id, slot })),
+    [
+      { view_id: 'fleet.agent.telemetry', slot: 'settings.section' },
+      { view_id: 'fleet.agent.doctor', slot: 'settings.section' },
+    ],
+  );
+  assert.equal(
+    descriptor.codex_surface.app_contribution_adapter.manifest,
+    'app-contribution-adapter.json',
+  );
+  const adapter = JSON.parse(
+    await readFile(path.join(pluginRoot, 'app-contribution-adapter.json'), 'utf8'),
+  );
+  assert.deepEqual(Object.keys(adapter.reads), [
+    'fleet.agent.telemetry.v1#local',
+    'fleet.agent.doctor.v1#current',
+  ]);
+  assert.deepEqual(adapter.actions, {});
   assert.deepEqual(
     descriptor.app_contributions.views.map(({ view_id, data_ref }) => ({ view_id, data_ref })),
     [

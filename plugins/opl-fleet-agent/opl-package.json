@@ -30,12 +30,13 @@
     "canonicalization": "ordered_path_length_file_length_bytes",
     "paths": [
       ".codex-plugin/plugin.json",
+      "app-contribution-adapter.json",
       "bin/opl-fleet-agent.mjs",
       "plugin.json",
       "skills/opl-fleet-agent/SKILL.md",
       "skills/opl-fleet-agent/agents/openai.yaml"
     ],
-    "digest": "sha256:671b5ed92b273da82327d6b111376ea5ca873efb3d985e05302e7cdee1145f5a"
+    "digest": "sha256:4a8a553de19d6e727b992480294d5db89825b3595ff7f57686d71a9b29feaa65"
   },
   "codex_surface": {
     "plugin_id": "opl-fleet-agent",
@@ -59,6 +60,9 @@
       ],
       "request_schema": "opl-package-app-contribution-request.v1",
       "response_schema": "opl-package-app-contribution-response.v1"
+    },
+    "app_contribution_adapter": {
+      "manifest": "app-contribution-adapter.json"
     }
   },
   "app_contributions": {
@@ -108,6 +112,25 @@
         "tone": "neutral"
       }
     ],
-    "ui": []
+    "ui": [
+      {
+        "contribution_id": "fleet.agent.telemetry",
+        "slot": "settings.section",
+        "contribution_kind": "view",
+        "trust_tier": "declarative",
+        "scope": "root",
+        "sort_order": 1300,
+        "view_id": "fleet.agent.telemetry"
+      },
+      {
+        "contribution_id": "fleet.agent.doctor",
+        "slot": "settings.section",
+        "contribution_kind": "view",
+        "trust_tier": "declarative",
+        "scope": "root",
+        "sort_order": 1301,
+        "view_id": "fleet.agent.doctor"
+      }
+    ]
   }
 }
