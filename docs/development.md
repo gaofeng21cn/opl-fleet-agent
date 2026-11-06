@@ -62,8 +62,10 @@ or clean-machine acceptance.
 [Release](../.github/workflows/release.yml) owns release assets. macOS public
 assets must use Developer ID, hardened runtime, timestamping, Apple notarization,
 and a stapled ticket. The workflow fails closed without protected Apple
-credentials. [verify-release.sh](../scripts/verify-release.sh) checks final
-notarized bytes, architectures, Team ID `SVVC4TA784`, and checksum. The separate
+credentials. Tags that match the optional Package version while differing from
+both native carrier versions are classified as Package-only and skip native
+signing and publication. [verify-release.sh](../scripts/verify-release.sh)
+checks final notarized bytes, architectures, Team ID `SVVC4TA784`, and checksum. The separate
 [public readback workflow](../.github/workflows/release-public-readback.yml)
 checks published release evidence. The Homebrew Tap consumes this release;
 it must not independently define version, checksum, or asset truth.

@@ -43,6 +43,9 @@ jobs:
       actions: read
       contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Resolve exact successful Release run
         id: source
         env:
@@ -82,6 +85,40 @@ jobs:
             echo "source_sha=$source_sha"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Classify native Release result
+        id: kind
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$EXPECTED_REPOSITORY/actions/runs/$SOURCE_RUN_ID/jobs?per_page=100" > "$RUNNER_TEMP/source-jobs.json"
+          kind="$(python3 scripts/classify_release_run.py "$RUNNER_TEMP/source-jobs.json")"
+          if [[ "$kind" == package-only ]]; then
+            echo "native_release=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$kind" == native ]]; then
+            echo "native_release=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Record Package-only tag without public release readback
+        if: steps.kind.outputs.native_release != 'true'
+        env:
+          SOURCE_RUN_ID: ${{ steps.source.outputs.source_run_id }}
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg schema "opl_fleet_agent_release_public_readback.v1" \
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg source_sha "$SOURCE_SHA" \
+            --arg checked_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{schema:$schema,status:"skipped_package_only",source_run_id:($source_run_id|tonumber),release_tag:$release_tag,source_sha:$source_sha,checked_at:$checked_at}' \
+            > release-public-readback.json
+
       - name: Read public Release metadata and assets anonymously
         env:
           REPOSITORY: ${{ github.repository }}
@@ -89,6 +126,7 @@ jobs:
           RELEASE_TAG: ${{ steps.source.outputs.tag }}
           SOURCE_SHA: ${{ steps.source.outputs.source_sha }}
         shell: bash
+        if: steps.kind.outputs.native_release == 'true'
         run: |
           set -euo pipefail
           api="https://api.github.com/repos/$REPOSITORY"

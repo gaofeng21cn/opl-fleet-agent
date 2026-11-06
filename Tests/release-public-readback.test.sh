@@ -15,6 +15,10 @@ grep -Fq 'contents: read' "$WORKFLOW"
 grep -Fq 'and .path == ".github/workflows/release.yml"' "$WORKFLOW"
 grep -Fq 'and .conclusion == "success"' "$WORKFLOW"
 grep -Fq 'and (.head_sha | test("^[0-9a-f]{40}$"))' "$WORKFLOW"
+grep -Fq 'id: kind' "$WORKFLOW"
+grep -Fq 'skipped_package_only' "$WORKFLOW"
+grep -Fq "if: steps.kind.outputs.native_release == 'true'" "$WORKFLOW"
+grep -Fq 'classify_release_run.py' "$WORKFLOW"
 grep -Fq 'curl -fsSL --retry 3 --retry-all-errors' "$WORKFLOW"
 grep -Fq 'sha256sum --check --strict' "$WORKFLOW"
 grep -Fq 'anonymous_downloads: true' "$WORKFLOW"
@@ -29,6 +33,11 @@ for asset in \
 do
   grep -Fq "$asset" "$WORKFLOW"
 done
+
+RELEASE_WORKFLOW="$ROOT_DIR/.github/workflows/release.yml"
+grep -Fq 'id: classify' "$RELEASE_WORKFLOW"
+grep -Fq "if: needs.preflight.outputs.native_release == 'true'" "$RELEASE_WORKFLOW"
+grep -Fq 'release-tag-eligibility.py' "$RELEASE_WORKFLOW"
 
 if grep -Eq '(^|[[:space:]])(contents|actions):[[:space:]]*write([[:space:]]|$)|gh[[:space:]]+release[[:space:]]+(create|upload|delete)' "$WORKFLOW"; then
   echo "Public readback must not own publication mutations or write permissions." >&2
