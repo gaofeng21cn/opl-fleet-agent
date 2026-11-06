@@ -13,7 +13,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      native_release: ${{ steps.classify.outputs.native_release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Classify tag against native carrier versions
+        id: classify
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind="$(python3 scripts/release-tag-eligibility.py "$GITHUB_REF_NAME" Resources/Info.plist windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj plugins/opl-fleet-agent/opl-package.json)"
+          if [[ "$kind" == native ]]; then
+            echo "native_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native_release=false" >> "$GITHUB_OUTPUT"
+            echo "Package-only tag $GITHUB_REF_NAME: native release jobs will be skipped."
+          fi
+
   macos:
+    needs: preflight
+    if: needs.preflight.outputs.native_release == 'true'
     runs-on: macos-latest
     environment: release
     env:
@@ -114,6 +137,8 @@ jobs:
           fi
 
   windows:
+    needs: preflight
+    if: needs.preflight.outputs.native_release == 'true'
     runs-on: windows-latest
     defaults:
       run:
@@ -198,8 +223,10 @@ jobs:
 
   publish:
     needs:
+      - preflight
       - macos
       - windows
+    if: needs.preflight.outputs.native_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
