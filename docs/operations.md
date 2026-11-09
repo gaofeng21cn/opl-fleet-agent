@@ -20,6 +20,14 @@ CODEX_HOME=/path/to/codex-home swift run opl-fleet-agent-snapshot --json
 The optional Framework Package's read-only telemetry and doctor commands are
 owned by its [Skill](../plugins/opl-fleet-agent/skills/opl-fleet-agent/SKILL.md).
 Do not replace a missing native provider with direct log collection in the plugin.
+The provider reads the native desktop's saved node ID; on Windows it also reads
+the selected Codex home. `OPL_FLEET_AGENT_MACHINE_ID`,
+`OPL_FLEET_AGENT_MACHINE_NAME`, `OPL_FLEET_AGENT_PLATFORM`, and `CODEX_HOME`
+remain explicit command overrides. To inspect the same desktop, leave these
+unset unless the desktop is deliberately configured with the same overrides.
+Use `freshness.last_observed_at` for the sample time, not the later
+`observed_at` response time. An unchanged sample time with `last_known: true`
+is retained evidence, not renewed collection.
 
 ## Connect a desktop to Fleet Gateway
 

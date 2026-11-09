@@ -60,6 +60,19 @@ and stale last-known values remain explicit availability/freshness states.
 The Package also exposes both results as conversational MCP App views for
 Agent-led inspection. Those views are read-only and do not move the native menu
 bar, tray, or dashboard into the conversation surface.
+The native provider resolves the saved desktop node identity before deriving a
+default hostname identity. Windows also reads the desktop's selected Codex home;
+explicit provider environment options take precedence. This keeps a paired or
+renamed desktop from appearing as a different node in Agent reads. No pairing
+token or device key is loaded by this identity read.
+`observed_at` is the provider response time, while
+`freshness.last_observed_at` identifies the actual sample. Compare the latter
+with `node.stable_node_id` and `node.agent_version` when correlating a view with
+an Agent read; two independent refreshes need not have identical sample times.
+Stale fallback retains its original sample time and is never relabeled as fresh.
+The last-known cache is bound to a digest of the node identity and selected
+source. A changed node/source or an older unbound cache cannot supply fallback
+metrics for the current read.
 The [Skill](../plugins/opl-fleet-agent/skills/opl-fleet-agent/SKILL.md) owns broker
 invocation instructions.
 

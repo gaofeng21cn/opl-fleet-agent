@@ -16,11 +16,13 @@ struct OPLFleetAgentProviderCommand {
     }
 
     let environment = ProcessInfo.processInfo.environment
-    let identity = try localIdentity(environment: environment)
+    let identity = try AmbientOpsMachineIdentity.providerIdentity(environment: environment)
     let now = Date()
-    let usage = await SessionScanner().refresh(now: now)
+    let codexHome = SessionScanner.defaultCodexHome(environment: environment)
+    let usage = await SessionScanner(codexHome: codexHome).refresh(now: now)
     let lastKnownStore = FleetAgentLastKnownStore(
-      url: FleetAgentLastKnownStore.defaultURL(environment: environment)
+      url: FleetAgentLastKnownStore.defaultURL(environment: environment),
+      binding: FleetAgentLastKnownStore.observationBinding(identity: identity, codexHome: codexHome)
     )
     let lastKnownLoad = lastKnownStore.load(now: now)
     let lastKnown = lastKnownLoad.sample
@@ -78,32 +80,6 @@ struct OPLFleetAgentProviderCommand {
     FileHandle.standardOutput.write(Data("\n".utf8))
   }
 
-  private static func localIdentity(
-    environment: [String: String]
-  ) throws -> AmbientOpsMachineIdentity {
-    let hostName = ProcessInfo.processInfo.hostName
-    let defaultID =
-      hostName
-      .split(separator: ".")
-      .first
-      .map(String.init)?
-      .lowercased()
-      .replacingOccurrences(
-        of: #"[^a-z0-9._-]"#,
-        with: "-",
-        options: .regularExpression
-      ) ?? "mac"
-    let machineID = environment["OPL_FLEET_AGENT_MACHINE_ID"] ?? defaultID
-    let machineName =
-      environment["OPL_FLEET_AGENT_MACHINE_NAME"]
-      ?? Host.current().localizedName
-      ?? machineID
-    return try AmbientOpsMachineIdentity(
-      machineID: machineID,
-      machineName: machineName,
-      platform: environment["OPL_FLEET_AGENT_PLATFORM"] ?? "macOS"
-    )
-  }
 }
 
 private enum ProviderCommandError: LocalizedError {

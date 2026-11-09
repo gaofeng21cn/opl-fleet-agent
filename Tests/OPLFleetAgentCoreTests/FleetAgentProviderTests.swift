@@ -4,6 +4,41 @@ import XCTest
 @testable import OPLFleetAgentCore
 
 final class FleetAgentProviderTests: XCTestCase {
+  func testProviderUsesNativeSavedIdentityBeforeHostnameFallback() throws {
+    let identity = try AmbientOpsMachineIdentity.providerIdentity(
+      environment: [:], savedMachineID: "paired-node", hostName: "Renamed Mac.local"
+    )
+    XCTAssertEqual(identity.machineID, "paired-node")
+    XCTAssertEqual(identity.machineName, "Renamed Mac.local")
+    let fallback = try AmbientOpsMachineIdentity.providerIdentity(
+      environment: [:], savedMachineID: nil, hostName: "Renamed Mac.local"
+    )
+    XCTAssertEqual(
+      fallback.machineID,
+      AmbientOpsMachineIdentity.defaultLocalMachineID(hostName: "Renamed Mac.local")
+    )
+  }
+
+  func testProviderExplicitIdentityOverridesNativeSavedIdentity() throws {
+    let identity = try AmbientOpsMachineIdentity.providerIdentity(
+      environment: [
+        "OPL_FLEET_AGENT_MACHINE_ID": "isolated-node",
+        "OPL_FLEET_AGENT_MACHINE_NAME": "Isolated Node",
+        "OPL_FLEET_AGENT_PLATFORM": "fixture",
+      ], savedMachineID: "paired-node", hostName: "Mac.local"
+    )
+    XCTAssertEqual(identity.machineID, "isolated-node")
+    XCTAssertEqual(identity.machineName, "Isolated Node")
+    XCTAssertEqual(identity.platform, "fixture")
+  }
+
+  func testProviderRejectsInvalidSavedIdentityInsteadOfInventingAnotherNode() {
+    XCTAssertThrowsError(
+      try AmbientOpsMachineIdentity.providerIdentity(
+        environment: [:], savedMachineID: "invalid identity", hostName: "Mac.local"
+      ))
+  }
+
   private let observedAt = Date(timeIntervalSince1970: 1_755_331_200)
 
   func testAdvertisesOnlyImplementedNativeCapabilities() {
@@ -190,10 +225,11 @@ final class FleetAgentProviderTests: XCTestCase {
       JSONSerialization.jsonObject(with: Data(contentsOf: cacheURL)) as? [String: Any]
     )
     XCTAssertEqual(Set(cacheObject.keys), ["last_observed_at", "payload"])
-    XCTAssertFalse(recursiveKeys(cacheObject).contains(where: { key in
-      ["prompt", "response", "session", "path", "address", "credential", "secret"]
-        .contains(where: key.contains)
-    }))
+    XCTAssertFalse(
+      recursiveKeys(cacheObject).contains(where: { key in
+        ["prompt", "response", "session", "path", "address", "credential", "secret"]
+          .contains(where: key.contains)
+      }))
 
     XCTAssertEqual(
       store.load(now: observedAt.addingTimeInterval(FleetAgentLastKnownStore.ttlSeconds + 1)),
@@ -214,11 +250,12 @@ final class FleetAgentProviderTests: XCTestCase {
     try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
     let now = Date()
     let timestamp = now.addingTimeInterval(-5).formatted(.iso8601)
-    let log = [
-      #"{"timestamp":"\#(timestamp)","type":"session_meta","payload":{"id":"session-a","model_provider":"test-provider"}}"#,
-      #"{"timestamp":"\#(timestamp)","type":"turn_context","payload":{"model":"gpt-test"}}"#,
-      #"{"timestamp":"\#(timestamp)","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120},"last_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120}}}}"#,
-    ].joined(separator: "\n") + "\n"
+    let log =
+      [
+        #"{"timestamp":"\#(timestamp)","type":"session_meta","payload":{"id":"session-a","model_provider":"test-provider"}}"#,
+        #"{"timestamp":"\#(timestamp)","type":"turn_context","payload":{"model":"gpt-test"}}"#,
+        #"{"timestamp":"\#(timestamp)","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120},"last_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120}}}}"#,
+      ].joined(separator: "\n") + "\n"
     let logURL = sessions.appendingPathComponent("rollout-session-a.jsonl")
     try Data(log.utf8).write(to: logURL)
     try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: logURL.path)
@@ -237,9 +274,10 @@ final class FleetAgentProviderTests: XCTestCase {
       codexHome: directory.appendingPathComponent("codex"),
       environment: environment
     )
+    try FileManager.default.removeItem(at: sessions)
     let second = try runProvider(
       executable: executable,
-      codexHome: directory.appendingPathComponent("missing-codex-home"),
+      codexHome: directory.appendingPathComponent("codex"),
       environment: environment
     )
 
@@ -270,11 +308,12 @@ final class FleetAgentProviderTests: XCTestCase {
     try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
     let now = Date()
     let timestamp = now.addingTimeInterval(-5).formatted(.iso8601)
-    let log = [
-      #"{"timestamp":"\#(timestamp)","type":"session_meta","payload":{"id":"session-doctor","model_provider":"test-provider"}}"#,
-      #"{"timestamp":"\#(timestamp)","type":"turn_context","payload":{"model":"gpt-test"}}"#,
-      #"{"timestamp":"\#(timestamp)","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":200,"output_tokens":40,"total_tokens":240},"last_token_usage":{"input_tokens":200,"output_tokens":40,"total_tokens":240}}}}"#,
-    ].joined(separator: "\n") + "\n"
+    let log =
+      [
+        #"{"timestamp":"\#(timestamp)","type":"session_meta","payload":{"id":"session-doctor","model_provider":"test-provider"}}"#,
+        #"{"timestamp":"\#(timestamp)","type":"turn_context","payload":{"model":"gpt-test"}}"#,
+        #"{"timestamp":"\#(timestamp)","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":200,"output_tokens":40,"total_tokens":240},"last_token_usage":{"input_tokens":200,"output_tokens":40,"total_tokens":240}}}}"#,
+      ].joined(separator: "\n") + "\n"
     let logURL = sessions.appendingPathComponent("rollout-session-doctor.jsonl")
     try Data(log.utf8).write(to: logURL)
     try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: logURL.path)
@@ -309,10 +348,11 @@ final class FleetAgentProviderTests: XCTestCase {
     // Advancing the simulated clock by two minutes makes an unrefreshed t0 sample expire.
     let failureObservedAt = refreshedAt.addingTimeInterval(-2 * 60)
     try rebaseCache(cacheURL, to: failureObservedAt)
+    try FileManager.default.removeItem(at: sessions)
     let failure = try runProvider(
       executable: executable,
       ref: OPLFleetAgentProvider.telemetryRef,
-      codexHome: directory.appendingPathComponent("missing-codex-home"),
+      codexHome: codexHome,
       environment: environment
     )
 
@@ -327,6 +367,35 @@ final class FleetAgentProviderTests: XCTestCase {
     )
     let payload = try XCTUnwrap(failure["payload"] as? [String: Any])
     XCTAssertEqual(rate(payload, window: "one_minute", field: "token_rate_per_second"), 4)
+  }
+
+  func testLastKnownStoreRejectsAnotherNodeOrSource() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("opl-fleet-cache-binding-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let cacheURL = directory.appendingPathComponent("cache.json")
+    let node = try identity()
+    let source = directory.appendingPathComponent("source")
+    let binding = FleetAgentLastKnownStore.observationBinding(identity: node, codexHome: source)
+    let store = FleetAgentLastKnownStore(url: cacheURL, binding: binding)
+    let now = Date()
+    let projection = OPLFleetAgentProvider.telemetry(
+      usage: usage(at: now), identity: node, now: now)
+    try store.save(projection)
+    XCTAssertNotNil(store.load(now: now).sample)
+    let anotherNode = try AmbientOpsMachineIdentity(
+      machineID: "another-node", machineName: "Another Node", platform: "macOS")
+    for other in [
+      FleetAgentLastKnownStore.observationBinding(identity: anotherNode, codexHome: source),
+      FleetAgentLastKnownStore.observationBinding(
+        identity: node, codexHome: directory.appendingPathComponent("another-source")),
+    ] {
+      try store.save(projection)
+      XCTAssertEqual(
+        FleetAgentLastKnownStore(url: cacheURL, binding: other).load(now: now), .invalid)
+    }
+    try FleetAgentLastKnownStore(url: cacheURL).save(projection)
+    XCTAssertEqual(store.load(now: now), .invalid)
   }
 
   private func identity() throws -> AmbientOpsMachineIdentity {
@@ -407,8 +476,8 @@ final class FleetAgentProviderTests: XCTestCase {
     process.standardOutput = output
     process.standardError = errors
     try process.run()
-    process.waitUntilExit()
     let outputData = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
     let errorData = errors.fileHandleForReading.readDataToEndOfFile()
     XCTAssertEqual(
       process.terminationStatus,

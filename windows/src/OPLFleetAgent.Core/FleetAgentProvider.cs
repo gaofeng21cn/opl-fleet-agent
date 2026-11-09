@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -250,7 +251,7 @@ public static class OplFleetAgentProvider
 
     private static double MegabitsToBytes(double value) => Math.Max(0, value) * 1_000_000 / 8;
 
-    private static string SafePlatform(string value)
+    internal static string SafePlatform(string value)
     {
         var safe = Regex.Replace(value, "[^A-Za-z0-9._-]", "-", RegexOptions.CultureInvariant);
         var normalized = string.IsNullOrEmpty(safe) ? "unknown" : safe;
@@ -358,10 +359,23 @@ public sealed class FleetAgentLastKnownStore
         };
 
     private readonly string path;
+    private readonly AmbientOpsMachineIdentity identity;
+    private readonly string observationBinding;
 
-    public FleetAgentLastKnownStore(string path)
+    public FleetAgentLastKnownStore(
+        string path,
+        AmbientOpsMachineIdentity identity,
+        string codexHome)
     {
         this.path = Path.GetFullPath(path);
+        this.identity = identity;
+        observationBinding = Convert.ToHexString(SHA256.HashData(
+            JsonSerializer.SerializeToUtf8Bytes(new[]
+            {
+                identity.MachineId,
+                identity.Platform,
+                Path.GetFullPath(codexHome),
+            }))).ToLowerInvariant();
     }
 
     public static string DefaultPath()
@@ -442,6 +456,7 @@ public sealed class FleetAgentLastKnownStore
             return new(FleetAgentLastKnownLoadState.Invalid);
         }
         if (record is null ||
+            record.ObservationBinding != observationBinding ||
             record.Payload is null ||
             !DateTimeOffset.TryParseExact(
                 record.LastObservedAt,
@@ -473,6 +488,8 @@ public sealed class FleetAgentLastKnownStore
     public void Save(FleetAgentProviderEnvelope<FleetAgentTelemetryPayload> projection)
     {
         if (projection.Freshness.State != "fresh" ||
+            projection.Node?.StableNodeId != identity.MachineId ||
+            projection.Node?.Platform != OplFleetAgentProvider.SafePlatform(identity.Platform) ||
             projection.Freshness.LastKnown ||
             projection.Freshness.LastObservedAt is not { } lastObservedAt ||
             !IsValid(projection.Payload))
@@ -488,7 +505,7 @@ public sealed class FleetAgentLastKnownStore
             File.WriteAllBytes(
                 temporaryPath,
                 JsonSerializer.SerializeToUtf8Bytes(
-                    new CacheRecord(lastObservedAt, projection.Payload),
+                    new CacheRecord(observationBinding, lastObservedAt, projection.Payload),
                     OplFleetAgentProvider.SerializerOptions));
             File.Move(temporaryPath, path, true);
         }
@@ -502,6 +519,7 @@ public sealed class FleetAgentLastKnownStore
     }
 
     private sealed record CacheRecord(
+        string ObservationBinding,
         string LastObservedAt,
         FleetAgentTelemetryPayload Payload);
 
@@ -545,7 +563,7 @@ public sealed class FleetAgentLastKnownStore
 
     private static bool HasExactCacheShape(JsonElement root)
     {
-        if (!HasExactProperties(root, "last_observed_at", "payload") ||
+        if (!HasExactProperties(root, "observation_binding", "last_observed_at", "payload") ||
             !root.TryGetProperty("payload", out var payload) ||
             !HasExactProperties(
                 payload,

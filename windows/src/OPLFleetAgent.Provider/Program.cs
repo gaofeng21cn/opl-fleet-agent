@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using OPLFleetAgent.Core;
 
 if (args is ["--help"] or ["-h"])
@@ -14,10 +13,30 @@ if (args is not ["--ref", var readRef])
     return 2;
 }
 
-var identity = LocalIdentity();
+if (readRef is not (OplFleetAgentProvider.TelemetryRef or OplFleetAgentProvider.DoctorRef))
+{
+    Console.Error.WriteLine("Unsupported provider ref");
+    return 2;
+}
+
+FleetAgentLocalSettings settings;
+SessionScanner scanner;
+try
+{
+    settings = FleetAgentLocalSettings.Load();
+    scanner = new SessionScanner(settings.CodexHome);
+}
+catch (Exception error) when (error is IOException or UnauthorizedAccessException
+    or JsonException or ArgumentException or NotSupportedException)
+{
+    Console.Error.WriteLine("Local observation settings could not be read");
+    return 2;
+}
+var identity = settings.Identity;
 var now = DateTimeOffset.UtcNow;
-var usage = new SessionScanner().Refresh(now);
-var lastKnownStore = new FleetAgentLastKnownStore(FleetAgentLastKnownStore.DefaultPath());
+var usage = scanner.Refresh(now);
+var lastKnownStore = new FleetAgentLastKnownStore(
+    FleetAgentLastKnownStore.DefaultPath(), identity, scanner.CodexHome);
 var lastKnownLoad = lastKnownStore.Load(now);
 var lastKnown = lastKnownLoad.Sample;
 var fallback = lastKnown?.UsageSnapshot();
@@ -87,21 +106,3 @@ switch (readRef)
 
 Console.WriteLine(JsonSerializer.Serialize(projection, OplFleetAgentProvider.SerializerOptions));
 return 0;
-
-static AmbientOpsMachineIdentity LocalIdentity()
-{
-    var defaultId = Regex.Replace(
-        Environment.MachineName.ToLowerInvariant(),
-        "[^a-z0-9._-]",
-        "-",
-        RegexOptions.CultureInvariant);
-    if (string.IsNullOrEmpty(defaultId))
-    {
-        defaultId = "windows";
-    }
-    var machineId = Environment.GetEnvironmentVariable("OPL_FLEET_AGENT_MACHINE_ID") ?? defaultId;
-    var machineName =
-        Environment.GetEnvironmentVariable("OPL_FLEET_AGENT_MACHINE_NAME") ?? Environment.MachineName;
-    var platform = Environment.GetEnvironmentVariable("OPL_FLEET_AGENT_PLATFORM") ?? "Windows";
-    return new AmbientOpsMachineIdentity(machineId, machineName, platform);
-}

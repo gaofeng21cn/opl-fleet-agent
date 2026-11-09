@@ -30,6 +30,19 @@ The scanner and outbound privacy contract are owned by
 Gateway push but does not publish a Direct server. Gateway connection procedures
 and credential handling are in [Agent operations](../docs/operations.md).
 
+The optional Package invokes the installed `OPLFleetAgentProvider` executable.
+It reads the same saved machine ID, display name, and Codex home as the native
+app from `%LOCALAPPDATA%\OPL Fleet Agent\settings.json`. Explicit process values
+for `OPL_FLEET_AGENT_MACHINE_ID`, `OPL_FLEET_AGENT_MACHINE_NAME`,
+`OPL_FLEET_AGENT_PLATFORM`, or `CODEX_HOME` override those observation fields.
+The provider does not decrypt the app's token or pairing key, change settings,
+or configure Gateway push. An unreadable settings document or invalid saved ID
+makes the provider unavailable instead of silently identifying a different node.
+Last-known observations are bound to the node identity and resolved Codex home
+by a digest. A missing source can retain the same node's stale sample; switching
+node or collection source cannot reuse it. Older unbound cache records are
+discarded and a fresh native observation repopulates the cache.
+
 ## Install the release
 
 Download these two files from the

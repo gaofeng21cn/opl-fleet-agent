@@ -104,7 +104,7 @@ public sealed class FleetAgentProviderTests
         try
         {
             var cachePath = Path.Combine(directory, "provider-last-known.json");
-            var store = new FleetAgentLastKnownStore(cachePath);
+            var store = new FleetAgentLastKnownStore(cachePath, Identity(), directory);
             var fresh = OplFleetAgentProvider.Telemetry(
                 Usage(),
                 Identity(),
@@ -131,7 +131,7 @@ public sealed class FleetAgentProviderTests
             var root = JsonNode.Parse(File.ReadAllText(cachePath))?.AsObject();
             Assert.NotNull(root);
             Assert.Equal(
-                ["last_observed_at", "payload"],
+                ["last_observed_at", "observation_binding", "payload"],
                 root.Select(item => item.Key).OrderBy(item => item, StringComparer.Ordinal));
 
             Assert.Equal(
@@ -145,6 +145,44 @@ public sealed class FleetAgentProviderTests
             Assert.Equal(
                 FleetAgentLastKnownLoadState.PrivacyRejected,
                 store.Load(ObservedAt).State);
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void LastKnownSampleCannotMoveToAnotherNodeOrCollectionSource()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"opl-fleet-binding-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var cachePath = Path.Combine(directory, "provider-last-known.json");
+            var codexHome = Path.Combine(directory, "codex");
+            var store = new FleetAgentLastKnownStore(cachePath, Identity(), codexHome);
+            var fresh = OplFleetAgentProvider.Telemetry(Usage(), Identity(), now: ObservedAt);
+            store.Save(fresh);
+            var bytes = File.ReadAllText(cachePath);
+            var root = JsonNode.Parse(bytes)!.AsObject();
+            Assert.Matches("^[a-f0-9]{64}$", root["observation_binding"]!.GetValue<string>());
+            Assert.DoesNotContain(codexHome, bytes);
+            Assert.DoesNotContain(Identity().MachineId, bytes);
+
+            var otherNode = new AmbientOpsMachineIdentity("different-node", "Different", "Windows");
+            var changedNode = new FleetAgentLastKnownStore(cachePath, otherNode, codexHome);
+            Assert.Equal(FleetAgentLastKnownLoadState.Invalid, changedNode.Load(ObservedAt).State);
+            Assert.Throws<InvalidOperationException>(() => changedNode.Save(fresh));
+
+            store.Save(fresh);
+            var changedSource = new FleetAgentLastKnownStore(
+                cachePath, Identity(), Path.Combine(directory, "another-codex"));
+            Assert.Equal(FleetAgentLastKnownLoadState.Invalid, changedSource.Load(ObservedAt).State);
+
+            root.Remove("observation_binding");
+            File.WriteAllText(cachePath, root.ToJsonString());
+            Assert.Equal(FleetAgentLastKnownLoadState.Invalid, store.Load(ObservedAt).State);
         }
         finally
         {
@@ -228,9 +266,10 @@ public sealed class FleetAgentProviderTests
             // Advancing the simulated clock by two minutes makes an unrefreshed t0 sample expire.
             var failureObservedAt = refreshedAt.AddMinutes(-2);
             RebaseCache(cachePath, failureObservedAt);
+            Directory.Delete(sessions, true);
             var failure = RunProvider(
                 OplFleetAgentProvider.TelemetryRef,
-                Path.Combine(directory, "missing-codex-home"),
+                codexHome,
                 environment);
 
             var freshness = Assert.IsType<JsonObject>(failure["freshness"]);
@@ -243,6 +282,16 @@ public sealed class FleetAgentProviderTests
             var windows = Assert.IsType<JsonObject>(payload["windows"]);
             var oneMinute = Assert.IsType<JsonObject>(windows["one_minute"]);
             Assert.Equal(4d, oneMinute["token_rate_per_second"]?.GetValue<double>());
+
+            var changedSource = RunProvider(
+                OplFleetAgentProvider.TelemetryRef,
+                Path.Combine(directory, "another-codex-home"),
+                environment);
+            Assert.Equal("unavailable", changedSource["freshness"]?["state"]?.GetValue<string>());
+            Assert.Equal(
+                "last_known_cache_invalid",
+                changedSource["freshness"]?["reason_code"]?.GetValue<string>());
+            Assert.Null(changedSource["payload"]?["windows"]?["one_minute"]?["token_rate_per_second"]);
         }
         finally
         {

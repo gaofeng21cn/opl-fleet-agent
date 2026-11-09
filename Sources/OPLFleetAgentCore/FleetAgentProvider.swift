@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 public struct FleetAgentCapabilityABI: Codable, Equatable, Sendable {
@@ -322,7 +323,8 @@ public enum OPLFleetAgentProvider {
 
     let age = max(0, now.timeIntervalSince(source.generatedAt))
     let fresh = usage.status == .ready && age <= freshAgeSeconds
-    let lastObservedAt = usage.status == .ready
+    let lastObservedAt =
+      usage.status == .ready
       ? timestamp(source.generatedAt)
       : (fallbackLastObservedAt ?? timestamp(source.generatedAt))
     return ProjectionState(
@@ -505,9 +507,19 @@ public struct FleetAgentLastKnownStore: Sendable {
   ]
 
   private let url: URL
+  private let binding: String?
 
-  public init(url: URL) {
+  public init(url: URL, binding: String? = nil) {
     self.url = url
+    self.binding = binding
+  }
+
+  public static func observationBinding(identity: AmbientOpsMachineIdentity, codexHome: URL)
+    -> String
+  {
+    let components = [identity.machineID, identity.platform, codexHome.standardizedFileURL.path]
+    let data = (try? JSONEncoder().encode(components)) ?? Data()
+    return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
   }
 
   public static func defaultURL(
@@ -518,11 +530,13 @@ public struct FleetAgentLastKnownStore: Sendable {
     {
       return URL(fileURLWithPath: NSString(string: configured).expandingTildeInPath)
     }
-    let home = environment["HOME"]
+    let home =
+      environment["HOME"]
       .flatMap { $0.isEmpty ? nil : $0 }
       .map { URL(fileURLWithPath: $0, isDirectory: true) }
       ?? FileManager.default.homeDirectoryForCurrentUser
-    return home
+    return
+      home
       .appendingPathComponent("Library/Application Support/OPL Fleet Agent", isDirectory: true)
       .appendingPathComponent("provider-last-known.json")
   }
@@ -557,6 +571,7 @@ public struct FleetAgentLastKnownStore: Sendable {
     decoder.keyDecodingStrategy = .convertFromSnakeCase
     guard
       let record = try? decoder.decode(CacheRecord.self, from: data),
+      record.binding == binding,
       let observedAt = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true)
         .parse(record.lastObservedAt),
       Self.isValid(record.payload)
@@ -596,7 +611,7 @@ public struct FleetAgentLastKnownStore: Sendable {
     let directory = url.deletingLastPathComponent()
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let data = try OPLFleetAgentProvider.encoder().encode(
-      CacheRecord(lastObservedAt: lastObservedAt, payload: projection.payload)
+      CacheRecord(binding: binding, lastObservedAt: lastObservedAt, payload: projection.payload)
     )
     try data.write(to: url, options: [.atomic])
     do {
@@ -611,6 +626,7 @@ public struct FleetAgentLastKnownStore: Sendable {
   }
 
   private struct CacheRecord: Codable {
+    let binding: String?
     let lastObservedAt: String
     let payload: FleetAgentTelemetryPayload
   }
@@ -639,7 +655,8 @@ public struct FleetAgentLastKnownStore: Sendable {
   private static func hasExactCacheShape(_ value: Any) -> Bool {
     guard
       let root = value as? [String: Any],
-      Set(root.keys) == ["last_observed_at", "payload"],
+      Set(root.keys) == ["last_observed_at", "payload"]
+        || Set(root.keys) == ["binding", "last_observed_at", "payload"],
       let payload = root["payload"] as? [String: Any],
       Set(payload.keys) == [
         "collection_status", "windows", "active_conversation_count", "host_cpu_percent",

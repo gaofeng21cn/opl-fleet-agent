@@ -12,11 +12,18 @@ macOS 13, as declared by [Package.swift](../Package.swift).
 xcrun swift-format lint --recursive Sources Tests Package.swift
 swift test
 node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
+node --test plugins/opl-fleet-agent/tests/native-provider-integration.test.mjs
 ./scripts/build-app.sh
 ./scripts/build-dmg.sh
 ```
 
 `build-app.sh` builds the native app; `build-dmg.sh` packages a universal DMG.
+After `swift test` builds the provider, the native-provider integration test
+copies that executable and the optional Package into an isolated temporary
+carrier. It reads synthetic telemetry, removes the source, and checks that
+telemetry and doctor preserve the same node and last-known sample before
+becoming unavailable without a cache. It does not install into the user's
+Applications directory or claim signed-release acceptance.
 For a development install on the current Mac, run `./scripts/install.sh`.
 It builds, ad-hoc signs, installs, and launches; use `--no-launch` to skip launch
 or `OPL_FLEET_AGENT_INSTALL_DIR` to choose the destination. This is not a

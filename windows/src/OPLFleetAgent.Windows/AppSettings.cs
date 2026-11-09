@@ -14,7 +14,7 @@ internal sealed class AppSettings
     public string CodexHome { get; set; } = string.Empty;
     public string ManualUrl { get; set; } = string.Empty;
     public string PreferredInstanceId { get; set; } = string.Empty;
-    public string MachineId { get; set; } = DefaultMachineId();
+    public string MachineId { get; set; } = FleetAgentLocalSettings.DefaultMachineId();
     public string MachineName { get; set; } = Environment.MachineName;
     public bool PetEnabled { get; set; } = true;
     public bool StartWithWindows { get; set; }
@@ -27,17 +27,6 @@ internal sealed class AppSettings
 
     [JsonIgnore]
     public string DevicePrivateKey { get; set; } = string.Empty;
-
-    private static string DefaultMachineId()
-    {
-        var value = new string(Environment.MachineName.ToLowerInvariant()
-            .Select(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-'
-                ? character
-                : '-')
-            .Take(80)
-            .ToArray());
-        return string.IsNullOrWhiteSpace(value) ? "windows-pc" : value;
-    }
 }
 
 internal sealed class AppSettingsStore
@@ -49,10 +38,7 @@ internal sealed class AppSettingsStore
 
     public AppSettingsStore()
     {
-        var root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            WindowsProductIdentity.InstallDirectoryName);
-        SettingsPath = Path.Combine(root, "settings.json");
+        SettingsPath = FleetAgentLocalSettings.DefaultSettingsPath();
     }
 
     public string SettingsPath { get; }

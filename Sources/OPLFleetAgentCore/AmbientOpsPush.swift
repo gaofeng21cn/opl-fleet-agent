@@ -1,6 +1,8 @@
 import Foundation
 
 public struct AmbientOpsMachineIdentity: Equatable, Sendable {
+  public static let defaultsDomain = "io.github.gaofeng21cn.opl-fleet-agent"
+  public static let machineIDDefaultsKey = "ambientOpsMachineID"
   public let machineID: String
   public let machineName: String
   public let platform: String
@@ -15,6 +17,40 @@ public struct AmbientOpsMachineIdentity: Equatable, Sendable {
     self.machineID = machineID
     self.machineName = String(machineName.prefix(80))
     self.platform = String(platform.prefix(32))
+  }
+
+  public static func defaultLocalMachineID(
+    hostName: String = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+  ) -> String {
+    hostName.split(separator: ".").first.map(String.init)?.lowercased()
+      .replacingOccurrences(of: #"[^a-z0-9._-]"#, with: "-", options: .regularExpression)
+      ?? "mac"
+  }
+
+  public static func localMachine(machineID: String) throws -> AmbientOpsMachineIdentity {
+    try AmbientOpsMachineIdentity(
+      machineID: machineID,
+      machineName: Host.current().localizedName ?? machineID,
+      platform: "macOS"
+    )
+  }
+
+  /// The provider reads the native app's saved identity without writing its settings.
+  /// Explicit command environments can select a different node for isolated operation.
+  public static func providerIdentity(
+    environment: [String: String] = ProcessInfo.processInfo.environment,
+    savedMachineID: String? = UserDefaults.standard.persistentDomain(forName: defaultsDomain)?[
+      machineIDDefaultsKey] as? String,
+    hostName: String = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+  ) throws -> AmbientOpsMachineIdentity {
+    let machineID =
+      environment["OPL_FLEET_AGENT_MACHINE_ID"]
+      ?? savedMachineID ?? defaultLocalMachineID(hostName: hostName)
+    return try AmbientOpsMachineIdentity(
+      machineID: machineID,
+      machineName: environment["OPL_FLEET_AGENT_MACHINE_NAME"] ?? hostName,
+      platform: environment["OPL_FLEET_AGENT_PLATFORM"] ?? "macOS"
+    )
   }
 }
 

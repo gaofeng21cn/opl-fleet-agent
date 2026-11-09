@@ -30,3 +30,4 @@ jobs:
           python3 Tests/release-run-classification.test.py
           swift test
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
+          node --test plugins/opl-fleet-agent/tests/native-provider-integration.test.mjs

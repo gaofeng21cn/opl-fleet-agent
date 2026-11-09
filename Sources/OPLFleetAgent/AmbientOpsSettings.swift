@@ -319,26 +319,3 @@ enum AmbientOpsRetryPolicy {
     return min(initialDelay * pow(2, Double(exponent)), maximumDelay)
   }
 }
-
-extension AmbientOpsMachineIdentity {
-  static func defaultLocalMachineID() -> String {
-    let hostName = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
-    return
-      hostName
-      .split(separator: ".")
-      .first
-      .map(String.init)?
-      .lowercased()
-      .replacingOccurrences(
-        of: #"[^a-z0-9._-]"#, with: "-", options: .regularExpression)
-      ?? "mac"
-  }
-
-  static func localMachine(machineID: String) throws -> AmbientOpsMachineIdentity {
-    return try AmbientOpsMachineIdentity(
-      machineID: machineID,
-      machineName: Host.current().localizedName ?? machineID,
-      platform: "macOS"
-    )
-  }
-}

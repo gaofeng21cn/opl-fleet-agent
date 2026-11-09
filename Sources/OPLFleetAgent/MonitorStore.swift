@@ -46,7 +46,6 @@ final class MonitorStore: ObservableObject {
   private static let ambientManualURLDefaultsKey = "ambientOpsManualURL"
   private static let ambientInstanceIDDefaultsKey = "ambientOpsInstanceID"
   private static let ambientPetDefaultsKey = "ambientOpsPet"
-  private static let ambientMachineIDDefaultsKey = "ambientOpsMachineID"
 
   init(codexHome: URL = SessionScanner.defaultCodexHome()) {
     let savedWindow = UserDefaults.standard.string(forKey: Self.selectedWindowDefaultsKey)
@@ -62,9 +61,10 @@ final class MonitorStore: ObservableObject {
     ambientPet = AmbientOpsPetChoice(
       savedValue: UserDefaults.standard.string(forKey: Self.ambientPetDefaultsKey))
     ambientMachineID =
-      UserDefaults.standard.string(forKey: Self.ambientMachineIDDefaultsKey)
+      UserDefaults.standard.string(forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
       ?? AmbientOpsMachineIdentity.defaultLocalMachineID()
-    UserDefaults.standard.set(ambientMachineID, forKey: Self.ambientMachineIDDefaultsKey)
+    UserDefaults.standard.set(
+      ambientMachineID, forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
     scanner = SessionScanner(codexHome: codexHome)
     ambientPetCatalog = AmbientOpsPetAssetCatalog(codexHome: codexHome)
     sessionsURL = codexHome.appendingPathComponent("sessions", isDirectory: true)
