@@ -140,6 +140,7 @@ jobs:
     needs: preflight
     if: needs.preflight.outputs.native_release == 'true'
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: pwsh
@@ -209,6 +210,7 @@ jobs:
           $signature = Get-AuthenticodeSignature $installer
           Write-Output "Windows Authenticode status: $($signature.Status)"
       - name: Verify Windows in-app updater handoff
+        timeout-minutes: 8
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
           ./windows/scripts/verify-updater.ps1 -Version $version

@@ -6,6 +6,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+function Wait-BoundedProcess($Process, [string]$Stage, [int]$TimeoutMs = 120000) {
+    Write-Output "stage=$Stage pid=$($Process.Id)"
+    if (-not $Process.WaitForExit($TimeoutMs)) {
+        Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+        throw "$Stage timed out after $TimeoutMs ms."
+    }
+    $Process.Refresh()
+}
 if ($Version -notmatch '^\d+\.\d+\.\d+$' -or
     $PreviousVersion -notmatch '^\d+\.\d+\.\d+$') {
     throw "Versions must use MAJOR.MINOR.PATCH format."
@@ -47,12 +55,13 @@ try {
         throw "Unsupported previous-release repository: $releaseRepository"
     }
     $releaseRoot = "https://github.com/$releaseRepository/releases/download/v$PreviousVersion"
+    Write-Output "stage=download_previous_installer version=$PreviousVersion"
     Invoke-WebRequest `
         "$releaseRoot/OPL-Fleet-Agent-Windows-win-x64-Setup.exe" `
-        -OutFile $previousInstaller
+        -OutFile $previousInstaller -TimeoutSec 90
     Invoke-WebRequest `
         "$releaseRoot/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256" `
-        -OutFile $previousChecksum
+        -OutFile $previousChecksum -TimeoutSec 90
     $previousExpected = (
         (Get-Content $previousChecksum -Raw).Trim() -split "\s+"
     )[0].ToLowerInvariant()
@@ -73,8 +82,8 @@ try {
     $installResult = Start-Process `
         $previousInstaller `
         -ArgumentList $installArguments `
-        -Wait `
         -PassThru
+    Wait-BoundedProcess $installResult "install_previous_release"
     if ($installResult.ExitCode -ne 0) {
         throw "Previous installer exited with $($installResult.ExitCode)."
     }
@@ -113,7 +122,7 @@ try {
         -PassThru
     Start-Sleep -Seconds 1
     Stop-Process -Id $oldProcess.Id -Force
-    $oldProcess.WaitForExit()
+    Wait-BoundedProcess $oldProcess "exit_previous_process" 15000
     if (-not $helperProcess.WaitForExit(120000)) {
         Stop-Process -Id $helperProcess.Id -Force
         throw "Updater helper timed out."
@@ -170,8 +179,8 @@ finally {
         $uninstallResult = Start-Process `
             $uninstaller `
             -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
-            -Wait `
             -PassThru
+        Wait-BoundedProcess $uninstallResult "uninstall_verification_copy"
         if ($uninstallResult.ExitCode -ne 0) {
             Write-Warning "Updater test uninstaller exited with $($uninstallResult.ExitCode)."
         }
