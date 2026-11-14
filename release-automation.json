@@ -2,5 +2,22 @@
   "strategy": "daily_patch",
   "prepare": [],
   "verify": [],
-  "version_files": []
+  "release_workflows": ["release.yml"],
+  "release_paths": [
+    "Resources",
+    "Sources",
+    "windows",
+    "Package.swift",
+    "scripts"
+  ],
+  "version_files": [
+    {
+      "path": "Resources/Info.plist",
+      "kind": "plist_bundle"
+    },
+    {
+      "path": "windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj",
+      "kind": "xml_project"
+    }
+  ]
 }
