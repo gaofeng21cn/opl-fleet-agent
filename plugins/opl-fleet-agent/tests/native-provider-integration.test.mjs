@@ -41,7 +41,10 @@ test('relocated Package reads the same isolated native node and preserves last-k
     OPL_FLEET_AGENT_PLATFORM: 'macOS',
   };
   const descriptor = JSON.parse(await readFile(path.join(carrier, 'opl-package.json'), 'utf8'));
-  assert.equal(descriptor.codex_surface.configured_codex_plugin_carrier.publication_ref, null);
+  assert.equal(
+    descriptor.codex_surface.configured_codex_plugin_carrier.publication_ref,
+    'ghcr.io/gaofeng21cn/one-person-lab-packages/opl-fleet-agent:latest-stable',
+  );
   const adapter = JSON.parse(await readFile(path.join(carrier, 'app-contribution-adapter.json'), 'utf8'));
   assert.deepEqual(adapter.actions, {});
   const read = (ref) => {
