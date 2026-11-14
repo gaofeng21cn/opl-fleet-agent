@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Classify a tag against the native app and optional Package versions."""
+"""Verify one product tag against native and Package version declarations."""
 
 from __future__ import annotations
 
@@ -41,10 +41,10 @@ def main() -> int:
         raise SystemExit(f"Native release versions disagree: macOS={macos_version} Windows={windows_version}")
 
     tag_version = tag[1:]
+    if package_version is not None and package_version != macos_version:
+        raise SystemExit(f"Product versions disagree: native={macos_version} Package={package_version}")
     if tag_version == macos_version:
         print("native")
-    elif tag_version == package_version:
-        print("package-only")
     else:
         raise SystemExit(f"Tag does not match native or Package version: tag={tag_version} native={macos_version} package={package_version}")
     return 0

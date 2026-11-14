@@ -69,9 +69,10 @@ or clean-machine acceptance.
 [Release](../.github/workflows/release.yml) owns release assets. macOS public
 assets must use Developer ID, hardened runtime, timestamping, Apple notarization,
 and a stapled ticket. The workflow fails closed without protected Apple
-credentials. Tags that match the optional Package version while differing from
-both native carrier versions are classified as Package-only and skip native
-signing and publication. [verify-release.sh](../scripts/verify-release.sh)
+credentials. macOS, Windows and the optional OPL integration share one product
+version and one annotated tag. The daily Package publisher updates these
+declarations together, waits for this tag's native release workflow, and then
+publishes the same-version OCI Package. [verify-release.sh](../scripts/verify-release.sh)
 checks final notarized bytes, architectures, Team ID `SVVC4TA784`, and checksum. The separate
 [public readback workflow](../.github/workflows/release-public-readback.yml)
 checks published release evidence. The Homebrew Tap consumes this release;
