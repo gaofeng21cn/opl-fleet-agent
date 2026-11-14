@@ -3,7 +3,7 @@
   "package_id": "opl-fleet-agent",
   "display_name": "OPL Fleet Agent Integration",
   "publisher": "one-person-lab",
-  "version": "0.2.48",
+  "version": "0.2.49",
   "source": "first_party",
   "package_role": "capability_package",
   "source_repo": "https://github.com/gaofeng21cn/opl-fleet-agent.git",
@@ -36,7 +36,7 @@
       "skills/opl-fleet-agent/SKILL.md",
       "skills/opl-fleet-agent/agents/openai.yaml"
     ],
-    "digest": "sha256:b35049be37ebea7e3e5b2be1274b4218b1fda1ee0cd087dead12f4f5044eddca"
+    "digest": "sha256:e79f4460e8f711bcd09a38f4ef7d58a0b04353a83b1762db862b52aa0cb97b22"
   },
   "codex_surface": {
     "plugin_id": "opl-fleet-agent",
