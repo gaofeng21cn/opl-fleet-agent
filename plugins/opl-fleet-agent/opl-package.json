@@ -6,6 +6,7 @@
   "version": "0.2.49",
   "source": "first_party",
   "package_role": "capability_package",
+  "management_scope": "local_component",
   "source_repo": "https://github.com/gaofeng21cn/opl-fleet-agent.git",
   "machine_boundary": "This optional read-only adapter projects sanitized node-local observations from the installed native OPL Fleet Agent. It is not a dependency of installing or running the native OPL Fleet Agent.app. It does not own native installation, collection, upgrade, fleet admission, leases, dispatch, task completion, execution constraints, receipts, or Cordis Host truth.",
   "capability_abi": {
