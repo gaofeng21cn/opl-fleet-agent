@@ -1,0 +1,6 @@
+{
+  "strategy": "daily_patch",
+  "prepare": [],
+  "verify": [],
+  "version_files": []
+}
