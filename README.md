@@ -59,7 +59,7 @@ already present in local session logs easier to see.
 - Requests per minute, active sessions, and cache ratio
 - Configurable refresh cadence (`5s`, `15s`, `30s`, or `1min` on macOS)
 - Remembered menu-bar window, manual refresh, session-folder access, and launch at login
-- Homebrew Cask distribution on macOS and user-confirmed updates on Windows
+- Dual-track updates on macOS (in-app Sparkle 2 automatic updates plus Homebrew Cask) and user-confirmed verified updates on Windows
 - A JSON snapshot command for scripts and integrations
 - OPL Fleet Gateway Direct discovery on macOS, plus optional aggregate-only Gateway pushes
 
@@ -70,19 +70,22 @@ completion-time throughput rather than per-streaming-chunk speed.
 
 Requirements: macOS 13 Ventura or later. OPL Fleet Agent needs no API key of its own.
 
-Install or upgrade from the unified OPL Homebrew Tap:
+Install from the unified OPL Homebrew Tap:
 
 ```bash
 brew tap gaofeng21cn/one-person-lab
 brew install --cask opl-fleet-agent
-# Later updates
-brew upgrade --cask opl-fleet-agent
 ```
 
 You can also download `OPL-Fleet-Agent.dmg` and `OPL-Fleet-Agent.dmg.sha256` from the
 [latest release](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest), verify
 the checksum with `shasum -a 256 -c OPL-Fleet-Agent.dmg.sha256`, open the DMG, and drag
 `OPL Fleet Agent.app` into `/Applications`.
+
+Once installed, OPL Fleet Agent checks for signed updates automatically in the app
+(powered by Sparkle 2, with manual "Check for Updates" in the panel and user confirmation
+before installation). You can also upgrade explicitly via Homebrew
+(`brew upgrade --cask opl-fleet-agent`).
 
 Release builds are universal for Apple Silicon and Intel, signed with Apple Developer
 ID, and notarized.
@@ -168,9 +171,9 @@ read-only ownership boundaries.
 
 - Parses only structural events required for accounting and deduplication.
 - Reads log bytes but does not decode, retain, or render conversation bodies.
-- Uses the network on macOS for the aggregate-only local Direct provider advertised
-  on the LAN and optional Gateway discovery/pushes, and on Windows for GitHub Release
-  update checks and optional Gateway integration.
+- Uses the network for GitHub Release update checks (Sparkle `appcast.xml`/DMG on
+  macOS and verified release installers on Windows), the macOS aggregate-only local
+  Direct provider on the LAN, and optional Gateway discovery/pushes.
 - Sends only allowlisted aggregates when OPL Fleet Gateway is enabled.
 - Includes no analytics SDK, account system, or cloud session synchronization.
 - Treats the Codex log format as an implementation dependency that may evolve.

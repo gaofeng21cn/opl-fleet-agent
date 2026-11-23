@@ -5,11 +5,14 @@ import SwiftUI
 struct OPLFleetAgentApp: App {
   @NSApplicationDelegateAdaptor(OPLFleetAgentAppDelegate.self) private var appDelegate
   @StateObject private var store: MonitorStore
+  @StateObject private var updater: AppUpdater
 
   init() {
     let store = MonitorStore()
+    let updater = AppUpdater()
     _store = StateObject(wrappedValue: store)
-    appDelegate.configure(store: store)
+    _updater = StateObject(wrappedValue: updater)
+    appDelegate.configure(store: store, updater: updater)
     store.start()
   }
 
@@ -41,5 +44,6 @@ struct OPLFleetAgentApp: App {
   private var panelContent: some View {
     MonitorPanel()
       .environmentObject(store)
+      .environmentObject(updater)
   }
 }

@@ -39,5 +39,15 @@
 	</array>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright 2026 Feng Gao</string>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>jejOvm5dBmhSxgZBYXbiz1LWqsDyb0l+pTchZIDBS48=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>21600</integer>
 </dict>
 </plist>

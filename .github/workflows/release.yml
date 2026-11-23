@@ -60,11 +60,13 @@ jobs:
       - name: Lint
         run: |
           xcrun swift-format lint --recursive Sources Tests Package.swift
-          zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/verify-release.sh
+          zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/generate-appcast.sh scripts/verify-release.sh
           ./Tests/notarize-dmg.test.sh
           ./Tests/user-visible-branding.test.sh
       - name: Test
-        run: swift test
+        run: |
+          swift test
+          ./Tests/sparkle-updater-contract.test.sh
 
       - name: Configure protected Apple credentials
         env:
@@ -106,15 +108,22 @@ jobs:
       - name: Build signed universal app
         run: OPL_FLEET_AGENT_ARCHS="arm64 x86_64" ./scripts/build-app.sh
 
-      - name: Notarize app and DMG, staple both, and verify release bytes
+      - name: Notarize app and DMG, generate signed appcast, and verify release bytes
         env:
           OPL_FLEET_AGENT_EXPECTED_VERSION: ${{ github.ref_name }}
+          OPL_FLEET_AGENT_RELEASE_TAG: ${{ github.ref_name }}
+          OPL_FLEET_AGENT_REPOSITORY: ${{ github.repository }}
+          OPL_FLEET_AGENT_REQUIRE_SPARKLE_KEY_ENV: "1"
+          OPL_FLEET_AGENT_EXPECT_UNIVERSAL: "1"
+          OPL_FLEET_AGENT_REQUIRE_APPCAST: "1"
+          SPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.SPARKLE_ED25519_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           export OPL_FLEET_AGENT_EXPECTED_VERSION="${OPL_FLEET_AGENT_EXPECTED_VERSION#v}"
           ./scripts/notarize-dmg.sh
-          ./scripts/verify-release.sh
+          ./scripts/generate-appcast.sh dist/OPL-Fleet-Agent.dmg dist/appcast.xml
+          ./scripts/verify-release.sh dist/OPL-Fleet-Agent.dmg dist/OPL-Fleet-Agent.dmg.sha256 dist/appcast.xml
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -122,6 +131,7 @@ jobs:
           path: |
             dist/OPL-Fleet-Agent.dmg
             dist/OPL-Fleet-Agent.dmg.sha256
+            dist/appcast.xml
 
       - name: Remove temporary Apple credentials
         if: ${{ always() }}
@@ -245,9 +255,9 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           {
-            printf "## Distribution\n\nOPL Fleet Agent %s ships \`OPL-Fleet-Agent.dmg\` for macOS and \`OPL-Fleet-Agent-Windows-*\` assets for Windows.\n\n" "$version"
+            printf "## Distribution\n\nOPL Fleet Agent %s ships \`OPL-Fleet-Agent.dmg\` and Sparkle \`appcast.xml\` for macOS (supporting both in-app automatic updates and Homebrew Cask) and \`OPL-Fleet-Agent-Windows-*\` assets for Windows.\n\n" "$version"
             cat <<'EOF'
-          The unified OPL Homebrew Tap projects the signed and notarized macOS release after independent checksum verification:
+          The unified OPL Homebrew Tap projects the signed and notarized macOS release after independent checksum verification (with `auto_updates true` so in-app Sparkle updates and Homebrew coexist cleanly):
 
           ```bash
           brew tap gaofeng21cn/one-person-lab
@@ -256,12 +266,13 @@ jobs:
 
           ## Agent
 
-          macOS Antigravity accounting now uses step completion timestamps so long-running turns report accurately in the 1-minute window, and the Data Sources section in the menu-bar panel is now collapsible with a live summary header.
+          macOS restores native in-app automatic updates powered by Sparkle 2 alongside Homebrew Cask distribution, replaces the footer CLI upgrade hint with a native "Check for Updates" control and gentle update reminders, and enforces dual-track update checks in CI and release verification.
           EOF
           } >release-notes.md
           gh release create "$GITHUB_REF_NAME" \
             release-assets/OPL-Fleet-Agent.dmg \
             release-assets/OPL-Fleet-Agent.dmg.sha256 \
+            release-assets/appcast.xml \
             release-assets/OPL-Fleet-Agent-Windows-win-x64.zip \
             release-assets/OPL-Fleet-Agent-Windows-win-x64.zip.sha256 \
             release-assets/OPL-Fleet-Agent-Windows-win-x64-Setup.exe \
@@ -326,11 +337,12 @@ jobs:
           OPL-Fleet-Agent-Windows-win-x64.zip.sha256
           OPL-Fleet-Agent.dmg
           OPL-Fleet-Agent.dmg.sha256
+          appcast.xml
           EOF
           LC_ALL=C sort -o "$expected_names" "$expected_names"
           jq -r '.assets[].name' "$public_release" | LC_ALL=C sort > "$RUNNER_TEMP/actual-assets.txt"
           if ! diff -u "$expected_names" "$RUNNER_TEMP/actual-assets.txt"; then
-            echo "Public Release asset set differs from the canonical six-asset set." >&2
+            echo "Public Release asset set differs from the canonical seven-asset set." >&2
             exit 1
           fi
 
@@ -351,6 +363,41 @@ jobs:
               OPL-Fleet-Agent-Windows-win-x64.zip.sha256 \
               OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
           )
+
+          python3 - "$public_assets/appcast.xml" "$public_assets/OPL-Fleet-Agent.dmg" "$REPOSITORY" "$RELEASE_TAG" <<'PY'
+          import os
+          import sys
+          import xml.etree.ElementTree as ET
+
+          appcast_path, dmg_path, repo, tag = sys.argv[1:5]
+          version = tag.removeprefix("v")
+          sparkle_ns = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+          ns = {"sparkle": sparkle_ns}
+
+          root = ET.parse(appcast_path).getroot()
+          items = root.findall("./channel/item")
+          if len(items) != 1:
+              raise SystemExit(f"Expected 1 appcast item, got {len(items)}")
+
+          item = items[0]
+          if item.findtext("sparkle:shortVersionString", namespaces=ns) != version:
+              raise SystemExit("Public appcast shortVersionString mismatch")
+          if not item.findtext("sparkle:version", namespaces=ns):
+              raise SystemExit("Public appcast missing sparkle:version")
+          if item.findtext("sparkle:hardwareRequirements", namespaces=ns):
+              raise SystemExit("Public universal appcast must not set hardwareRequirements")
+
+          enclosure = item.find("enclosure")
+          if enclosure is None:
+              raise SystemExit("Public appcast missing enclosure")
+          expected_url = f"https://github.com/{repo}/releases/download/{tag}/OPL-Fleet-Agent.dmg"
+          if enclosure.attrib.get("url") != expected_url:
+              raise SystemExit(f"Unexpected public appcast URL: {enclosure.attrib.get('url')}")
+          if enclosure.attrib.get("length") != str(os.path.getsize(dmg_path)):
+              raise SystemExit("Public appcast length does not match downloaded DMG")
+          if not enclosure.attrib.get(f"{{{sparkle_ns}}}edSignature"):
+              raise SystemExit("Public appcast missing sparkle:edSignature")
+          PY
 
           jq -n \
             --arg schema "opl_fleet_agent_release_public_readback.v1" \

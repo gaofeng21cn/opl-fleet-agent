@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MonitorPanel: View {
   @EnvironmentObject private var store: MonitorStore
+  @EnvironmentObject private var updater: AppUpdater
   @State private var sourcesExpanded = false
   @State private var settingsExpanded = false
 
@@ -229,6 +230,19 @@ struct MonitorPanel: View {
 
   private var footer: some View {
     VStack(spacing: 10) {
+      if let updateVersion = updater.availableUpdateDisplayLabel {
+        HStack(spacing: 8) {
+          Label("发现新版本 \(updateVersion)", systemImage: "arrow.down.circle.fill")
+            .font(.caption.weight(.medium))
+            .foregroundStyle(Color.accentColor)
+            .lineLimit(1)
+          Spacer()
+          Button("立即更新", action: updater.checkForUpdates)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+        }
+      }
+
       HStack {
         Picker(
           "自动刷新",
@@ -273,17 +287,26 @@ struct MonitorPanel: View {
           .frame(maxWidth: .infinity, alignment: .leading)
       }
 
-      HStack(spacing: 6) {
+      HStack(spacing: 8) {
         Text(appVersionLabel)
           .monospacedDigit()
-        Text("·")
-        Text("brew upgrade --cask opl-fleet-agent")
-          .textSelection(.enabled)
-          .lineLimit(1)
-          .truncationMode(.middle)
+          .foregroundStyle(.tertiary)
+
+        Spacer()
+
+        Button(action: updater.checkForUpdates) {
+          HStack(spacing: 4) {
+            Image(systemName: "arrow.down.circle")
+              .font(.system(size: 11, weight: .medium))
+            Text(updater.availableUpdateDisplayLabel == nil ? "检查更新" : "查看更新")
+          }
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(updater.canCheckForUpdates ? .secondary : .tertiary)
+        .disabled(!updater.canCheckForUpdates)
+        .help(updater.isConfigured ? "检查应用更新" : "仅在打包安装后的应用内可用")
       }
       .font(.caption2)
-      .foregroundStyle(.tertiary)
       .frame(maxWidth: .infinity, alignment: .leading)
     }
     .padding(16)

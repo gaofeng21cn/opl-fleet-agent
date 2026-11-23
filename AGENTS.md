@@ -11,9 +11,17 @@ uploads conversation content.
   and native/Package ownership. Verify changes against the source and current
   callers; prose is not a second runtime contract.
 - Preserve the parser's fork state machine and cross-file deduplication tests.
+- Preserve first-class in-app automatic update capability on both desktop
+  platforms as a non-negotiable product contract: macOS ships dual-track
+  updates (in-app Sparkle 2 updates from signed `appcast.xml` plus Homebrew
+  Cask distribution with `auto_updates true`), and Windows ships its in-app
+  verified updater alongside standalone installers. Simplification or
+  refactoring tasks must never remove in-app auto-updates or replace native
+  update controls with CLI upgrade hints in the UI.
 - Do not persist, log, transmit, or render prompt or response bodies.
-- Network access includes GitHub release metadata/assets, the macOS aggregate
-  Direct LAN server, and configured aggregate Gateway discovery/pairing/push.
+- Network access includes GitHub release metadata/assets (macOS Sparkle
+  appcast/DMG updates and Windows release updates), the macOS aggregate Direct
+  LAN server, and configured aggregate Gateway discovery/pairing/push.
   Conversation records never cross the network boundary.
 
 ## Development

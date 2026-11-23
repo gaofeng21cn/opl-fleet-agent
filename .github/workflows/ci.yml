@@ -23,10 +23,11 @@ jobs:
       - name: Lint and source tests
         run: |
           xcrun swift-format lint --recursive Sources Tests Package.swift
-          zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/verify-release.sh scripts/install.sh
+          zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/generate-appcast.sh scripts/verify-release.sh scripts/install.sh
           ./Tests/user-visible-branding.test.sh
           ./Tests/notarize-dmg.test.sh
           bash Tests/release-tag-eligibility.test.sh
           swift test
+          ./Tests/sparkle-updater-contract.test.sh
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
           node --test plugins/opl-fleet-agent/tests/native-provider-integration.test.mjs

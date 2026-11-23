@@ -148,13 +148,33 @@ aggregates with error status. Transport retry does not block local collection.
 OPL Fleet Cockpit owns display composition; its OPL Fleet Gateway receives and
 projects telemetry. Neither is a scheduler by virtue of this integration.
 Network use consists of the macOS Direct service, configured Gateway discovery,
-pairing, and pushes, and GitHub release metadata/assets on Windows.
+pairing, and pushes, and GitHub release metadata/assets for in-app updates on
+both macOS (Sparkle `appcast.xml` and DMG) and Windows.
 
 ## Native distribution and updates
 
-macOS releases are distributed as signed, notarized universal DMGs and through the
-unified OPL Homebrew Tap (`brew upgrade --cask opl-fleet-agent`), without an
-in-app self-updater.
+First-class in-app automatic updating is a required product capability on both
+macOS and Windows and must not be removed during refactoring or distribution
+simplification. Package managers and standalone installers are parallel
+distribution channels, not replacements for in-app updates.
+
+macOS uses a dual-track update model:
+
+- **In-app automatic updates (Sparkle 2)**: [AppUpdater](../Sources/OPLFleetAgent/AppUpdater.swift)
+  embeds `Sparkle.framework` inside `OPL Fleet Agent.app/Contents/Frameworks`,
+  checks the EdDSA-signed `appcast.xml` feed at
+  `releases/latest/download/appcast.xml` every six hours (`SUEnableAutomaticChecks = true`,
+  `SUAutomaticallyUpdate = false`), uses gentle menu-bar reminders for scheduled
+  background checks, and exposes a native "Check for Updates" control in
+  [MonitorPanel](../Sources/OPLFleetAgent/MonitorPanel.swift). Updates are
+  verified against both the embedded Ed25519 public key (`SUPublicEDKey`) and
+  Apple Developer ID signing/notarization before installation.
+- **Distribution channels**: Releases ship signed, notarized universal DMGs
+  alongside the signed `appcast.xml`, and are projected downstream into the
+  unified OPL Homebrew Tap (`brew install --cask opl-fleet-agent`). The Cask
+  must declare `auto_updates true` so routine `brew upgrade` runs do not clash
+  with Sparkle in-app updates while users remain free to upgrade via Homebrew
+  explicitly.
 
 The Windows desktop updater checks after launch and every six hours, then requires
 user confirmation before installation. Session collection is independent and no log
@@ -162,6 +182,7 @@ content is attached to release requests. Windows uses an exact-process handoff,
 re-verifies the installer, reads back its installed version, and relaunches; its
 platform transaction is documented in [Windows installation](../windows/README.md).
 
-This repository owns release identity and assets. The Homebrew Tap is a
-downstream Cask projection. Public release trust and workflow boundaries belong
-to [development](development.md), not to historical build receipts.
+This repository owns release identity, Sparkle `appcast.xml` signatures, and
+assets. The Homebrew Tap is a downstream Cask projection. Public release trust
+and workflow boundaries belong to [development](development.md), not to
+historical build receipts.

@@ -57,11 +57,22 @@ do
   sips -z "$ICON_SIZE" "$ICON_SIZE" "$ROOT_DIR/Resources/AppIcon.png" --out "$ICONSET_DIR/$ICON_NAME" >/dev/null
 done
 
+SPARKLE_FRAMEWORK_SRC="$ROOT_DIR/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+if [[ ! -d "$SPARKLE_FRAMEWORK_SRC" ]]; then
+  SPARKLE_FRAMEWORK_SRC="$(find "$ROOT_DIR/.build/artifacts" -path '*/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework' -type d -print -quit 2>/dev/null || true)"
+fi
+if [[ -z "$SPARKLE_FRAMEWORK_SRC" || ! -d "$SPARKLE_FRAMEWORK_SRC" ]]; then
+  echo "Sparkle.framework not found in SwiftPM artifacts under $ROOT_DIR/.build/artifacts." >&2
+  exit 1
+fi
+
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
+mkdir -p "$APP_DIR/Contents/Frameworks"
 mkdir -p "$APP_DIR/Contents/Resources"
 ditto "$BIN_DIR/OPLFleetAgent" "$APP_DIR/Contents/MacOS/OPLFleetAgent"
 ditto "$BIN_DIR/OPLFleetAgentProvider" "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider"
+ditto "$SPARKLE_FRAMEWORK_SRC" "$APP_DIR/Contents/Frameworks/Sparkle.framework"
 ditto "$ROOT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 iconutil -c icns "$ICONSET_DIR" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
 
@@ -69,14 +80,31 @@ if [[ -n "${OPL_FLEET_AGENT_ARCHS:-}" ]]; then
   for ARCH in ${=OPL_FLEET_AGENT_ARCHS}; do
     lipo "$APP_DIR/Contents/MacOS/OPLFleetAgent" -verify_arch "$ARCH"
     lipo "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider" -verify_arch "$ARCH"
+    lipo "$APP_DIR/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" -verify_arch "$ARCH"
   done
 fi
 
 plutil -lint "$APP_DIR/Contents/Info.plist"
+FEED_URL="$(plutil -extract SUFeedURL raw "$APP_DIR/Contents/Info.plist")"
+PUBLIC_ED_KEY="$(plutil -extract SUPublicEDKey raw "$APP_DIR/Contents/Info.plist")"
+if [[ -z "$FEED_URL" || -z "$PUBLIC_ED_KEY" ]]; then
+  echo "Sparkle SUFeedURL and SUPublicEDKey must be configured in Info.plist." >&2
+  exit 1
+fi
+
 SIGN_ARGS=(--force --sign "$SIGNING_IDENTITY")
 if [[ "$SIGNING_IDENTITY" != "-" ]]; then
   SIGN_ARGS+=(--options runtime --timestamp)
 fi
+
+SPARKLE_DEST="$APP_DIR/Contents/Frameworks/Sparkle.framework"
+SPARKLE_VER="$SPARKLE_DEST/Versions/B"
+codesign "${SIGN_ARGS[@]}" "$SPARKLE_VER/XPCServices/Installer.xpc"
+codesign "${SIGN_ARGS[@]}" --preserve-metadata=entitlements "$SPARKLE_VER/XPCServices/Downloader.xpc"
+codesign "${SIGN_ARGS[@]}" "$SPARKLE_VER/Autoupdate"
+codesign "${SIGN_ARGS[@]}" "$SPARKLE_VER/Updater.app"
+codesign "${SIGN_ARGS[@]}" "$SPARKLE_DEST"
+
 codesign "${SIGN_ARGS[@]}" "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider"
 codesign "${SIGN_ARGS[@]}" "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"

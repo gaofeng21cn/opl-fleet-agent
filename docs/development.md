@@ -17,7 +17,12 @@ node --test plugins/opl-fleet-agent/tests/native-provider-integration.test.mjs
 ./scripts/build-dmg.sh
 ```
 
-`build-app.sh` builds the native app; `build-dmg.sh` packages a universal DMG.
+`build-app.sh` builds the native app, embeds `Sparkle.framework` into
+`Contents/Frameworks`, validates Sparkle `SUFeedURL`/`SUPublicEDKey` keys, and
+signs Sparkle's nested helpers inside-out before signing the app bundle;
+`build-dmg.sh` packages a universal DMG. `generate-appcast.sh` uses Sparkle's
+`generate_appcast` and `sign_update --verify` to emit and verify the EdDSA-signed
+`appcast.xml` against the notarized DMG.
 After `swift test` builds the provider, the native-provider integration test
 copies that executable and the optional Package into an isolated temporary
 carrier. It reads synthetic telemetry, removes the source, and checks that
@@ -55,12 +60,15 @@ qualified target.
 
 ## Workflow boundaries
 
-[CI](../.github/workflows/ci.yml) runs Swift lint/tests, focused shell checks,
+[CI](../.github/workflows/ci.yml) runs Swift lint/tests, focused shell checks
+(including [sparkle-updater-contract.test.sh](../Tests/sparkle-updater-contract.test.sh)
+to enforce the macOS in-app updater contract and signed `appcast.xml` generation),
 and Package adapter tests on push and pull request. It does not build or
 qualify the Windows installer.
 
 The manually dispatched [Qualification workflow](../.github/workflows/qualification.yml)
-owns universal development packaging, plus Windows packaging,
+owns universal development packaging (including verifying embedded universal
+`Sparkle.framework`), plus Windows packaging,
 portable installation, installer/uninstaller checks, and installed-version
 readback. Its Windows in-app updater transaction runs only on `main`.
 Unsigned development artifacts and a successful workflow are not public release
@@ -68,15 +76,18 @@ or clean-machine acceptance.
 
 [Release](../.github/workflows/release.yml) owns release assets. macOS public
 assets must use Developer ID, hardened runtime, timestamping, Apple notarization,
-and a stapled ticket. The workflow fails closed without protected Apple
-credentials. macOS, Windows and the optional OPL integration share one product
+a stapled ticket, and an Ed25519-signed Sparkle `appcast.xml` (`SPARKLE_ED25519_PRIVATE_KEY`
+matching `SUPublicEDKey` in `Resources/Info.plist`). The workflow fails closed
+without protected Apple credentials or the Sparkle Ed25519 signing key. macOS,
+Windows and the optional OPL integration share one product
 version and one annotated tag. The daily Package publisher updates these
 declarations together, waits for this tag's native release workflow, and then
 publishes the same-version OCI Package. [verify-release.sh](../scripts/verify-release.sh)
-checks final notarized bytes, architectures, Team ID `SVVC4TA784`, and checksum,
+checks final notarized bytes, embedded `Sparkle.framework` signatures,
+architectures, Team ID `SVVC4TA784`, checksum, and `appcast.xml` consistency,
 and the `readback` job in [Release](../.github/workflows/release.yml) verifies
-public release assets and checksums anonymously after publication. The Homebrew Tap
-consumes this release;
+public release assets (including `appcast.xml`) and checksums anonymously after
+publication. The Homebrew Tap consumes this release with `auto_updates true`;
 it must not independently define version, checksum, or asset truth.
 
 Windows packaging currently has no Authenticode signing step. SHA-256 and

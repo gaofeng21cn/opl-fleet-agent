@@ -20,14 +20,19 @@ jobs:
       - name: Lint
         run: |
           xcrun swift-format lint --recursive Sources Tests Package.swift
-          zsh -n scripts/build-app.sh scripts/build-dmg.sh
+          zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/generate-appcast.sh scripts/verify-release.sh
           ./Tests/user-visible-branding.test.sh
       - name: Test
         run: |
           swift test
+          ./Tests/sparkle-updater-contract.test.sh
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
-      - name: Package DMG
-        run: ./scripts/build-dmg.sh
+      - name: Package DMG and verify embedded Sparkle framework
+        run: |
+          ./scripts/build-dmg.sh
+          test -d "dist/OPL Fleet Agent.app/Contents/Frameworks/Sparkle.framework"
+          lipo "dist/OPL Fleet Agent.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle" -verify_arch arm64 x86_64
+          codesign --verify --deep --strict "dist/OPL Fleet Agent.app"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: opl-fleet-agent-dmg
