@@ -256,7 +256,7 @@ jobs:
 
           ## Agent
 
-          macOS now collects Antigravity (desktop/IDE and `agy` CLI) token throughput alongside Codex in the menu bar, Direct LAN status, Gateway pushes, and local CLI tools, with per-source breakdown and independent switches in the menu-bar panel.
+          macOS Antigravity accounting now uses step completion timestamps so long-running turns report accurately in the 1-minute window, and the Data Sources section in the menu-bar panel is now collapsible with a live summary header.
           EOF
           } >release-notes.md
           gh release create "$GITHUB_REF_NAME" \
