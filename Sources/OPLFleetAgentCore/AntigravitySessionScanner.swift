@@ -234,7 +234,10 @@ public actor AntigravitySessionScanner {
     let handle = try FileHandle(forReadingFrom: file.url)
     defer { try? handle.close() }
     try handle.seek(toOffset: cursor.offset)
-    let minimumTimestamp = retentionStart.addingTimeInterval(-2).formatted(.iso8601)
+    let minimumTimestamp = retentionStart.addingTimeInterval(
+      -(AntigravityTokenEventParser.maxTurnDurationSeconds + 2)
+    ).formatted(.iso8601)
+    var pendingRelevantLine: Data?
 
     while true {
       let appended = try autoreleasepool {
@@ -245,22 +248,33 @@ public actor AntigravitySessionScanner {
       autoreleasepool {
         var combined = cursor.remainder
         combined.append(appended)
-        let split = splitRelevantCompleteLines(combined, minimumTimestamp: minimumTimestamp)
-        cursor.remainder = split.remainder
+        let scanned = scanChunkLines(
+          combined,
+          minimumTimestamp: minimumTimestamp,
+          pendingRelevantLine: &pendingRelevantLine
+        )
+        cursor.remainder = scanned.remainder
 
         let batch = AntigravityTokenEventParser.parse(
-          lines: split.lines,
+          entries: scanned.inputs,
           conversationID: file.conversationID
         )
-        malformedRelevantLines += batch.malformedRelevantLines
-
-        for event in batch.events where event.timestamp >= retentionStart {
-          if seenDeduplicationKeys[event.deduplicationKey] == nil {
-            seenDeduplicationKeys[event.deduplicationKey] = event.timestamp
-            events.append(event)
-          }
-        }
+        appendBatch(batch, retentionStart: retentionStart)
       }
+    }
+
+    if let pending = pendingRelevantLine {
+      let eofBatch = AntigravityTokenEventParser.parse(
+        entries: [
+          AntigravityTranscriptLineInput(
+            line: pending,
+            nextStep: nil,
+            eofModifiedAt: file.modifiedAt
+          )
+        ],
+        conversationID: file.conversationID
+      )
+      appendBatch(eofBatch, retentionStart: retentionStart)
     }
 
     cursor.offset = file.size
@@ -269,56 +283,97 @@ public actor AntigravitySessionScanner {
     cursors[file.url] = cursor
   }
 
-  private func splitRelevantCompleteLines(
+  private func appendBatch(_ batch: TokenParseBatch, retentionStart: Date) {
+    malformedRelevantLines += batch.malformedRelevantLines
+    for event in batch.events where event.timestamp >= retentionStart {
+      if seenDeduplicationKeys[event.deduplicationKey] == nil {
+        seenDeduplicationKeys[event.deduplicationKey] = event.timestamp
+        events.append(event)
+      }
+    }
+  }
+
+  private func scanChunkLines(
     _ data: Data,
-    minimumTimestamp: String
-  ) -> (lines: [Data], remainder: Data) {
+    minimumTimestamp: String,
+    pendingRelevantLine: inout Data?
+  ) -> (inputs: [AntigravityTranscriptLineInput], remainder: Data) {
     guard let finalNewline = data.lastIndex(of: 0x0A) else {
+      if let pending = pendingRelevantLine,
+        data.count > markerOverlapSize,
+        let hint = AntigravityTokenEventParser.extractStepHint(from: data)
+      {
+        pendingRelevantLine = nil
+        return (
+          [AntigravityTranscriptLineInput(line: pending, nextStep: hint, eofModifiedAt: nil)],
+          retainedIncompleteLine(data)
+        )
+      }
       return ([], retainedIncompleteLine(data))
     }
 
     let completeEnd = data.index(after: finalNewline)
-    let completeRange = data.startIndex..<completeEnd
-    var lineStarts: Set<Data.Index> = []
+    var inputs: [AntigravityTranscriptLineInput] = []
+    var lineStart = data.startIndex
 
-    for marker in AntigravityTokenEventParser.relevantMarkers {
-      var searchStart = completeRange.lowerBound
-      while searchStart < completeRange.upperBound,
-        let match = data.range(
-          of: marker,
-          options: [],
-          in: searchStart..<completeRange.upperBound
-        )
-      {
-        let lineStart =
-          data.range(
-            of: Self.newline,
-            options: .backwards,
-            in: data.startIndex..<match.lowerBound
-          )?.upperBound ?? data.startIndex
-        lineStarts.insert(lineStart)
-        searchStart = match.upperBound
-      }
-    }
-
-    let lines = lineStarts.sorted().compactMap { start -> Data? in
+    while lineStart < completeEnd {
       guard
-        let end = data.range(
+        let newlineIndex = data.range(
           of: Self.newline,
           options: [],
-          in: start..<completeEnd
-        )?.lowerBound, start < end
+          in: lineStart..<completeEnd
+        )?.lowerBound
       else {
-        return nil
+        break
       }
-      let line = Data(data[start..<end])
-      return eventMayBeRecent(line, minimumTimestamp: minimumTimestamp) ? line : nil
+
+      let lineRange = lineStart..<newlineIndex
+      lineStart = data.index(after: newlineIndex)
+      guard !lineRange.isEmpty else { continue }
+
+      if let pending = pendingRelevantLine {
+        let hintEnd = data.index(
+          lineRange.lowerBound,
+          offsetBy: min(
+            data.distance(from: lineRange.lowerBound, to: lineRange.upperBound),
+            timestampHeaderScanLimit
+          )
+        )
+        let hint = AntigravityTokenEventParser.extractStepHint(
+          from: Data(data[lineRange.lowerBound..<hintEnd])
+        )
+        inputs.append(
+          AntigravityTranscriptLineInput(line: pending, nextStep: hint, eofModifiedAt: nil)
+        )
+        pendingRelevantLine = nil
+      }
+
+      if AntigravityTokenEventParser.relevantMarkers.contains(where: {
+        data.range(of: $0, options: [], in: lineRange) != nil
+      }) && eventMayBeRecent(in: data, range: lineRange, minimumTimestamp: minimumTimestamp) {
+        pendingRelevantLine = Data(data[lineRange])
+      }
     }
-    let remainder =
+
+    let remainderSlice =
       completeEnd < data.endIndex
-      ? retainedIncompleteLine(data[completeEnd...])
-      : Data()
-    return (lines, remainder)
+      ? data[completeEnd...]
+      : Data.SubSequence()
+    if !remainderSlice.isEmpty {
+      if let pending = pendingRelevantLine,
+        remainderSlice.count > markerOverlapSize,
+        let hint = AntigravityTokenEventParser.extractStepHint(
+          from: Data(remainderSlice.prefix(timestampHeaderScanLimit))
+        )
+      {
+        inputs.append(
+          AntigravityTranscriptLineInput(line: pending, nextStep: hint, eofModifiedAt: nil)
+        )
+        pendingRelevantLine = nil
+      }
+      return (inputs, retainedIncompleteLine(Data(remainderSlice)))
+    }
+    return (inputs, Data())
   }
 
   private func retainedIncompleteLine(_ data: Data) -> Data {
@@ -329,17 +384,27 @@ public actor AntigravitySessionScanner {
     return Data(data.suffix(markerOverlapSize))
   }
 
-  private func eventMayBeRecent(_ line: Data, minimumTimestamp: String) -> Bool {
-    let headerEnd = min(line.count, timestampHeaderScanLimit)
-    let searchRange = line.startIndex..<line.index(line.startIndex, offsetBy: headerEnd)
+  private func eventMayBeRecent(
+    in data: Data,
+    range: Range<Data.Index>,
+    minimumTimestamp: String
+  ) -> Bool {
+    let headerDistance = min(
+      data.distance(from: range.lowerBound, to: range.upperBound),
+      timestampHeaderScanLimit
+    )
+    let headerEnd = data.index(range.lowerBound, offsetBy: headerDistance)
+    let searchRange = range.lowerBound..<headerEnd
     let match =
-      line.range(of: Self.createdAtPrefixCompact, options: [], in: searchRange)
-      ?? line.range(of: Self.createdAtPrefixSpaced, options: [], in: searchRange)
+      data.range(of: Self.createdAtPrefixCompact, options: [], in: searchRange)
+      ?? data.range(of: Self.createdAtPrefixSpaced, options: [], in: searchRange)
     guard let match else { return true }
 
     let valueStart = match.upperBound
-    guard let valueEnd = line[valueStart...].firstIndex(of: 0x22) else { return true }
-    let timestamp = String(decoding: line[valueStart..<valueEnd], as: UTF8.self)
+    guard let valueEnd = data[valueStart..<range.upperBound].firstIndex(of: 0x22) else {
+      return true
+    }
+    let timestamp = String(decoding: data[valueStart..<valueEnd], as: UTF8.self)
     guard timestamp.hasSuffix("Z") else { return true }
     return timestamp >= minimumTimestamp
   }

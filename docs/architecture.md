@@ -60,8 +60,12 @@ owns Antigravity accounting rules:
   `input_tokens + cache_read_tokens`, `cachedInputTokens` to `cache_read_tokens`,
   `outputTokens` to `output_tokens`, `reasoningOutputTokens` to `0`, and
   `totalTokens` to `inputTokens + outputTokens`.
-- Events are stamped with the step's `created_at` timestamp (step start time)
-  and deduplicated across files and re-reads by structural event identity.
+- Events use completion timestamps resolved from the subsequent `MODEL` step's
+  `created_at` (for `PLANNER_RESPONSE` followed by `GENERIC`/model steps and
+  `CHECKPOINT` followed by `PLANNER_RESPONSE`) or the transcript file `mtime`
+  at EOF when within 15 minutes of `created_at`, falling back to `created_at`
+  before `USER_INPUT` or `SYSTEM_MESSAGE` waits; deduplication remains keyed on
+  the step's immutable `created_at` and structural event identity.
 - Only `step_index`, `type`, `status`, `created_at`, `model`, and token counters
   are decoded; `content`, `thinking`, and `tool_calls` are never decoded,
   retained, rendered, or transmitted.

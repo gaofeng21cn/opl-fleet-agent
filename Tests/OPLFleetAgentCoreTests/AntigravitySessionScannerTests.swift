@@ -149,6 +149,77 @@ final class AntigravitySessionScannerTests: XCTestCase {
     XCTAssertEqual(snapshot.oneMinute.totalTokens, 500)
   }
 
+  func testLongRunningStepUsesCompletionTimeForOneMinuteWindowWithoutDoubleCounting() async throws {
+    let root = try makeTemporaryRoot()
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let now = Date()
+    let brain = root.appendingPathComponent("brain", isDirectory: true)
+    let logs = brain.appendingPathComponent("conv-slow/.system_generated/logs", isDirectory: true)
+    try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+
+    let plannerStart = now.addingTimeInterval(-95).formatted(.iso8601)
+    let plannerDone = now.addingTimeInterval(-8).formatted(.iso8601)
+    let idlePlannerStart = now.addingTimeInterval(-120).formatted(.iso8601)
+    let userReturn = now.addingTimeInterval(-4).formatted(.iso8601)
+
+    let plannerLine =
+      #"{"step_index":2,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"\#(plannerStart)","model":"gemini-4-neon-xhigh","input_tokens":100,"cache_read_tokens":400,"output_tokens":100}"#
+      + "\n"
+    let genericLine =
+      #"{"step_index":3,"source":"MODEL","type":"GENERIC","status":"DONE","created_at":"\#(plannerDone)"}"#
+      + "\n"
+    let idlePlannerLine =
+      #"{"step_index":4,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"\#(idlePlannerStart)","model":"gemini-4-neon-xhigh","input_tokens":50,"cache_read_tokens":150,"output_tokens":40}"#
+      + "\n"
+    let userLine =
+      #"{"step_index":5,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"\#(userReturn)"}"#
+      + "\n"
+
+    // Sub-case A: slow step completed before GENERIC lands in 1m; slow step before USER_INPUT stays in 5m only.
+    let transcriptA = logs.appendingPathComponent("transcript.jsonl")
+    try Data((plannerLine + genericLine + idlePlannerLine + userLine).utf8).write(to: transcriptA)
+    try FileManager.default.setAttributes(
+      [.modificationDate: now.addingTimeInterval(-4)],
+      ofItemAtPath: transcriptA.path
+    )
+
+    // Sub-case B: slow EOF reply flushed 5s ago lands in 1m, and later replacement with GENERIC does not double-count.
+    let eofLogs = brain.appendingPathComponent("conv-eof/.system_generated/logs", isDirectory: true)
+    try FileManager.default.createDirectory(at: eofLogs, withIntermediateDirectories: true)
+    let eofTranscript = eofLogs.appendingPathComponent("transcript.jsonl")
+    let eofStart = now.addingTimeInterval(-85).formatted(.iso8601)
+    let eofReply =
+      #"{"step_index":2,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"\#(eofStart)","model":"gemini-4-neon-xhigh","input_tokens":120,"cache_read_tokens":180,"output_tokens":60}"#
+      + "\n"
+    try Data(eofReply.utf8).write(to: eofTranscript)
+    let eofMtime = now.addingTimeInterval(-5)
+    try FileManager.default.setAttributes(
+      [.modificationDate: eofMtime], ofItemAtPath: eofTranscript.path)
+
+    let scanner = AntigravitySessionScanner(brainRoots: [brain])
+    let first = await scanner.refresh(now: now)
+    // 1m: conv-slow step 2 (600) + conv-eof step 2 (360) = 960; 5m adds conv-slow step 4 (240) = 1200.
+    XCTAssertEqual(first.oneMinute.requestCount, 2)
+    XCTAssertEqual(first.oneMinute.totalTokens, 960)
+    XCTAssertEqual(first.fiveMinutes.requestCount, 3)
+    XCTAssertEqual(first.fiveMinutes.totalTokens, 1_200)
+
+    // Replace conv-eof transcript with a trailing GENERIC step; deduplication keeps exact totals.
+    let trailingGeneric =
+      #"{"step_index":3,"source":"MODEL","type":"GENERIC","status":"DONE","created_at":"\#(eofMtime.formatted(.iso8601))"}"#
+      + "\n"
+    let replacement = eofLogs.appendingPathComponent("transcript.tmp")
+    try Data((eofReply + trailingGeneric).utf8).write(to: replacement)
+    _ = try FileManager.default.replaceItemAt(eofTranscript, withItemAt: replacement)
+
+    let second = await scanner.refresh(now: now)
+    XCTAssertEqual(second.oneMinute.requestCount, 2)
+    XCTAssertEqual(second.oneMinute.totalTokens, 960)
+    XCTAssertEqual(second.fiveMinutes.requestCount, 3)
+    XCTAssertEqual(second.fiveMinutes.totalTokens, 1_200)
+  }
+
   private func makeTemporaryRoot() throws -> URL {
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent("opl-fleet-agy-tests-\(UUID().uuidString)", isDirectory: true)

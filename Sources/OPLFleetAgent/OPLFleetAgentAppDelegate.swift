@@ -19,7 +19,7 @@ final class OPLFleetAgentAppDelegate: NSObject, NSApplicationDelegate {
     let panel = MonitorPanel()
       .environmentObject(store)
     let window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 380, height: 520),
+      contentRect: NSRect(x: 0, y: 0, width: 380, height: 460),
       styleMask: [.titled, .closable],
       backing: .buffered,
       defer: false

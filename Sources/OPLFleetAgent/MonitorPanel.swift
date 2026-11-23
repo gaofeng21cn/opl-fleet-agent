@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MonitorPanel: View {
   @EnvironmentObject private var store: MonitorStore
+  @State private var sourcesExpanded = false
   @State private var settingsExpanded = false
 
   private var metrics: WindowMetrics {
@@ -138,12 +139,43 @@ struct MonitorPanel: View {
   }
 
   private var sourcesSection: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("数据源")
-        .font(.subheadline.weight(.semibold))
+    VStack(alignment: .leading, spacing: 0) {
+      Button {
+        withAnimation(.easeInOut(duration: 0.18)) {
+          sourcesExpanded.toggle()
+        }
+      } label: {
+        HStack(spacing: 8) {
+          Label("数据源", systemImage: "square.stack.3d.up")
+            .font(.subheadline.weight(.semibold))
+          Spacer()
+          Text(sourcesSummaryText)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .layoutPriority(1)
+          Image(systemName: "chevron.right")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .rotationEffect(.degrees(sourcesExpanded ? 90 : 0))
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("数据源明细与开关")
+      .accessibilityValue(sourcesSummaryText)
+      .accessibilityHint(sourcesExpanded ? "收起数据源" : "展开数据源")
 
-      ForEach(UsageSourceKind.allCases) { source in
-        sourceRow(for: source)
+      if sourcesExpanded {
+        VStack(alignment: .leading, spacing: 10) {
+          ForEach(UsageSourceKind.allCases) { source in
+            sourceRow(for: source)
+          }
+        }
+        .padding(.top, 12)
+        .transition(.opacity.combined(with: .move(edge: .top)))
       }
     }
     .padding(16)
@@ -430,6 +462,33 @@ struct MonitorPanel: View {
     case .readFailed:
       return .red
     }
+  }
+
+  private var sourcesSummaryText: String {
+    let enabledSources = UsageSourceKind.allCases.filter { store.isSourceEnabled($0) }
+    guard !enabledSources.isEmpty else { return "已全部关闭" }
+    if enabledSources.count == 1, let only = enabledSources.first {
+      let breakdown = store.breakdown(for: only)
+      let status = breakdown?.snapshot.status ?? .ready
+      guard status == .ready, let snapshot = breakdown?.snapshot else {
+        return "仅 \(only.displayName)"
+      }
+      let rate = RateFormatter.compact(
+        store.selectedWindow.metrics(from: snapshot).tokensPerSecond
+      )
+      return "仅 \(only.displayName) · \(rate) t/s"
+    }
+    return enabledSources.map { source in
+      let breakdown = store.breakdown(for: source)
+      let status = breakdown?.snapshot.status ?? .ready
+      guard status == .ready, let snapshot = breakdown?.snapshot else {
+        return "\(source.displayName) --"
+      }
+      let rate = RateFormatter.compact(
+        store.selectedWindow.metrics(from: snapshot).tokensPerSecond
+      )
+      return "\(source.displayName) \(rate)"
+    }.joined(separator: " · ")
   }
 
   private func sourceStatusLabel(

@@ -64,6 +64,96 @@ final class AntigravityTokenEventParserTests: XCTestCase {
     XCTAssertEqual(batch.malformedRelevantLines, 2)
   }
 
+  func testExtractsStepHintAndResolvesCompletionTimestamps() throws {
+    let compactHeader = Data(
+      #"{"step_index":5,"source":"MODEL","type":"GENERIC","status":"DONE","created_at":"2026-11-23T08:11:30Z","content":"long body"}"#
+        .utf8
+    )
+    let spacedHeader = Data(
+      #"{"step_index":6, "source": "USER_EXPLICIT", "type": "USER_INPUT", "created_at": "2026-11-23T08:15:00Z"}"#
+        .utf8
+    )
+    XCTAssertEqual(
+      AntigravityTokenEventParser.extractStepHint(from: compactHeader),
+      AntigravityStepHint(
+        type: "GENERIC",
+        source: "MODEL",
+        createdAt: "2026-11-23T08:11:30Z"
+      )
+    )
+    XCTAssertEqual(
+      AntigravityTokenEventParser.extractStepHint(from: spacedHeader),
+      AntigravityStepHint(
+        type: "USER_INPUT",
+        source: "USER_EXPLICIT",
+        createdAt: "2026-11-23T08:15:00Z"
+      )
+    )
+
+    let plannerLine = Data(
+      #"{"step_index":4,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-11-23T08:10:00Z","model":"gemini-4-neon-xhigh","input_tokens":100,"cache_read_tokens":200,"output_tokens":50}"#
+        .utf8
+    )
+    let start = try Date("2026-11-23T08:10:00Z", strategy: .iso8601)
+    let modelCompletion = try Date("2026-11-23T08:11:30Z", strategy: .iso8601)
+    let eofCompletion = try Date("2026-11-23T08:11:45Z", strategy: .iso8601)
+    let staleEof = try Date("2026-11-23T08:30:00Z", strategy: .iso8601)
+
+    let modelBatch = AntigravityTokenEventParser.parse(
+      entries: [
+        AntigravityTranscriptLineInput(
+          line: plannerLine,
+          nextStep: AntigravityTokenEventParser.extractStepHint(from: compactHeader),
+          eofModifiedAt: nil
+        )
+      ],
+      conversationID: "conv-comp"
+    )
+    let eofBatch = AntigravityTokenEventParser.parse(
+      entries: [
+        AntigravityTranscriptLineInput(
+          line: plannerLine,
+          nextStep: nil,
+          eofModifiedAt: eofCompletion
+        )
+      ],
+      conversationID: "conv-comp"
+    )
+    let userWaitBatch = AntigravityTokenEventParser.parse(
+      entries: [
+        AntigravityTranscriptLineInput(
+          line: plannerLine,
+          nextStep: AntigravityTokenEventParser.extractStepHint(from: spacedHeader),
+          eofModifiedAt: nil
+        )
+      ],
+      conversationID: "conv-comp"
+    )
+    let staleEofBatch = AntigravityTokenEventParser.parse(
+      entries: [
+        AntigravityTranscriptLineInput(
+          line: plannerLine,
+          nextStep: nil,
+          eofModifiedAt: staleEof
+        )
+      ],
+      conversationID: "conv-comp"
+    )
+
+    XCTAssertEqual(modelBatch.events.first?.timestamp, modelCompletion)
+    XCTAssertEqual(eofBatch.events.first?.timestamp, eofCompletion)
+    XCTAssertEqual(userWaitBatch.events.first?.timestamp, start)
+    XCTAssertEqual(staleEofBatch.events.first?.timestamp, start)
+    XCTAssertEqual(
+      modelBatch.events.first?.deduplicationKey,
+      eofBatch.events.first?.deduplicationKey
+    )
+    XCTAssertEqual(
+      modelBatch.events.first?.deduplicationKey,
+      userWaitBatch.events.first?.deduplicationKey
+    )
+  }
+
   private func fixtureLines(_ raw: String...) -> [Data] {
     raw.map { Data($0.utf8) }
   }
