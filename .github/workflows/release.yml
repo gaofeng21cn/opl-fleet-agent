@@ -256,7 +256,7 @@ jobs:
 
           ## Agent
 
-          macOS manual Gateway setup now accepts a LAN IP address or hostname without requiring users to choose HTTP, HTTPS, or the default port.
+          macOS now collects Antigravity (desktop/IDE and `agy` CLI) token throughput alongside Codex in the menu bar, Direct LAN status, Gateway pushes, and local CLI tools, with per-source breakdown and independent switches in the menu-bar panel.
           EOF
           } >release-notes.md
           gh release create "$GITHUB_REF_NAME" \
