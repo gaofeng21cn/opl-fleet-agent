@@ -57,7 +57,7 @@ OPL Fleet Agent 是一个本机优先的桌面小工具。它增量读取 Codex 
 - 每分钟请求数、活跃会话数和缓存占比
 - 可配置刷新频率（macOS 为 `5 秒 / 15 秒 / 30 秒 / 1 分钟`）
 - 菜单栏统计区间记忆、手动刷新、会话目录快捷入口和登录时启动
-- 自动检查 GitHub 发布版本，并在用户确认后执行校验过的更新
+- macOS 支持 Homebrew Cask 安装与更新，Windows 支持用户确认后的校验更新
 - 面向脚本和自动化的 JSON 快照命令
 - macOS 的 Direct 局域网发现，以及可选的 OPL Fleet Gateway 汇总指标上报
 
@@ -68,32 +68,21 @@ Codex 通常在一次模型请求完成后才写入用量，因此这里显示�
 
 系统要求为 macOS 13 Ventura 或更高版本。应用本身不需要 API Key。
 
-通过统一的 OPL Homebrew Tap 安装：
+通过统一的 OPL Homebrew Tap 安装或更新：
 
 ```bash
 brew tap gaofeng21cn/one-person-lab
 brew install --cask opl-fleet-agent
+# 后续更新
+brew upgrade --cask opl-fleet-agent
 ```
 
-也可以直接运行正式版安装脚本：
+也可以从[最新发布版本](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest)下载
+`OPL-Fleet-Agent.dmg` 与 `OPL-Fleet-Agent.dmg.sha256`，运行
+`shasum -a 256 -c OPL-Fleet-Agent.dmg.sha256` 校验后，打开 DMG 将
+`OPL Fleet Agent.app` 拖入 `/Applications`。
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
-```
-
-也可以从[最新发布版本](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest)
-下载 `OPL-Fleet-Agent.dmg`，打开后拖入“应用程序”。
-
-正式版同时支持 Apple Silicon 和 Intel Mac，使用 Apple Developer ID 签名并
-经过公证。安装脚本会校验发布的 SHA-256、暂存并验证新应用，再替换已有版本；
-替换失败时会恢复原应用。
-
-默认安装到 `/Applications` 并启动。也可以安装到当前用户目录且不立即启动：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | \
-  OPL_FLEET_AGENT_INSTALL_DIR="$HOME/Applications" OPL_FLEET_AGENT_NO_LAUNCH=1 bash
-```
+正式版同时支持 Apple Silicon 和 Intel Mac，使用 Apple Developer ID 签名并经过公证。
 
 ### Windows 安装
 
@@ -165,8 +154,8 @@ macOS 私钥保存在 Keychain，Windows 私钥只以当前用户 DPAPI 密文�
 ### 隐私边界
 
 - 只解析统计和去重所需的结构化事件；扫描器读取日志字节，但不解码、保留或展示对话正文。
-- 网络访问用于检查和下载 GitHub 发布版本；macOS 还会在局域网广播只含汇总数据的
-  Direct 服务。
+- macOS 网络访问仅用于局域网只含汇总数据的 Direct 服务与可选的 Gateway 发现和上报；
+  Windows 还会用于检查和下载 GitHub 发布版本。
 - 启用 OPL Fleet Gateway 后，只在用户选择的局域网服务端上报允许清单内的汇总指标。
 - 没有分析 SDK、账户系统或云端会话同步。
 - 本机日志格式属于实现依赖；未来 Codex 版本变化可能需要更新解析器。

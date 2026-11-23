@@ -32,15 +32,38 @@ if [[ -n "${OPL_FLEET_AGENT_ARCHS:-}" ]]; then
 fi
 swift build "${PROVIDER_BUILD_ARGS[@]}"
 
+ICON_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/opl-fleet-agent-icon.XXXXXX")"
+cleanup() {
+  rm -rf "$ICON_TMP_DIR"
+}
+trap cleanup EXIT INT TERM
+
+ICONSET_DIR="$ICON_TMP_DIR/AppIcon.iconset"
+mkdir -p "$ICONSET_DIR"
+for ICON_SPEC in \
+  "16:icon_16x16.png" \
+  "32:icon_16x16@2x.png" \
+  "32:icon_32x32.png" \
+  "64:icon_32x32@2x.png" \
+  "128:icon_128x128.png" \
+  "256:icon_128x128@2x.png" \
+  "256:icon_256x256.png" \
+  "512:icon_256x256@2x.png" \
+  "512:icon_512x512.png" \
+  "1024:icon_512x512@2x.png"
+do
+  ICON_SIZE="${ICON_SPEC%%:*}"
+  ICON_NAME="${ICON_SPEC#*:}"
+  sips -z "$ICON_SIZE" "$ICON_SIZE" "$ROOT_DIR/Resources/AppIcon.png" --out "$ICONSET_DIR/$ICON_NAME" >/dev/null
+done
+
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 ditto "$BIN_DIR/OPLFleetAgent" "$APP_DIR/Contents/MacOS/OPLFleetAgent"
 ditto "$BIN_DIR/OPLFleetAgentProvider" "$APP_DIR/Contents/MacOS/OPLFleetAgentProvider"
 ditto "$ROOT_DIR/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
-ditto "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
-ditto "$ROOT_DIR/scripts/install-release.sh" "$APP_DIR/Contents/Resources/install-release.sh"
-chmod 755 "$APP_DIR/Contents/Resources/install-release.sh"
+iconutil -c icns "$ICONSET_DIR" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 if [[ -n "${OPL_FLEET_AGENT_ARCHS:-}" ]]; then
   for ARCH in ${=OPL_FLEET_AGENT_ARCHS}; do

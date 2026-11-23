@@ -60,9 +60,7 @@ jobs:
       - name: Lint
         run: |
           xcrun swift-format lint --recursive Sources Tests Package.swift
-          bash -n scripts/install-release.sh
-          bash -n scripts/verify-updater.sh
-          zsh -n scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/verify-release.sh
+          zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/verify-release.sh
           ./Tests/notarize-dmg.test.sh
           ./Tests/user-visible-branding.test.sh
       - name: Test
@@ -117,9 +115,6 @@ jobs:
           export OPL_FLEET_AGENT_EXPECTED_VERSION="${OPL_FLEET_AGENT_EXPECTED_VERSION#v}"
           ./scripts/notarize-dmg.sh
           ./scripts/verify-release.sh
-
-      - name: Verify signed updater transaction
-        run: ./scripts/verify-updater.sh
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -275,3 +270,118 @@ jobs:
             --title "OPL Fleet Agent $GITHUB_REF_NAME" \
             --notes-file release-notes.md \
             --verify-tag
+
+  readback:
+    name: Read back public Release assets
+    needs:
+      - preflight
+      - publish
+    if: needs.preflight.outputs.native_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Verify release tag commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          gh api "repos/$REPOSITORY/commits/$RELEASE_TAG" > "$RUNNER_TEMP/tag-commit.json"
+          jq -e --arg expected "$SOURCE_SHA" '.sha == $expected' "$RUNNER_TEMP/tag-commit.json" >/dev/null
+
+      - name: Read public Release metadata and assets anonymously
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPOSITORY"
+          public_release="$RUNNER_TEMP/public-release.json"
+          expected_names="$RUNNER_TEMP/expected-assets.txt"
+          public_assets="$RUNNER_TEMP/public-assets"
+
+          curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors \
+            -H 'Accept: application/vnd.github+json' \
+            "$api/releases/tags/$RELEASE_TAG" > "$public_release"
+          jq -e --arg tag "$RELEASE_TAG" '
+            .tag_name == $tag
+            and .draft == false
+            and (.assets | type == "array")
+          ' "$public_release" >/dev/null
+
+          cat > "$expected_names" <<'EOF'
+          OPL-Fleet-Agent-Windows-win-x64-Setup.exe
+          OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
+          OPL-Fleet-Agent-Windows-win-x64.zip
+          OPL-Fleet-Agent-Windows-win-x64.zip.sha256
+          OPL-Fleet-Agent.dmg
+          OPL-Fleet-Agent.dmg.sha256
+          EOF
+          LC_ALL=C sort -o "$expected_names" "$expected_names"
+          jq -r '.assets[].name' "$public_release" | LC_ALL=C sort > "$RUNNER_TEMP/actual-assets.txt"
+          if ! diff -u "$expected_names" "$RUNNER_TEMP/actual-assets.txt"; then
+            echo "Public Release asset set differs from the canonical six-asset set." >&2
+            exit 1
+          fi
+
+          mkdir -p "$public_assets"
+          while IFS= read -r name; do
+            url="$(jq -er --arg name "$name" '.assets[] | select(.name == $name) | .browser_download_url' "$public_release")"
+            case "$url" in
+              "https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/"*) ;;
+              *) echo "Unexpected public asset URL for $name: $url" >&2; exit 1 ;;
+            esac
+            curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors "$url" -o "$public_assets/$name"
+          done < "$expected_names"
+
+          (
+            cd "$public_assets"
+            sha256sum --check --strict \
+              OPL-Fleet-Agent.dmg.sha256 \
+              OPL-Fleet-Agent-Windows-win-x64.zip.sha256 \
+              OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
+          )
+
+          jq -n \
+            --arg schema "opl_fleet_agent_release_public_readback.v1" \
+            --arg repository "$REPOSITORY" \
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg source_sha "$SOURCE_SHA" \
+            --arg checked_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --slurpfile release "$public_release" \
+            '{
+              schema: $schema,
+              status: "passed",
+              repository: $repository,
+              source_run_id: ($source_run_id | tonumber),
+              release_tag: $release_tag,
+              source_sha: $source_sha,
+              public_release_id: $release[0].id,
+              draft: $release[0].draft,
+              prerelease: $release[0].prerelease,
+              assets: ($release[0].assets | map(.name) | sort),
+              anonymous_downloads: true,
+              checked_at: $checked_at
+            }' > release-public-readback.json
+
+          printf 'Public Release %s passed anonymous asset and checksum readback for run %s (%s).\n' \
+            "$RELEASE_TAG" "$SOURCE_RUN_ID" "$SOURCE_SHA"
+
+      - name: Upload readback receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: opl-fleet-agent-release-public-readback-${{ github.run_id }}
+          path: release-public-readback.json
+          if-no-files-found: error
+          retention-days: 14

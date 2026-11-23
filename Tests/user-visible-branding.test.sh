@@ -75,13 +75,11 @@ identity_surfaces=(
   .github/workflows/ci.yml
   .github/workflows/release.yml
   scripts/build-dmg.sh
-  scripts/install-release.sh
   scripts/notarize-dmg.sh
   scripts/verify-release.sh
   windows/scripts/build.ps1
   windows/scripts/build-installer.ps1
   windows/installer/OPLFleetAgent.iss
-  Sources/OPLFleetAgent/UpdateManager.swift
   plugins/opl-fleet-agent/bin/opl-fleet-agent.mjs
 )
 
@@ -106,7 +104,6 @@ do
 done
 
 /usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' scripts/build-dmg.sh
-/usr/bin/grep --quiet --fixed-strings 'OPL-Fleet-Agent.dmg' Sources/OPLFleetAgent/UpdateManager.swift
 /usr/bin/grep --quiet --fixed-strings 'io.github.gaofeng21cn.opl-fleet-agent' Resources/Info.plist
 /usr/bin/grep --quiet --fixed-strings '_opl-fleet-agent._tcp' Resources/Info.plist
 /usr/bin/grep --quiet --fixed-strings 'brew install --cask opl-fleet-agent' .github/workflows/release.yml

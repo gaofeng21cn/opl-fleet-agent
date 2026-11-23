@@ -4,7 +4,6 @@ import SwiftUI
 
 struct MonitorPanel: View {
   @EnvironmentObject private var store: MonitorStore
-  @EnvironmentObject private var updateManager: UpdateManager
   @State private var settingsExpanded = false
 
   private var metrics: WindowMetrics {
@@ -58,14 +57,6 @@ struct MonitorPanel: View {
           isDisabled: store.isRefreshing
         ) {
           Task { await store.refresh() }
-        }
-
-        HeaderIconButton(
-          systemName: "arrow.down.circle",
-          help: "检查更新",
-          isDisabled: updateManager.isBusy
-        ) {
-          Task { await updateManager.checkForUpdates() }
         }
 
         HeaderIconButton(
@@ -137,8 +128,6 @@ struct MonitorPanel: View {
 
   private var footer: some View {
     VStack(spacing: 10) {
-      updateStatus
-
       HStack {
         Picker(
           "自动刷新",
@@ -182,6 +171,19 @@ struct MonitorPanel: View {
           .foregroundStyle(.red)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
+
+      HStack(spacing: 6) {
+        Text(appVersionLabel)
+          .monospacedDigit()
+        Text("·")
+        Text("brew upgrade --cask opl-fleet-agent")
+          .textSelection(.enabled)
+          .lineLimit(1)
+          .truncationMode(.middle)
+      }
+      .font(.caption2)
+      .foregroundStyle(.tertiary)
+      .frame(maxWidth: .infinity, alignment: .leading)
     }
     .padding(16)
   }
@@ -324,49 +326,15 @@ struct MonitorPanel: View {
     }
   }
 
-  @ViewBuilder
-  private var updateStatus: some View {
-    switch updateManager.state {
-    case .idle:
-      EmptyView()
-    case .checking:
-      updateStatusLabel("正在检查更新", systemImage: nil)
-    case .upToDate:
-      updateStatusLabel("已是最新版本", systemImage: "checkmark.circle")
-    case .available(let release):
-      HStack(spacing: 8) {
-        Label("发现新版本 \(release.tagName)", systemImage: "arrow.down.circle.fill")
-          .lineLimit(1)
-        Spacer()
-        Button("立即更新") {
-          updateManager.installAvailableUpdate()
-        }
-        .controlSize(.small)
-      }
-      .font(.caption)
-    case .installing:
-      updateStatusLabel("正在安装，应用将重新启动", systemImage: nil)
-    case .failed(let message):
-      Label(message, systemImage: "exclamationmark.triangle")
-        .font(.caption)
-        .foregroundStyle(.red)
-        .frame(maxWidth: .infinity, alignment: .leading)
+  private var appVersionLabel: String {
+    guard
+      let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+        as? String,
+      !version.isEmpty
+    else {
+      return "dev"
     }
-  }
-
-  private func updateStatusLabel(_ text: String, systemImage: String?) -> some View {
-    HStack(spacing: 7) {
-      if let systemImage {
-        Image(systemName: systemImage)
-      } else {
-        ProgressView()
-          .controlSize(.small)
-      }
-      Text(text)
-    }
-    .font(.caption)
-    .foregroundStyle(.secondary)
-    .frame(maxWidth: .infinity, alignment: .leading)
+    return "v\(version)"
   }
 
   private var statusText: String {

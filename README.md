@@ -57,7 +57,7 @@ already present in local session logs easier to see.
 - Requests per minute, active sessions, and cache ratio
 - Configurable refresh cadence (`5s`, `15s`, `30s`, or `1min` on macOS)
 - Remembered menu-bar window, manual refresh, session-folder access, and launch at login
-- User-confirmed, checksum-verified GitHub Release updates
+- Homebrew Cask distribution on macOS and user-confirmed updates on Windows
 - A JSON snapshot command for scripts and integrations
 - OPL Fleet Gateway Direct discovery on macOS, plus optional aggregate-only Gateway pushes
 
@@ -68,34 +68,22 @@ completion-time throughput rather than per-streaming-chunk speed.
 
 Requirements: macOS 13 Ventura or later. OPL Fleet Agent needs no API key of its own.
 
-Install from the unified OPL Homebrew Tap:
+Install or upgrade from the unified OPL Homebrew Tap:
 
 ```bash
 brew tap gaofeng21cn/one-person-lab
 brew install --cask opl-fleet-agent
+# Later updates
+brew upgrade --cask opl-fleet-agent
 ```
 
-Or use the release installer directly:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | bash
-```
-
-You can also download `OPL-Fleet-Agent.dmg` from the
-[latest release](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest), open it,
-and drag the app into Applications.
+You can also download `OPL-Fleet-Agent.dmg` and `OPL-Fleet-Agent.dmg.sha256` from the
+[latest release](https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest), verify
+the checksum with `shasum -a 256 -c OPL-Fleet-Agent.dmg.sha256`, open the DMG, and drag
+`OPL Fleet Agent.app` into `/Applications`.
 
 Release builds are universal for Apple Silicon and Intel, signed with Apple Developer
-ID, and notarized. The installer verifies the published SHA-256, stages and validates
-the new app, then replaces the existing installation. A failed replacement restores
-the previous app.
-
-Install for the current user without launching:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/gaofeng21cn/opl-fleet-agent/main/scripts/install-release.sh | \
-  OPL_FLEET_AGENT_INSTALL_DIR="$HOME/Applications" OPL_FLEET_AGENT_NO_LAUNCH=1 bash
-```
+ID, and notarized.
 
 ### Install on Windows
 
@@ -176,8 +164,9 @@ read-only ownership boundaries.
 
 - Parses only structural events required for accounting and deduplication.
 - Reads log bytes but does not decode, retain, or render conversation bodies.
-- Uses the network for GitHub Release checks and, on macOS, the aggregate-only local
-  Direct provider advertised on the LAN.
+- Uses the network on macOS for the aggregate-only local Direct provider advertised
+  on the LAN and optional Gateway discovery/pushes, and on Windows for GitHub Release
+  update checks and optional Gateway integration.
 - Sends only allowlisted aggregates when OPL Fleet Gateway is enabled.
 - Includes no analytics SDK, account system, or cloud session synchronization.
 - Treats the Codex log format as an implementation dependency that may evolve.

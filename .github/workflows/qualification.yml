@@ -20,8 +20,7 @@ jobs:
       - name: Lint
         run: |
           xcrun swift-format lint --recursive Sources Tests Package.swift
-          bash -n scripts/install-release.sh
-          bash -n scripts/verify-updater.sh
+          zsh -n scripts/build-app.sh scripts/build-dmg.sh
           ./Tests/user-visible-branding.test.sh
       - name: Test
         run: |
@@ -29,10 +28,6 @@ jobs:
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
       - name: Package DMG
         run: ./scripts/build-dmg.sh
-      - name: Verify updater transaction
-        env:
-          OPL_FLEET_AGENT_UPDATER_VERIFY_MODE: adhoc
-        run: ./scripts/verify-updater.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: opl-fleet-agent-dmg

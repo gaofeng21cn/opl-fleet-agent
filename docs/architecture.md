@@ -113,23 +113,20 @@ aggregates with error status. Transport retry does not block local collection.
 
 OPL Fleet Cockpit owns display composition; its OPL Fleet Gateway receives and
 projects telemetry. Neither is a scheduler by virtue of this integration.
-Network use consists of GitHub release metadata/assets, the macOS Direct
-service, and configured Gateway discovery, pairing, and pushes.
+Network use consists of the macOS Direct service, configured Gateway discovery,
+pairing, and pushes, and GitHub release metadata/assets on Windows.
 
-## Native updates
+## Native distribution and updates
 
-Both desktop updaters check after launch and every six hours, then require user
-confirmation before installation. Session collection is independent and no log
-content is attached to release requests.
+macOS releases are distributed as signed, notarized universal DMGs and through the
+unified OPL Homebrew Tap (`brew upgrade --cask opl-fleet-agent`), without an
+in-app self-updater.
 
-The [macOS updater](../Sources/OPLFleetAgent/UpdateManager.swift) discovers the
-latest release through the release-page redirect and delegates installation to
-the bundled [release installer](../scripts/install-release.sh). The transaction
-validates checksum, expected version, signature/team and Gatekeeper state before
-staging, backup, replacement, and relaunch. Replacement failure restores the
-previous app. Windows uses an exact-process handoff, re-verifies the installer,
-reads back its installed version, and relaunches; its platform transaction is
-documented in [Windows installation](../windows/README.md).
+The Windows desktop updater checks after launch and every six hours, then requires
+user confirmation before installation. Session collection is independent and no log
+content is attached to release requests. Windows uses an exact-process handoff,
+re-verifies the installer, reads back its installed version, and relaunches; its
+platform transaction is documented in [Windows installation](../windows/README.md).
 
 This repository owns release identity and assets. The Homebrew Tap is a
 downstream Cask projection. Public release trust and workflow boundaries belong

@@ -5,18 +5,12 @@ import SwiftUI
 struct OPLFleetAgentApp: App {
   @NSApplicationDelegateAdaptor(OPLFleetAgentAppDelegate.self) private var appDelegate
   @StateObject private var store: MonitorStore
-  @StateObject private var updateManager: UpdateManager
 
   init() {
     let store = MonitorStore()
-    let updateManager = UpdateManager()
     _store = StateObject(wrappedValue: store)
-    _updateManager = StateObject(wrappedValue: updateManager)
-    appDelegate.configure(store: store, updateManager: updateManager)
+    appDelegate.configure(store: store)
     store.start()
-    if !ProcessInfo.processInfo.arguments.contains("--preview-window") {
-      updateManager.start()
-    }
   }
 
   var body: some Scene {
@@ -47,6 +41,5 @@ struct OPLFleetAgentApp: App {
   private var panelContent: some View {
     MonitorPanel()
       .environmentObject(store)
-      .environmentObject(updateManager)
   }
 }

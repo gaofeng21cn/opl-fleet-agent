@@ -60,7 +60,7 @@ and Package adapter tests on push and pull request. It does not build or
 qualify the Windows installer.
 
 The manually dispatched [Qualification workflow](../.github/workflows/qualification.yml)
-owns universal development packaging and updater checks, plus Windows packaging,
+owns universal development packaging, plus Windows packaging,
 portable installation, installer/uninstaller checks, and installed-version
 readback. Its Windows in-app updater transaction runs only on `main`.
 Unsigned development artifacts and a successful workflow are not public release
@@ -73,9 +73,10 @@ credentials. macOS, Windows and the optional OPL integration share one product
 version and one annotated tag. The daily Package publisher updates these
 declarations together, waits for this tag's native release workflow, and then
 publishes the same-version OCI Package. [verify-release.sh](../scripts/verify-release.sh)
-checks final notarized bytes, architectures, Team ID `SVVC4TA784`, and checksum. The separate
-[public readback workflow](../.github/workflows/release-public-readback.yml)
-checks published release evidence. The Homebrew Tap consumes this release;
+checks final notarized bytes, architectures, Team ID `SVVC4TA784`, and checksum,
+and the `readback` job in [Release](../.github/workflows/release.yml) verifies
+public release assets and checksums anonymously after publication. The Homebrew Tap
+consumes this release;
 it must not independently define version, checksum, or asset truth.
 
 Windows packaging currently has no Authenticode signing step. SHA-256 and
