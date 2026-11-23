@@ -15,9 +15,9 @@ struct OPLFleetAgentHeadlessCommand {
     }
 
     let configuration = try AgentConfiguration(environment: ProcessInfo.processInfo.environment)
-    let scanner = SessionScanner(codexHome: configuration.codexHome)
+    let scanner = MultiSourceSessionScanner(configuration: configuration.sourceConfiguration)
     let petCatalog = AmbientOpsPetAssetCatalog(
-      codexHome: configuration.codexHome,
+      codexHome: configuration.sourceConfiguration.codexHome,
       preferredPetID: configuration.preferredPetID
     )
     let networkTelemetryStore = AmbientOpsMachineObservationStore()
@@ -43,7 +43,7 @@ struct OPLFleetAgentHeadlessCommand {
       preferredInstanceID: configuration.preferredInstanceID)
 
     repeat {
-      let usage = await scanner.refresh()
+      let usage = await scanner.refresh().combined
       let petAsset =
         configuration.petEnabled ? await petCatalog.currentAsset() : nil
       let pet = petAsset.map {
@@ -173,7 +173,10 @@ struct OPLFleetAgentHeadlessCommand {
       OPL_FLEET_AGENT_PLATFORM          Platform label (default: macOS)
       OPL_FLEET_AGENT_PUSH_INTERVAL     Push interval in seconds (default: 10)
       OPL_FLEET_AGENT_PET_ID            Preferred local pet ID; use none to disable
-      CODEX_HOME                  Alternate Codex home
+      CODEX_HOME                        Alternate Codex home
+      ANTIGRAVITY_HOME                  Alternate Antigravity home
+      ANTIGRAVITY_CLI_HOME              Alternate Antigravity CLI home
+      OPL_FLEET_AGENT_SOURCES           Enabled sources (all, codex, antigravity)
     """
 }
 
@@ -183,7 +186,7 @@ private struct AgentConfiguration {
   let token: String
   let identity: AmbientOpsMachineIdentity
   let intervalSeconds: Double
-  let codexHome: URL
+  let sourceConfiguration: UsageSourceConfiguration
   let petEnabled: Bool
   let preferredPetID: String?
 
@@ -236,7 +239,7 @@ private struct AgentConfiguration {
     }
     intervalSeconds = interval
 
-    codexHome = SessionScanner.defaultCodexHome(environment: environment)
+    sourceConfiguration = UsageSourceConfiguration.resolve(environment: environment)
     let petID = environment["OPL_FLEET_AGENT_PET_ID"]?
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .lowercased()

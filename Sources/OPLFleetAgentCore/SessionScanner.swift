@@ -57,11 +57,21 @@ public actor SessionScanner {
   }
 
   public func refresh(now: Date = Date()) -> UsageSnapshot {
+    refreshResult(now: now).snapshot
+  }
+
+  func refreshResult(now: Date = Date()) -> SourceScanResult {
     var isDirectory: ObjCBool = false
     guard fileManager.fileExists(atPath: sessionsRoot.path, isDirectory: &isDirectory),
       isDirectory.boolValue
     else {
-      return .empty(at: now, status: .sessionsDirectoryMissing)
+      return SourceScanResult(
+        events: [],
+        activeSessions: 0,
+        malformedRelevantLines: malformedRelevantLines,
+        status: .sessionsDirectoryMissing,
+        snapshot: .empty(at: now, status: .sessionsDirectoryMissing)
+      )
     }
 
     do {
@@ -76,14 +86,21 @@ public actor SessionScanner {
       let activeStart = now.addingTimeInterval(-2 * 60)
       let activeSessions = Set(files.filter { $0.modifiedAt >= activeStart }.map(\.url)).count
 
-      return UsageMetricsCalculator.snapshot(
+      let snapshot = UsageMetricsCalculator.snapshot(
         events: events,
         now: now,
         activeSessions: activeSessions,
         malformedRelevantLines: malformedRelevantLines
       )
+      return SourceScanResult(
+        events: events,
+        activeSessions: activeSessions,
+        malformedRelevantLines: malformedRelevantLines,
+        status: .ready,
+        snapshot: snapshot
+      )
     } catch {
-      return UsageSnapshot(
+      let snapshot = UsageSnapshot(
         generatedAt: now,
         oneMinute: .empty(windowSeconds: 60),
         fiveMinutes: .empty(windowSeconds: 300),
@@ -92,6 +109,13 @@ public actor SessionScanner {
         activeSessions: 0,
         malformedRelevantLines: malformedRelevantLines,
         status: .readFailed
+      )
+      return SourceScanResult(
+        events: [],
+        activeSessions: 0,
+        malformedRelevantLines: malformedRelevantLines,
+        status: .readFailed,
+        snapshot: snapshot
       )
     }
   }
@@ -102,11 +126,13 @@ public actor SessionScanner {
     let resourceKeys: Set<URLResourceKey> = [
       .contentModificationDateKey, .fileSizeKey, .isRegularFileKey,
     ]
-    guard let enumerator = fileManager.enumerator(
-      at: sessionsRoot,
-      includingPropertiesForKeys: Array(resourceKeys),
-      options: [.skipsHiddenFiles, .skipsPackageDescendants]
-    ) else {
+    guard
+      let enumerator = fileManager.enumerator(
+        at: sessionsRoot,
+        includingPropertiesForKeys: Array(resourceKeys),
+        options: [.skipsHiddenFiles, .skipsPackageDescendants]
+      )
+    else {
       return files
     }
 

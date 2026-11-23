@@ -16,6 +16,8 @@ struct MonitorPanel: View {
       Divider()
       throughput
       Divider()
+      sourcesSection
+      Divider()
       settings
       Divider()
       footer
@@ -59,11 +61,20 @@ struct MonitorPanel: View {
           Task { await store.refresh() }
         }
 
-        HeaderIconButton(
-          systemName: "folder",
-          help: "打开 Codex 会话目录",
-          action: store.openSessionsDirectory
-        )
+        Menu {
+          Button("打开 Codex 会话目录", action: store.openSessionsDirectory)
+          Button("打开 Antigravity 会话目录", action: store.openAntigravityDirectory)
+        } label: {
+          Image(systemName: "folder")
+            .font(.system(size: 14, weight: .medium))
+            .frame(width: 24, height: 24)
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .foregroundStyle(.secondary)
+        .help("打开会话目录")
       }
     }
     .padding(16)
@@ -124,6 +135,64 @@ struct MonitorPanel: View {
       .foregroundStyle(.secondary)
     }
     .padding(16)
+  }
+
+  private var sourcesSection: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text("数据源")
+        .font(.subheadline.weight(.semibold))
+
+      ForEach(UsageSourceKind.allCases) { source in
+        sourceRow(for: source)
+      }
+    }
+    .padding(16)
+  }
+
+  private func sourceRow(for source: UsageSourceKind) -> some View {
+    let breakdown = store.breakdown(for: source)
+    let enabled = store.isSourceEnabled(source)
+    let status = breakdown?.snapshot.status ?? .ready
+    let sourceMetrics = breakdown.map { store.selectedWindow.metrics(from: $0.snapshot) }
+    let activeSessions = breakdown?.snapshot.activeSessions ?? 0
+
+    return HStack(spacing: 10) {
+      Circle()
+        .fill(sourceStatusColor(enabled: enabled, status: status))
+        .frame(width: 7, height: 7)
+
+      VStack(alignment: .leading, spacing: 2) {
+        Text(source.displayName)
+          .font(.subheadline.weight(.medium))
+        Text(
+          sourceStatusLabel(
+            enabled: enabled,
+            status: status,
+            activeSessions: activeSessions
+          )
+        )
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+      }
+
+      Spacer()
+
+      Text(sourceRateText(enabled: enabled, status: status, metrics: sourceMetrics))
+        .font(.subheadline.weight(.semibold))
+        .monospacedDigit()
+        .foregroundStyle(enabled && status == .ready ? .primary : .secondary)
+
+      Toggle(
+        source.displayName,
+        isOn: Binding(
+          get: { store.isSourceEnabled(source) },
+          set: { isOn in store.setSourceEnabled(isOn, for: source) }
+        )
+      )
+      .labelsHidden()
+      .toggleStyle(.switch)
+      .controlSize(.small)
+    }
   }
 
   private var footer: some View {
@@ -339,6 +408,7 @@ struct MonitorPanel: View {
 
   private var statusText: String {
     if store.isRefreshing { return "读取中" }
+    guard store.codexEnabled || store.antigravityEnabled else { return "未启用数据源" }
     switch store.snapshot.status {
     case .ready:
       return store.snapshot.malformedRelevantLines == 0 ? "就绪" : "部分记录无法解析"
@@ -351,6 +421,7 @@ struct MonitorPanel: View {
 
   private var statusColor: Color {
     if store.isRefreshing { return .blue }
+    guard store.codexEnabled || store.antigravityEnabled else { return .secondary }
     switch store.snapshot.status {
     case .ready:
       return store.snapshot.malformedRelevantLines == 0 ? .green : .orange
@@ -359,6 +430,43 @@ struct MonitorPanel: View {
     case .readFailed:
       return .red
     }
+  }
+
+  private func sourceStatusLabel(
+    enabled: Bool,
+    status: CollectionStatus,
+    activeSessions: Int
+  ) -> String {
+    guard enabled else { return "已关闭" }
+    switch status {
+    case .ready:
+      return "\(activeSessions) 活跃"
+    case .sessionsDirectoryMissing:
+      return "未找到目录"
+    case .readFailed:
+      return "读取失败"
+    }
+  }
+
+  private func sourceStatusColor(enabled: Bool, status: CollectionStatus) -> Color {
+    guard enabled else { return .secondary }
+    switch status {
+    case .ready:
+      return .green
+    case .sessionsDirectoryMissing:
+      return .orange
+    case .readFailed:
+      return .red
+    }
+  }
+
+  private func sourceRateText(
+    enabled: Bool,
+    status: CollectionStatus,
+    metrics: WindowMetrics?
+  ) -> String {
+    guard enabled, status == .ready, let metrics else { return "-- t/s" }
+    return "\(RateFormatter.compact(metrics.tokensPerSecond)) t/s"
   }
 }
 

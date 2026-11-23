@@ -1,8 +1,9 @@
 # OPL Fleet Agent Repository Guide
 
 This repository owns local-first macOS menu bar and Windows tray monitors for
-Codex token throughput. They read Codex session JSONL files and never upload
-conversation content.
+local coding agent token throughput. On macOS it incrementally reads Codex and
+Antigravity session logs; Windows currently reads Codex session logs. Neither
+uploads conversation content.
 
 ## Runtime Contract
 

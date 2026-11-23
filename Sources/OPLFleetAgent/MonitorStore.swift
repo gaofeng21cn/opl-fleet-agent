@@ -6,6 +6,9 @@ import SwiftUI
 @MainActor
 final class MonitorStore: ObservableObject {
   @Published private(set) var snapshot: UsageSnapshot
+  @Published private(set) var sourceBreakdowns: [UsageSourceBreakdown]
+  @Published private(set) var codexEnabled: Bool
+  @Published private(set) var antigravityEnabled: Bool
   @Published private(set) var isRefreshing = false
   @Published private(set) var launchAtLoginEnabled = false
   @Published private(set) var selectedWindow: MetricWindow
@@ -18,13 +21,17 @@ final class MonitorStore: ObservableObject {
   @Published private(set) var ambientConnection: AmbientOpsConnectionState = .disabled
 
   let sessionsURL: URL
+  let antigravityBrainRoots: [URL]
 
-  private let scanner: SessionScanner
+  private let userDefaults: UserDefaults
+  private let enableGatewayIntegration: Bool
+  private let scanner: MultiSourceSessionScanner
   private let ambientPetCatalog: AmbientOpsPetAssetCatalog
   private let ambientMachineID: String
   private let observationStore = AmbientOpsMachineObservationStore()
   private let ambientDiscovery = AmbientOpsDiscovery()
   private let ambientKeychain = AmbientOpsKeychain()
+  private var pendingRefresh = false
   private var refreshLoop: Task<Void, Never>?
   private var ambientPushTask: Task<Void, Never>?
   private var ambientRetryTask: Task<Void, Never>?
@@ -47,29 +54,60 @@ final class MonitorStore: ObservableObject {
   private static let ambientInstanceIDDefaultsKey = "ambientOpsInstanceID"
   private static let ambientPetDefaultsKey = "ambientOpsPet"
 
-  init(codexHome: URL = SessionScanner.defaultCodexHome()) {
-    let savedWindow = UserDefaults.standard.string(forKey: Self.selectedWindowDefaultsKey)
-    let savedCadence = UserDefaults.standard.double(forKey: Self.refreshCadenceDefaultsKey)
+  init(
+    codexHome: URL = SessionScanner.defaultCodexHome(),
+    antigravityBrainRoots: [URL] = AntigravitySessionScanner.defaultBrainRoots(),
+    userDefaults: UserDefaults = .standard,
+    enableGatewayIntegration: Bool = true
+  ) {
+    self.userDefaults = userDefaults
+    self.enableGatewayIntegration = enableGatewayIntegration
+    let savedWindow = userDefaults.string(forKey: Self.selectedWindowDefaultsKey)
+    let savedCadence = userDefaults.double(forKey: Self.refreshCadenceDefaultsKey)
     selectedWindow = savedWindow.flatMap(MetricWindow.init(rawValue:)) ?? .oneMinute
     refreshCadence = RefreshCadence(rawValue: savedCadence) ?? .fifteenSeconds
+    let initialCodexEnabled =
+      userDefaults.object(forKey: UsageSourceConfiguration.codexEnabledDefaultsKey) as? Bool
+      ?? true
+    let initialAntigravityEnabled =
+      userDefaults.object(forKey: UsageSourceConfiguration.antigravityEnabledDefaultsKey)
+      as? Bool ?? true
+    codexEnabled = initialCodexEnabled
+    antigravityEnabled = initialAntigravityEnabled
     ambientEnabled =
-      UserDefaults.standard.object(forKey: Self.ambientEnabledDefaultsKey) as? Bool ?? true
+      userDefaults.object(forKey: Self.ambientEnabledDefaultsKey) as? Bool ?? true
     ambientAutoDiscover =
-      UserDefaults.standard.object(forKey: Self.ambientAutoDiscoverDefaultsKey) as? Bool ?? true
+      userDefaults.object(forKey: Self.ambientAutoDiscoverDefaultsKey) as? Bool ?? true
     ambientManualURL =
-      UserDefaults.standard.string(forKey: Self.ambientManualURLDefaultsKey) ?? ""
+      userDefaults.string(forKey: Self.ambientManualURLDefaultsKey) ?? ""
     ambientPet = AmbientOpsPetChoice(
-      savedValue: UserDefaults.standard.string(forKey: Self.ambientPetDefaultsKey))
+      savedValue: userDefaults.string(forKey: Self.ambientPetDefaultsKey))
     ambientMachineID =
-      UserDefaults.standard.string(forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
+      userDefaults.string(forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
       ?? AmbientOpsMachineIdentity.defaultLocalMachineID()
-    UserDefaults.standard.set(
+    userDefaults.set(
       ambientMachineID, forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
-    scanner = SessionScanner(codexHome: codexHome)
+    let configuration = UsageSourceConfiguration(
+      codexEnabled: initialCodexEnabled,
+      antigravityEnabled: initialAntigravityEnabled,
+      codexHome: codexHome,
+      antigravityBrainRoots: antigravityBrainRoots
+    )
+    scanner = MultiSourceSessionScanner(configuration: configuration)
     ambientPetCatalog = AmbientOpsPetAssetCatalog(codexHome: codexHome)
     sessionsURL = codexHome.appendingPathComponent("sessions", isDirectory: true)
-    snapshot = .empty(at: Date(), status: .ready)
-    if let identity = try? AmbientOpsMachineIdentity.localMachine(machineID: ambientMachineID) {
+    self.antigravityBrainRoots = configuration.antigravityBrainRoots
+    let initialMulti = MultiSourceUsageSnapshot.empty(
+      at: Date(),
+      codexEnabled: initialCodexEnabled,
+      antigravityEnabled: initialAntigravityEnabled,
+      status: .ready
+    )
+    snapshot = initialMulti.combined
+    sourceBreakdowns = initialMulti.sources
+    if enableGatewayIntegration,
+      let identity = try? AmbientOpsMachineIdentity.localMachine(machineID: ambientMachineID)
+    {
       directServer = AmbientOpsDirectServer(
         observationStore: observationStore,
         identity: identity,
@@ -77,35 +115,66 @@ final class MonitorStore: ObservableObject {
           forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "dev"
       )
+      refreshLaunchAtLoginStatus()
+      configureAmbientDiscovery()
     }
-    refreshLaunchAtLoginStatus()
-    configureAmbientDiscovery()
   }
 
   var menuBarTitle: String {
-    guard snapshot.status == .ready else { return "-- t/s" }
+    guard codexEnabled || antigravityEnabled, snapshot.status == .ready else { return "-- t/s" }
     let metrics = selectedWindow.metrics(from: snapshot)
     return "\(RateFormatter.compact(metrics.tokensPerSecond)) t/s"
+  }
+
+  func isSourceEnabled(_ source: UsageSourceKind) -> Bool {
+    switch source {
+    case .codex:
+      codexEnabled
+    case .antigravity:
+      antigravityEnabled
+    }
+  }
+
+  func breakdown(for source: UsageSourceKind) -> UsageSourceBreakdown? {
+    sourceBreakdowns.first { $0.source == source }
+  }
+
+  func setSourceEnabled(_ enabled: Bool, for source: UsageSourceKind) {
+    guard enabled != isSourceEnabled(source) else { return }
+    switch source {
+    case .codex:
+      codexEnabled = enabled
+      userDefaults.set(enabled, forKey: UsageSourceConfiguration.codexEnabledDefaultsKey)
+    case .antigravity:
+      antigravityEnabled = enabled
+      userDefaults.set(enabled, forKey: UsageSourceConfiguration.antigravityEnabledDefaultsKey)
+    }
+    Task {
+      await scanner.setEnabled(enabled, for: source)
+      await refresh()
+    }
   }
 
   func start() {
     guard refreshLoop == nil else { return }
     directServer?.start()
     scheduleRefreshLoop()
-    refreshAmbientConfiguration()
+    if enableGatewayIntegration {
+      refreshAmbientConfiguration()
+    }
   }
 
   func setRefreshCadence(_ cadence: RefreshCadence) {
     guard cadence != refreshCadence else { return }
     refreshCadence = cadence
-    UserDefaults.standard.set(cadence.rawValue, forKey: Self.refreshCadenceDefaultsKey)
+    userDefaults.set(cadence.rawValue, forKey: Self.refreshCadenceDefaultsKey)
     scheduleRefreshLoop()
   }
 
   func setMetricWindow(_ window: MetricWindow) {
     guard window != selectedWindow else { return }
     selectedWindow = window
-    UserDefaults.standard.set(window.rawValue, forKey: Self.selectedWindowDefaultsKey)
+    userDefaults.set(window.rawValue, forKey: Self.selectedWindowDefaultsKey)
   }
 
   private func scheduleRefreshLoop() {
@@ -120,43 +189,52 @@ final class MonitorStore: ObservableObject {
     }
   }
 
-  func refresh() async {
-    guard !isRefreshing else { return }
+  func refresh(now: Date? = nil) async {
+    if isRefreshing {
+      pendingRefresh = true
+      return
+    }
     isRefreshing = true
-    let nextSnapshot = await scanner.refresh()
-    snapshot = nextSnapshot
-    isRefreshing = false
-    guard let identity = try? AmbientOpsMachineIdentity.localMachine(machineID: ambientMachineID)
-    else { return }
-    let petAsset = ambientPet == .localCodex ? await ambientPetCatalog.currentAsset() : nil
-    let pet = petAsset.map {
-      ambientPetTracker.snapshot(definition: $0.definition, usage: nextSnapshot)
-    }
-    let networkTelemetry = await observationStore.currentNetwork()
-    let payload = AmbientOpsAgentSnapshot(
-      usage: nextSnapshot,
-      identity: identity,
-      fallback: lastObservedSnapshot,
-      cpuPercent: hostTelemetry.sampleCPUPercent(),
-      network: networkTelemetry,
-      pet: pet
-    )
-    let observation = AmbientOpsMachineObservation(
-      identity: identity,
-      snapshot: payload,
-      petAsset: petAsset
-    )
-    latestObservation = observation
-    if nextSnapshot.status == .ready {
-      lastObservedSnapshot = payload
-    }
-    await observationStore.update(observation)
-    pushAmbient(observation)
+    defer { isRefreshing = false }
+
+    repeat {
+      pendingRefresh = false
+      let multi = await scanner.refresh(now: now ?? Date())
+      snapshot = multi.combined
+      sourceBreakdowns = multi.sources
+      guard enableGatewayIntegration,
+        let identity = try? AmbientOpsMachineIdentity.localMachine(machineID: ambientMachineID)
+      else { continue }
+      let petAsset = ambientPet == .localCodex ? await ambientPetCatalog.currentAsset() : nil
+      let pet = petAsset.map {
+        ambientPetTracker.snapshot(definition: $0.definition, usage: multi.combined)
+      }
+      let networkTelemetry = await observationStore.currentNetwork()
+      let payload = AmbientOpsAgentSnapshot(
+        usage: multi.combined,
+        identity: identity,
+        fallback: lastObservedSnapshot,
+        cpuPercent: hostTelemetry.sampleCPUPercent(),
+        network: networkTelemetry,
+        pet: pet
+      )
+      let observation = AmbientOpsMachineObservation(
+        identity: identity,
+        snapshot: payload,
+        petAsset: petAsset
+      )
+      latestObservation = observation
+      if multi.combined.status == .ready {
+        lastObservedSnapshot = payload
+      }
+      await observationStore.update(observation)
+      pushAmbient(observation)
+    } while pendingRefresh
   }
 
   func setAmbientEnabled(_ enabled: Bool) {
     ambientEnabled = enabled
-    UserDefaults.standard.set(enabled, forKey: Self.ambientEnabledDefaultsKey)
+    userDefaults.set(enabled, forKey: Self.ambientEnabledDefaultsKey)
     resetAmbientPairing()
     resetAmbientEndpointFailures()
     refreshAmbientConfiguration()
@@ -167,7 +245,7 @@ final class MonitorStore: ObservableObject {
 
   func setAmbientAutoDiscover(_ enabled: Bool) {
     ambientAutoDiscover = enabled
-    UserDefaults.standard.set(enabled, forKey: Self.ambientAutoDiscoverDefaultsKey)
+    userDefaults.set(enabled, forKey: Self.ambientAutoDiscoverDefaultsKey)
     ambientService = nil
     resetAmbientPairing()
     resetAmbientEndpointFailures()
@@ -177,7 +255,7 @@ final class MonitorStore: ObservableObject {
 
   func setAmbientManualURL(_ value: String) {
     ambientManualURL = value
-    UserDefaults.standard.set(value, forKey: Self.ambientManualURLDefaultsKey)
+    userDefaults.set(value, forKey: Self.ambientManualURLDefaultsKey)
     guard !ambientAutoDiscover else { return }
     resetAmbientPairing()
     resetAmbientEndpointFailures()
@@ -188,12 +266,12 @@ final class MonitorStore: ObservableObject {
     guard pet != ambientPet else { return }
     ambientPet = pet
     ambientPetTracker = AmbientOpsPetTracker()
-    UserDefaults.standard.set(pet.rawValue, forKey: Self.ambientPetDefaultsKey)
+    userDefaults.set(pet.rawValue, forKey: Self.ambientPetDefaultsKey)
     Task { await refresh() }
   }
 
   func rediscoverAmbientOps() {
-    UserDefaults.standard.removeObject(forKey: Self.ambientInstanceIDDefaultsKey)
+    userDefaults.removeObject(forKey: Self.ambientInstanceIDDefaultsKey)
     ambientService = nil
     resetAmbientPairing()
     resetAmbientEndpointFailures()
@@ -208,6 +286,23 @@ final class MonitorStore: ObservableObject {
 
   func openSessionsDirectory() {
     NSWorkspace.shared.open(sessionsURL)
+  }
+
+  func openAntigravityDirectory() {
+    if let existing = antigravityBrainRoots.first(where: {
+      FileManager.default.fileExists(atPath: $0.path)
+    }) {
+      NSWorkspace.shared.open(existing)
+      return
+    }
+    if let firstRoot = antigravityBrainRoots.first {
+      let parent = firstRoot.deletingLastPathComponent()
+      if FileManager.default.fileExists(atPath: parent.path) {
+        NSWorkspace.shared.open(parent)
+        return
+      }
+      NSWorkspace.shared.open(firstRoot)
+    }
   }
 
   func refreshLaunchAtLoginStatus() {
@@ -246,7 +341,7 @@ final class MonitorStore: ObservableObject {
         ambientBearerTokenRejected = false
       }
       ambientService = service
-      UserDefaults.standard.set(service.instanceID, forKey: Self.ambientInstanceIDDefaultsKey)
+      userDefaults.set(service.instanceID, forKey: Self.ambientInstanceIDDefaultsKey)
       ambientConnection = .ready(name: service.name, endpoint: service.endpoint)
       if let latestObservation {
         pushAmbient(latestObservation)
@@ -266,7 +361,7 @@ final class MonitorStore: ObservableObject {
       return
     }
     if ambientAutoDiscover {
-      let preferredID = UserDefaults.standard.string(
+      let preferredID = userDefaults.string(
         forKey: Self.ambientInstanceIDDefaultsKey)
       ambientConnection =
         ambientService.map {
@@ -370,7 +465,7 @@ final class MonitorStore: ObservableObject {
           autoDiscover: ambientAutoDiscover
         ) {
           ambientManualURL = fallback.absoluteString
-          UserDefaults.standard.set(ambientManualURL, forKey: Self.ambientManualURLDefaultsKey)
+          userDefaults.set(ambientManualURL, forKey: Self.ambientManualURLDefaultsKey)
           resetAmbientPairing()
           resetAmbientEndpointFailures()
           ambientConnection = .ready(name: fallback.host ?? name, endpoint: fallback)

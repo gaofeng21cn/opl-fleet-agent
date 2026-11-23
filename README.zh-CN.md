@@ -8,7 +8,7 @@
 
 <h1 align="center">OPL Fleet Agent</h1>
 
-<p align="center"><strong>在菜单栏或系统托盘中，安静地查看本机 Codex Token 吞吐</strong></p>
+<p align="center"><strong>在菜单栏或系统托盘中，安静地查看本机 Codex 与 Antigravity Token 吞吐</strong></p>
 <p align="center">macOS 菜单栏 · Windows 系统托盘 · OPL Fleet Gateway 协同</p>
 
 <p align="center">
@@ -24,7 +24,7 @@
   <tr>
     <td width="33%" valign="top">
       <strong>主要用途</strong><br/>
-      查看最近一段时间内 Codex 已完成请求对应的 Token 吞吐、请求频率和活跃会话
+      查看最近一段时间内 Codex 与 Antigravity 已完成请求对应的 Token 吞吐、请求频率和活跃会话
     </td>
     <td width="33%" valign="top">
       <strong>桌面入口</strong><br/>
@@ -43,16 +43,17 @@
 
 ### 这是什么
 
-OPL Fleet Agent 是一个本机优先的桌面小工具。它增量读取 Codex 已经写入
-`sessions` 目录的 Token 用量事件，把最近一段时间的吞吐显示在 macOS 菜单栏
-或 Windows 系统托盘中。
+OPL Fleet Agent 是一个本机优先的桌面小工具。它增量读取本机 Codex
+`sessions` 目录（以及 macOS 上 Antigravity 桌面/IDE 与 `agy` CLI 的会话转录）中
+已经写入的 Token 用量事件，把最近一段时间的吞吐显示在 macOS 菜单栏或 Windows 系统托盘中。
 
-它不会启动或代理 Codex，也不会改变模型请求。它只是把原本分散在会话日志里的
+它不会启动或代理模型请求，也不会改变请求行为。它只是把原本分散在本地会话日志里的
 统计信息整理成一个随时可见的本机仪表盘。
 
 ### 它能显示什么
 
 - 最近 `1 分钟 / 5 分钟 / 30 分钟 / 1 小时` 的 Token 每秒吞吐
+- macOS 菜单栏展示合并总速度，面板内提供 `Codex / Antigravity` 分源速度与独立开关
 - 输入、缓存输入、输出和推理 Token 分项
 - 每分钟请求数、活跃会话数和缓存占比
 - 可配置刷新频率（macOS 为 `5 秒 / 15 秒 / 30 秒 / 1 分钟`）
@@ -106,11 +107,13 @@ Windows 代码签名信任。
 
 默认目录：
 
-- macOS：`~/.codex/sessions`
-- Windows：`%USERPROFILE%\.codex\sessions`
+- Codex（macOS）：`~/.codex/sessions`
+- Codex（Windows）：`%USERPROFILE%\.codex\sessions`
+- Antigravity（macOS）：`~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl` 与 `~/.gemini/antigravity-cli/brain/*/.system_generated/logs/transcript.jsonl`
 
-如果 Codex 数据目录不在默认位置，可通过 `CODEX_HOME` 指定。Windows 版也支持可访问的
-WSL UNC 路径，例如 `\\wsl.localhost\Ubuntu\home\<user>\.codex`。
+如果数据目录不在默认位置，可通过 `CODEX_HOME`、`ANTIGRAVITY_HOME` 或 `ANTIGRAVITY_CLI_HOME`
+指定。Windows 版目前仅监控 Codex，也支持可访问的 WSL UNC 路径，例如
+`\\wsl.localhost\Ubuntu\home\<user>\.codex`。
 
 ### 统计口径
 

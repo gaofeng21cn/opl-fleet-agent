@@ -8,7 +8,7 @@
 
 <h1 align="center">OPL Fleet Agent</h1>
 
-<p align="center"><strong>A quiet menu-bar and system-tray view of local Codex token throughput</strong></p>
+<p align="center"><strong>A quiet menu-bar and system-tray view of local Codex and Antigravity token throughput</strong></p>
 <p align="center">macOS menu bar · Windows system tray · OPL Fleet Gateway integration</p>
 
 <p align="center">
@@ -24,7 +24,7 @@
   <tr>
     <td width="33%" valign="top">
       <strong>Primary Use</strong><br/>
-      See token throughput, request rate, and active sessions from recently completed Codex requests
+      See token throughput, request rate, and active sessions from recent Codex and Antigravity activity
     </td>
     <td width="33%" valign="top">
       <strong>Desktop Surfaces</strong><br/>
@@ -44,15 +44,17 @@
 ### What it is
 
 OPL Fleet Agent is a local-first desktop utility. It incrementally reads token-usage events
-already written under the Codex `sessions` directory and turns them into a compact
-macOS menu bar or Windows system-tray readout.
+already written under local Codex `sessions` logs (and on macOS, Antigravity desktop/IDE
+and `agy` CLI session transcripts) and turns them into a compact macOS menu bar or
+Windows system-tray readout.
 
-It does not launch, proxy, or modify Codex requests. It only makes the statistics
+It does not launch, proxy, or modify agent requests. It only makes the statistics
 already present in local session logs easier to see.
 
 ### What it shows
 
 - Rolling token rates for `1m`, `5m`, `30m`, and `1h`
+- Combined menu-bar rate plus per-source `Codex` and `Antigravity` breakdown and toggles on macOS
 - Input, cached-input, output, and reasoning breakdowns
 - Requests per minute, active sessions, and cache ratio
 - Configurable refresh cadence (`5s`, `15s`, `30s`, or `1min` on macOS)
@@ -108,11 +110,13 @@ installation, WSL paths, and current qualification boundaries.
 
 Default roots:
 
-- macOS: `~/.codex/sessions`
-- Windows: `%USERPROFILE%\.codex\sessions`
+- Codex (macOS): `~/.codex/sessions`
+- Codex (Windows): `%USERPROFILE%\.codex\sessions`
+- Antigravity (macOS): `~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl` and `~/.gemini/antigravity-cli/brain/*/.system_generated/logs/transcript.jsonl`
 
-Set `CODEX_HOME` when Codex uses a different home. The Windows app also supports an
-accessible WSL UNC path such as `\\wsl.localhost\Ubuntu\home\<user>\.codex`.
+Set `CODEX_HOME`, `ANTIGRAVITY_HOME`, or `ANTIGRAVITY_CLI_HOME` when using custom homes.
+Windows currently monitors Codex only and also supports an accessible WSL UNC path such as
+`\\wsl.localhost\Ubuntu\home\<user>\.codex`.
 
 ### Accounting model
 

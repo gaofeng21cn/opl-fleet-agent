@@ -15,7 +15,9 @@ struct OPLFleetAgentSnapshotCommand {
       throw CommandError.invalidArguments
     }
 
-    let snapshot = await SessionScanner().refresh()
+    let configuration = UsageSourceConfiguration.resolve()
+    let multiSnapshot = await MultiSourceSessionScanner(configuration: configuration).refresh()
+    let snapshot = multiSnapshot.combined
     if arguments.contains("--json") {
       let encoder = JSONEncoder()
       encoder.dateEncodingStrategy = .custom { date, encoder in
@@ -46,6 +48,15 @@ struct OPLFleetAgentSnapshotCommand {
       "1h: \(snapshot.oneHour.tokensPerSecond.formatted(.number.precision(.fractionLength(1)))) token/s"
     )
     print("Active sessions: \(snapshot.activeSessions)")
+    for breakdown in multiSnapshot.sources where breakdown.enabled {
+      let tps = breakdown.snapshot.oneMinute.tokensPerSecond
+        .formatted(.number.precision(.fractionLength(1)))
+      print(
+        "Source \(breakdown.source.displayName) (1m): "
+          + "\(tps) token/s, \(breakdown.snapshot.activeSessions) active "
+          + "[\(breakdown.snapshot.status.rawValue)]"
+      )
+    }
   }
 }
 

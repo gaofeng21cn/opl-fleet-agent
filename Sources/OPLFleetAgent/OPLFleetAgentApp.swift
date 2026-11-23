@@ -23,7 +23,7 @@ struct OPLFleetAgentApp: App {
           .monospacedDigit()
       }
       .accessibilityLabel(
-        "Codex token throughput, \(store.selectedWindow.rawValue), \(store.menuBarTitle)")
+        "Token throughput, \(store.selectedWindow.rawValue), \(store.menuBarTitle)")
     }
     .menuBarExtraStyle(.window)
   }

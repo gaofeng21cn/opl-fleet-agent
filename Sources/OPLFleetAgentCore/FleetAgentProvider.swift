@@ -522,6 +522,18 @@ public struct FleetAgentLastKnownStore: Sendable {
     return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
   }
 
+  public static func observationBinding(
+    identity: AmbientOpsMachineIdentity,
+    configuration: UsageSourceConfiguration
+  ) -> String {
+    if configuration.codexEnabled && !configuration.antigravityEnabled {
+      return observationBinding(identity: identity, codexHome: configuration.codexHome)
+    }
+    let components = [identity.machineID, identity.platform] + configuration.bindingComponents
+    let data = (try? JSONEncoder().encode(components)) ?? Data()
+    return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+  }
+
   public static func defaultURL(
     environment: [String: String] = ProcessInfo.processInfo.environment
   ) -> URL {

@@ -8,23 +8,35 @@ portable archive, and WSL details are in the [Windows guide](../windows/README.m
 
 Verify the selected Codex home contains `sessions` before setting `CODEX_HOME`.
 The defaults are `~/.codex` on macOS and `%USERPROFILE%\.codex` on Windows.
-Windows Settings can select another home. Native Windows and WSL UNC roots are
-separate sources; choose explicitly instead of silently merging or switching.
+On macOS, the agent also discovers Antigravity desktop/IDE and CLI logs under
+`~/.gemini/antigravity/brain` and `~/.gemini/antigravity-cli/brain` by default,
+and the menu-bar panel provides independent `Codex` and `Antigravity` switches.
+Use `ANTIGRAVITY_HOME`, `ANTIGRAVITY_CLI_HOME`, and `OPL_FLEET_AGENT_SOURCES`
+(`all`, `codex`, `antigravity`, comma-separated) to override CLI sources on macOS.
+When `CODEX_HOME`, `ANTIGRAVITY_HOME`, or `ANTIGRAVITY_CLI_HOME` is set without
+`OPL_FLEET_AGENT_SOURCES`, macOS CLI targets isolate to only the explicitly
+configured source type(s).
+Windows Settings can select another Codex home. Native Windows and WSL UNC roots
+are separate sources; choose explicitly instead of silently merging or switching.
 
 Inspect the selected source from a macOS source checkout:
 
 ```bash
 CODEX_HOME=/path/to/codex-home swift run opl-fleet-agent-snapshot --json
+# Or inspect combined / Antigravity sources
+ANTIGRAVITY_HOME=/path/to/antigravity-home swift run opl-fleet-agent-snapshot --json
 ```
 
 The optional Framework Package's read-only telemetry and doctor commands are
 owned by its [Skill](../plugins/opl-fleet-agent/skills/opl-fleet-agent/SKILL.md).
 Do not replace a missing native provider with direct log collection in the plugin.
-The provider reads the native desktop's saved node ID; on Windows it also reads
-the selected Codex home. `OPL_FLEET_AGENT_MACHINE_ID`,
-`OPL_FLEET_AGENT_MACHINE_NAME`, `OPL_FLEET_AGENT_PLATFORM`, and `CODEX_HOME`
-remain explicit command overrides. To inspect the same desktop, leave these
-unset unless the desktop is deliberately configured with the same overrides.
+The provider reads the native desktop's saved node ID; on macOS it also reads the
+saved source toggles, and on Windows it reads the selected Codex home.
+`OPL_FLEET_AGENT_MACHINE_ID`, `OPL_FLEET_AGENT_MACHINE_NAME`,
+`OPL_FLEET_AGENT_PLATFORM`, `CODEX_HOME`, `ANTIGRAVITY_HOME`,
+`ANTIGRAVITY_CLI_HOME`, and `OPL_FLEET_AGENT_SOURCES` remain explicit command
+overrides. To inspect the same desktop, leave these unset unless the desktop is
+deliberately configured with the same overrides.
 Use `freshness.last_observed_at` for the sample time, not the later
 `observed_at` response time. An unchanged sample time with `last_known: true`
 is retained evidence, not renewed collection.

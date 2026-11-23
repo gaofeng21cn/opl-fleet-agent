@@ -398,6 +398,72 @@ final class FleetAgentProviderTests: XCTestCase {
     XCTAssertEqual(store.load(now: now), .invalid)
   }
 
+  func testProviderCLICollectsAntigravityAndCombinedSources() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("opl-fleet-provider-multi-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let now = Date()
+    let ts = now.addingTimeInterval(-5).formatted(.iso8601)
+    let codexHome = directory.appendingPathComponent("codex", isDirectory: true)
+    let sessions = codexHome.appendingPathComponent("sessions", isDirectory: true)
+    try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
+    let codexLog =
+      [
+        #"{"timestamp":"\#(ts)","type":"session_meta","payload":{"id":"codex-p","model_provider":"test-provider"}}"#,
+        #"{"timestamp":"\#(ts)","type":"turn_context","payload":{"model":"gpt-test"}}"#,
+        #"{"timestamp":"\#(ts)","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120},"last_token_usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120}}}}"#,
+      ].joined(separator: "\n") + "\n"
+    let codexURL = sessions.appendingPathComponent("rollout-codex.jsonl")
+    try Data(codexLog.utf8).write(to: codexURL)
+    try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: codexURL.path)
+
+    let agyHome = directory.appendingPathComponent("agy", isDirectory: true)
+    let agyLogs = agyHome.appendingPathComponent(
+      "brain/conv-p/.system_generated/logs", isDirectory: true)
+    try FileManager.default.createDirectory(at: agyLogs, withIntermediateDirectories: true)
+    let agyLine =
+      #"{"step_index":2,"type":"PLANNER_RESPONSE","status":"DONE","created_at":"\#(ts)","model":"gemini-4-neon-xhigh","input_tokens":40,"cache_read_tokens":160,"output_tokens":40}"#
+      + "\n"
+    let agyURL = agyLogs.appendingPathComponent("transcript.jsonl")
+    try Data(agyLine.utf8).write(to: agyURL)
+    try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: agyURL.path)
+
+    let executable = repositoryRoot().appendingPathComponent(".build/debug/OPLFleetAgentProvider")
+    XCTAssertTrue(FileManager.default.isExecutableFile(atPath: executable.path))
+
+    let agyOnly = try runProvider(
+      executable: executable,
+      environment: [
+        "ANTIGRAVITY_HOME": agyHome.path,
+        "OPL_FLEET_AGENT_PROVIDER_CACHE": directory.appendingPathComponent("agy-cache.json").path,
+        "OPL_FLEET_AGENT_MACHINE_ID": "multi-fixture",
+        "OPL_FLEET_AGENT_MACHINE_NAME": "Multi Fixture",
+        "OPL_FLEET_AGENT_PLATFORM": "macOS",
+      ]
+    )
+    let agyPayload = try XCTUnwrap(agyOnly["payload"] as? [String: Any])
+    XCTAssertEqual(rate(agyPayload, window: "one_minute", field: "token_rate_per_second"), 4)
+    XCTAssertEqual(agyPayload["active_conversation_count"] as? Int, 1)
+
+    let combined = try runProvider(
+      executable: executable,
+      environment: [
+        "CODEX_HOME": codexHome.path,
+        "ANTIGRAVITY_HOME": agyHome.path,
+        "OPL_FLEET_AGENT_PROVIDER_CACHE": directory.appendingPathComponent("combined-cache.json")
+          .path,
+        "OPL_FLEET_AGENT_MACHINE_ID": "multi-fixture",
+        "OPL_FLEET_AGENT_MACHINE_NAME": "Multi Fixture",
+        "OPL_FLEET_AGENT_PLATFORM": "macOS",
+      ]
+    )
+    let combinedPayload = try XCTUnwrap(combined["payload"] as? [String: Any])
+    // (120 + 240) / 60 = 6
+    XCTAssertEqual(rate(combinedPayload, window: "one_minute", field: "token_rate_per_second"), 6)
+    XCTAssertEqual(combinedPayload["active_conversation_count"] as? Int, 2)
+  }
+
   private func identity() throws -> AmbientOpsMachineIdentity {
     try AmbientOpsMachineIdentity(
       machineID: "fixture-node",
@@ -466,13 +532,27 @@ final class FleetAgentProviderTests: XCTestCase {
     codexHome: URL,
     environment: [String: String]
   ) throws -> [String: Any] {
+    var merged = environment
+    merged["CODEX_HOME"] = codexHome.path
+    return try runProvider(executable: executable, ref: ref, environment: merged)
+  }
+
+  private func runProvider(
+    executable: URL,
+    ref: String = OPLFleetAgentProvider.telemetryRef,
+    environment: [String: String]
+  ) throws -> [String: Any] {
     let process = Process()
     let output = Pipe()
     let errors = Pipe()
     process.executableURL = executable
     process.arguments = ["--ref", ref]
-    process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
-    process.environment?["CODEX_HOME"] = codexHome.path
+    var env = ProcessInfo.processInfo.environment
+    env.removeValue(forKey: "CODEX_HOME")
+    env.removeValue(forKey: "ANTIGRAVITY_HOME")
+    env.removeValue(forKey: "ANTIGRAVITY_CLI_HOME")
+    env.removeValue(forKey: "OPL_FLEET_AGENT_SOURCES")
+    process.environment = env.merging(environment) { _, new in new }
     process.standardOutput = output
     process.standardError = errors
     try process.run()

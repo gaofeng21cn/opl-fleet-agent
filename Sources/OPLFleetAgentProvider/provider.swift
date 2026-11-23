@@ -18,11 +18,15 @@ struct OPLFleetAgentProviderCommand {
     let environment = ProcessInfo.processInfo.environment
     let identity = try AmbientOpsMachineIdentity.providerIdentity(environment: environment)
     let now = Date()
-    let codexHome = SessionScanner.defaultCodexHome(environment: environment)
-    let usage = await SessionScanner(codexHome: codexHome).refresh(now: now)
+    let sourceConfiguration = UsageSourceConfiguration.resolve(environment: environment)
+    let usage = await MultiSourceSessionScanner(configuration: sourceConfiguration)
+      .refresh(now: now).combined
     let lastKnownStore = FleetAgentLastKnownStore(
       url: FleetAgentLastKnownStore.defaultURL(environment: environment),
-      binding: FleetAgentLastKnownStore.observationBinding(identity: identity, codexHome: codexHome)
+      binding: FleetAgentLastKnownStore.observationBinding(
+        identity: identity,
+        configuration: sourceConfiguration
+      )
     )
     let lastKnownLoad = lastKnownStore.load(now: now)
     let lastKnown = lastKnownLoad.sample
