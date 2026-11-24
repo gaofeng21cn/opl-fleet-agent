@@ -70,12 +70,13 @@ owns Antigravity accounting rules:
   are decoded; `content`, `thinking`, and `tool_calls` are never decoded,
   retained, rendered, or transmitted.
 
+Windows remains Codex-only. Scanners retain 65 minutes of
+accounting events.
 Rates divide completed usage by the entire selected `1m`, `5m`, `30m`, or `1h`
 window. UI refresh cadence is separate from the accounting window. On macOS the
 selected window and per-source toggles (`Codex` / `Antigravity`) are persisted
 and shared across refreshes, while the menu bar, Direct status, and Gateway push
-project the combined enabled throughput. Tokscale is not called on the refresh
-path. Local log observations are not provider billing or API-key attribution
+project the combined enabled throughput. Local log observations are not provider billing or API-key attribution
 authority.
 
 ## Native and Package ownership
@@ -115,7 +116,7 @@ The `opl_fleet_agent_telemetry.v1` envelope is defined in
 and [AmbientOps.cs](../windows/src/OPLFleetAgent.Core/AmbientOps.cs). Its advertised
 modes are `local`, `direct`, and `fleet`; these names do not prove each platform
 publishes every transport. Current capabilities cover observation, doctor, local
-Codex telemetry, and the host dashboard. Neither the native Agent nor the
+Codex and macOS Antigravity telemetry, and the host dashboard. Neither the native Agent nor the
 Package owns admission, registry, policy, leases, dispatch, execution constraints,
 receipts, or task completion. Those decisions remain with their external owners.
 
