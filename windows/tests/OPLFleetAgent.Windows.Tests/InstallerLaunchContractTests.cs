@@ -44,7 +44,7 @@ public sealed class InstallerLaunchContractTests
 
         Assert.NotNull(publicKeyNode);
         var macOsPublicKey = publicKeyNode!.Value.Trim();
-        Assert.Equal(macOsPublicKey, WindowsProductIdentity.WinSparkleEd25519PublicKey);
+        Assert.Equal(WindowsProductIdentity.WinSparkleEd25519PublicKey, macOsPublicKey);
         Assert.Equal(32, Convert.FromBase64String(WindowsProductIdentity.WinSparkleEd25519PublicKey).Length);
     }
 
