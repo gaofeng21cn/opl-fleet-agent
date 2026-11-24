@@ -1,11 +1,10 @@
 param(
-    [Parameter(Mandatory = $true)]
     [string]$Version,
-    [string]$PreviousVersion = "0.2.38",
     [string]$Runtime = "win-x64"
 )
 
 $ErrorActionPreference = "Stop"
+
 function Wait-BoundedProcess($Process, [string]$Stage, [int]$TimeoutMs = 120000) {
     Write-Output "stage=$Stage pid=$($Process.Id)"
     if (-not $Process.WaitForExit($TimeoutMs)) {
@@ -14,175 +13,182 @@ function Wait-BoundedProcess($Process, [string]$Stage, [int]$TimeoutMs = 120000)
     }
     $Process.Refresh()
 }
-if ($Version -notmatch '^\d+\.\d+\.\d+$' -or
-    $PreviousVersion -notmatch '^\d+\.\d+\.\d+$') {
-    throw "Versions must use MAJOR.MINOR.PATCH format."
-}
 
 $windowsRoot = Split-Path -Parent $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    [xml]$project = Get-Content (Join-Path $windowsRoot "src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj")
+    $Version = $project.Project.PropertyGroup.Version.Trim()
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Version must use MAJOR.MINOR.PATCH format, got '$Version'."
+}
+
 $installer = (Resolve-Path (
     Join-Path $windowsRoot "dist/OPL-Fleet-Agent-Windows-$Runtime-Setup.exe"
 )).Path
-$publishedExecutable = (Resolve-Path (
-    Join-Path $windowsRoot "dist/$Runtime/OPLFleetAgent.exe"
+$publishedWinSparkle = (Resolve-Path (
+    Join-Path $windowsRoot "dist/$Runtime/WinSparkle.dll"
 )).Path
-$expectedSha256 = (
-    (Get-Content "$installer.sha256" -Raw).Trim() -split "\s+"
-)[0].ToLowerInvariant()
 
-$testRoot = Join-Path $env:RUNNER_TEMP "opl-fleet-agent-updater-$([Guid]::NewGuid().ToString('N'))"
-$previousInstaller = Join-Path $testRoot "previous-setup.exe"
-$previousChecksum = "$previousInstaller.sha256"
+$winSparkle = & (Join-Path $PSScriptRoot "fetch-winsparkle.ps1") -Runtime $Runtime -PassThru
+$actualPublishedDllHash = (Get-FileHash -Algorithm SHA256 $publishedWinSparkle).Hash.ToLowerInvariant()
+if ($actualPublishedDllHash -ne $winSparkle.DllSha256) {
+    throw "Published WinSparkle.dll SHA-256 mismatch. Expected $($winSparkle.DllSha256), got $actualPublishedDllHash."
+}
+
+$tempBase = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+    [System.IO.Path]::GetTempPath()
+} else {
+    $env:RUNNER_TEMP
+}
+$testRoot = Join-Path $tempBase ("opl-fleet-agent-winsparkle-" + [Guid]::NewGuid().ToString("N"))
 $installDirectory = Join-Path $testRoot "OPL Fleet Agent"
-$stagingDirectory = Join-Path $testRoot "staging"
-$helper = Join-Path $stagingDirectory "OPLFleetAgent.Updater.exe"
-$requestPath = Join-Path $stagingDirectory "update-request.json"
-$resultPath = Join-Path $testRoot "update-result.json"
-$oldProcess = $null
-$newProcess = $null
 $uninstaller = Join-Path $installDirectory "unins000.exe"
+$launchedProcess = $null
 
-New-Item -ItemType Directory -Force $stagingDirectory | Out-Null
+New-Item -ItemType Directory -Force $testRoot | Out-Null
 try {
-    $releaseRepository = if (
-        [string]::IsNullOrWhiteSpace($env:GITHUB_REPOSITORY)
-    ) {
-        "gaofeng21cn/opl-fleet-agent"
-    } else {
-        $env:GITHUB_REPOSITORY
+    # 1. Verify end-to-end Ed25519 signing, appcast generation, and verification using an ephemeral key pair.
+    $ephemeralKey = Join-Path $testRoot "ephemeral.key"
+    $keyGenOutput = & $winSparkle.ToolPath generate-key -f $ephemeralKey 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "winsparkle-tool generate-key failed: $($keyGenOutput -join ' ')"
     }
-    if ($releaseRepository -ne "gaofeng21cn/opl-fleet-agent") {
-        throw "Unsupported previous-release repository: $releaseRepository"
+    $pubMatch = [regex]::Match(($keyGenOutput -join "`n"), 'Public key:\s*([A-Za-z0-9+/=]+)')
+    if (-not $pubMatch.Success) {
+        throw "Could not parse ephemeral Ed25519 public key."
     }
-    $releaseRoot = "https://github.com/$releaseRepository/releases/download/v$PreviousVersion"
-    Write-Output "stage=download_previous_installer version=$PreviousVersion"
-    Invoke-WebRequest `
-        "$releaseRoot/OPL-Fleet-Agent-Windows-win-x64-Setup.exe" `
-        -OutFile $previousInstaller -TimeoutSec 90
-    Invoke-WebRequest `
-        "$releaseRoot/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256" `
-        -OutFile $previousChecksum -TimeoutSec 90
-    $previousExpected = (
-        (Get-Content $previousChecksum -Raw).Trim() -split "\s+"
-    )[0].ToLowerInvariant()
-    $previousActual = (
-        Get-FileHash -Algorithm SHA256 $previousInstaller
-    ).Hash.ToLowerInvariant()
-    if ($previousExpected -ne $previousActual) {
-        throw "Previous release checksum mismatch."
+    $ephemeralPubKey = $pubMatch.Groups[1].Value.Trim()
+
+    $appcastPath = Join-Path $testRoot "windows-appcast.xml"
+    & (Join-Path $PSScriptRoot "generate-windows-appcast.ps1") `
+        -InstallerPath $installer `
+        -Version $Version `
+        -OutputPath $appcastPath `
+        -ExpectedPublicKey $ephemeralPubKey `
+        -SigningKeyPath $ephemeralKey `
+        -WinSparkleToolPath $winSparkle.ToolPath | Out-Null
+
+    [xml]$appcast = Get-Content -Raw -Encoding utf8 $appcastPath
+    $sparkleNs = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+    $nsManager = New-Object System.Xml.XmlNamespaceManager($appcast.NameTable)
+    $nsManager.AddNamespace("sparkle", $sparkleNs)
+    $enclosure = $appcast.SelectSingleNode("/rss/channel/item/enclosure")
+    $signature = $enclosure.GetAttribute("edSignature", $sparkleNs)
+    $installerArgs = $enclosure.GetAttribute("installerArguments", $sparkleNs)
+    if ($installerArgs -ne "/SILENT /SP- /NOICONS /LAUNCHAFTERUPDATE=1") {
+        throw "Unexpected sparkle:installerArguments: $installerArgs"
     }
 
+    # 2. Negative check: mismatched Ed25519 private key must fail closed.
+    $wrongKey = Join-Path $testRoot "wrong.key"
+    & $winSparkle.ToolPath generate-key -f $wrongKey | Out-Null
+    $wrongKeyAccepted = $false
+    try {
+        & (Join-Path $PSScriptRoot "generate-windows-appcast.ps1") `
+            -InstallerPath $installer `
+            -Version $Version `
+            -OutputPath (Join-Path $testRoot "wrong-appcast.xml") `
+            -ExpectedPublicKey $ephemeralPubKey `
+            -SigningKeyPath $wrongKey `
+            -WinSparkleToolPath $winSparkle.ToolPath | Out-Null
+        $wrongKeyAccepted = $true
+    }
+    catch {
+        # Expected failure.
+    }
+    if ($wrongKeyAccepted) {
+        throw "generate-windows-appcast.ps1 unexpectedly accepted a mismatched Ed25519 key."
+    }
+
+    # 3. Negative check: tampered installer bytes must fail Ed25519 verification.
+    $tamperedInstaller = Join-Path $testRoot "tampered-setup.exe"
+    Copy-Item $installer $tamperedInstaller
+    $stream = [System.IO.File]::Open($tamperedInstaller, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite)
+    try {
+        $stream.Seek(-1, [System.IO.SeekOrigin]::End) | Out-Null
+        $lastByte = $stream.ReadByte()
+        $stream.Seek(-1, [System.IO.SeekOrigin]::End) | Out-Null
+        $stream.WriteByte($lastByte -bxor 0xFF)
+    }
+    finally {
+        $stream.Dispose()
+    }
+    & $winSparkle.ToolPath verify -p $ephemeralPubKey -s $signature $tamperedInstaller *> $null
+    if ($LASTEXITCODE -eq 0) {
+        throw "winsparkle-tool verify unexpectedly accepted a tampered installer."
+    }
+    $global:LASTEXITCODE = 0
+
+    # 4. Verify Inno Setup silent update handoff packages WinSparkle.dll and relaunches in background.
     $installArguments = @(
-        "/VERYSILENT",
-        "/SUPPRESSMSGBOXES",
-        "/NORESTART",
+        "/SILENT",
+        "/SP-",
         "/NOICONS",
+        "/LAUNCHAFTERUPDATE=1",
         "/DIR=`"$installDirectory`""
     )
-    $installResult = Start-Process `
-        $previousInstaller `
-        -ArgumentList $installArguments `
-        -PassThru
-    Wait-BoundedProcess $installResult "install_previous_release"
-    if ($installResult.ExitCode -ne 0) {
-        throw "Previous installer exited with $($installResult.ExitCode)."
-    }
-
-    $targetExecutable = Join-Path $installDirectory "OPLFleetAgent.exe"
-    $oldVersion = (Get-Item $targetExecutable).VersionInfo.ProductVersion
-    if (-not $oldVersion.StartsWith($PreviousVersion)) {
-        throw "Expected previous version $PreviousVersion, got $oldVersion."
-    }
-
-    $oldProcess = Start-Process `
-        $targetExecutable `
-        -ArgumentList "--background" `
-        -PassThru
-    Start-Sleep -Seconds 2
-    if ($oldProcess.HasExited) {
-        throw "Previous release exited before the updater handoff."
-    }
-
-    Copy-Item $publishedExecutable $helper
-    $request = [ordered]@{
-        ParentProcessId = $oldProcess.Id
-        CurrentExecutablePath = $targetExecutable
-        InstallDirectory = $installDirectory
-        InstallerPath = $installer
-        ExpectedSha256 = $expectedSha256
-        ExpectedVersion = $Version
-        ResultPath = $resultPath
-        StagingDirectory = $stagingDirectory
-    }
-    $request | ConvertTo-Json | Set-Content -Encoding utf8 $requestPath
-
-    $helperProcess = Start-Process `
-        $helper `
-        -ArgumentList @("--apply-update", "`"$requestPath`"") `
-        -PassThru
-    Start-Sleep -Seconds 1
-    Stop-Process -Id $oldProcess.Id -Force
-    Wait-BoundedProcess $oldProcess "exit_previous_process" 15000
-    if (-not $helperProcess.WaitForExit(120000)) {
-        Stop-Process -Id $helperProcess.Id -Force
-        throw "Updater helper timed out."
-    }
-    if ($helperProcess.ExitCode -ne 0) {
-        throw "Updater helper exited with $($helperProcess.ExitCode)."
+    $installProcess = Start-Process $installer -ArgumentList $installArguments -PassThru
+    Wait-BoundedProcess $installProcess "silent_update_install"
+    if ($installProcess.ExitCode -ne 0) {
+        throw "Inno Setup silent update exited with $($installProcess.ExitCode)."
     }
 
     $canonicalExecutable = Join-Path $installDirectory "OPLFleetAgent.exe"
-    $installedVersion = (Get-Item $canonicalExecutable).VersionInfo.ProductVersion
-    $installedProductName = (Get-Item $canonicalExecutable).VersionInfo.ProductName
-    if (-not $installedVersion.StartsWith($Version)) {
-        throw "Expected updated version $Version, got $installedVersion."
+    $installedProvider = Join-Path $installDirectory "OPLFleetAgentProvider.exe"
+    $installedWinSparkle = Join-Path $installDirectory "WinSparkle.dll"
+    foreach ($requiredFile in @($canonicalExecutable, $installedProvider, $installedWinSparkle)) {
+        if (-not (Test-Path $requiredFile)) {
+            throw "Installed payload is missing required file: $requiredFile"
+        }
     }
-    if ($installedProductName -ne "OPL Fleet Agent") {
-        throw "Expected product name OPL Fleet Agent, got $installedProductName."
+    $installedDllHash = (Get-FileHash -Algorithm SHA256 $installedWinSparkle).Hash.ToLowerInvariant()
+    if ($installedDllHash -ne $winSparkle.DllSha256) {
+        throw "Installed WinSparkle.dll SHA-256 mismatch."
+    }
+
+    $versionInfo = (Get-Item $canonicalExecutable).VersionInfo
+    if (-not $versionInfo.ProductVersion.StartsWith($Version)) {
+        throw "Expected installed version $Version, got $($versionInfo.ProductVersion)."
+    }
+    if ($versionInfo.ProductName -ne "OPL Fleet Agent") {
+        throw "Expected product name 'OPL Fleet Agent', got '$($versionInfo.ProductName)'."
     }
 
     $deadline = (Get-Date).AddSeconds(15)
     do {
-        $newProcess = Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
+        $launchedProcess = Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
             Where-Object {
-                try {
-                    $_.Path -eq $canonicalExecutable
-                }
-                catch {
-                    $false
-                }
+                try { $_.Path -eq $canonicalExecutable } catch { $false }
             } |
             Select-Object -First 1
-        if (-not $newProcess) {
+        if (-not $launchedProcess) {
             Start-Sleep -Milliseconds 250
         }
-    } while (-not $newProcess -and (Get-Date) -lt $deadline)
-    if (-not $newProcess -or $newProcess.HasExited) {
-        throw "Updated OPL Fleet Agent process was not running after handoff."
+    } while (-not $launchedProcess -and (Get-Date) -lt $deadline)
+    if (-not $launchedProcess -or $launchedProcess.HasExited) {
+        throw "OPL Fleet Agent did not relaunch after Inno Setup /LAUNCHAFTERUPDATE=1 update."
     }
 
-    Write-Output (
-        "Verified in-app updater handoff: " +
-        "$PreviousVersion PID $($oldProcess.Id) -> $Version PID $($newProcess.Id)."
-    )
+    Write-Output "Verified WinSparkle Ed25519 appcast signing, tamper rejection, WinSparkle.dll packaging, and silent update relaunch for v$Version (PID $($launchedProcess.Id))."
 }
 finally {
-    if ($oldProcess -and -not $oldProcess.HasExited) {
-        Stop-Process -Id $oldProcess.Id -Force -ErrorAction SilentlyContinue
-    }
-    if ($newProcess -and -not $newProcess.HasExited) {
-        Stop-Process -Id $newProcess.Id -Force -ErrorAction SilentlyContinue
+    if ($launchedProcess -and -not $launchedProcess.HasExited) {
+        Stop-Process -Id $launchedProcess.Id -Force -ErrorAction SilentlyContinue
     }
     Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
         Stop-Process -Force -ErrorAction SilentlyContinue
     if (Test-Path $uninstaller) {
-        $uninstallResult = Start-Process `
+        $uninstallProcess = Start-Process `
             $uninstaller `
             -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") `
             -PassThru
-        Wait-BoundedProcess $uninstallResult "uninstall_verification_copy"
-        if ($uninstallResult.ExitCode -ne 0) {
-            Write-Warning "Updater test uninstaller exited with $($uninstallResult.ExitCode)."
+        Wait-BoundedProcess $uninstallProcess "uninstall_verification_copy"
+        if ($uninstallProcess.ExitCode -ne 0) {
+            Write-Warning "Updater test uninstaller exited with $($uninstallProcess.ExitCode)."
+        }
+        if (Test-Path (Join-Path $installDirectory "WinSparkle.dll")) {
+            throw "WinSparkle.dll remains after uninstall."
         }
     }
     if (Test-Path $testRoot) {

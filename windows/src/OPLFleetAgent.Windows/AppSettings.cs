@@ -18,6 +18,7 @@ internal sealed class AppSettings
     public string MachineName { get; set; } = Environment.MachineName;
     public bool PetEnabled { get; set; } = true;
     public bool StartWithWindows { get; set; }
+    public bool AutoCheckForUpdates { get; set; } = true;
     public int RefreshSeconds { get; set; } = 5;
     public string ProtectedToken { get; set; } = string.Empty;
     public string ProtectedDevicePrivateKey { get; set; } = string.Empty;

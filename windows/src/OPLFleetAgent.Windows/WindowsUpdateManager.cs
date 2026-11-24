@@ -1,185 +1,266 @@
-using System.Diagnostics;
-using System.Net.Http.Headers;
-using System.Reflection;
+using System.Runtime.InteropServices;
 
 namespace OPLFleetAgent.WindowsApp;
 
-internal sealed class WindowsUpdateManager : IDisposable
+internal enum AppUpdateKind
 {
-    private static readonly Uri LatestReleasePage = new(
-        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest");
-    private static readonly Uri ReleaseDownloadRoot = new(
-        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/");
-    private readonly HttpClient httpClient;
-    private readonly bool ownsHttpClient;
-    private readonly SemaphoreSlim operationLock = new(1, 1);
-    private readonly string executablePath;
-    private readonly string updateRoot;
-    private readonly string resultPath;
-    private CancellationTokenSource? statusReset;
+    Idle,
+    Checking,
+    UpToDate,
+    Available,
+    Restarting,
+    Failed,
+}
+
+internal sealed record AppUpdateState(
+    AppUpdateKind Kind,
+    string? Message = null)
+{
+    public static AppUpdateState Idle { get; } = new(AppUpdateKind.Idle);
+
+    public bool IsBusy => Kind is AppUpdateKind.Checking or AppUpdateKind.Restarting;
+}
+
+internal sealed record WinSparkleConfiguration(
+    Uri AppcastFeedUri,
+    string Ed25519PublicKey,
+    string CompanyName,
+    string AppName,
+    string AppVersion,
+    string RegistryPath,
+    int CheckIntervalSeconds,
+    bool AutomaticCheckForUpdates)
+{
+    public const int MinimumCheckIntervalSeconds = 3_600;
+
+    public static WinSparkleConfiguration CreateDefault(
+        bool automaticCheckForUpdates = true,
+        string? appVersion = null) => new(
+            new Uri(WindowsProductIdentity.WindowsAppcastFeedUrl),
+            WindowsProductIdentity.WinSparkleEd25519PublicKey,
+            WindowsProductIdentity.CompanyName,
+            WindowsProductIdentity.ProductName,
+            appVersion ?? ReadCurrentVersion(),
+            WindowsProductIdentity.WinSparkleRegistryPath,
+            WindowsProductIdentity.UpdateCheckIntervalSeconds,
+            automaticCheckForUpdates);
+
+    public void Validate()
+    {
+        if (!AppcastFeedUri.IsAbsoluteUri ||
+            !string.Equals(AppcastFeedUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("WinSparkle appcast feed URL must use HTTPS.");
+        }
+
+        if (!IsValidEd25519PublicKey(Ed25519PublicKey))
+        {
+            throw new InvalidOperationException("WinSparkle Ed25519 public key must be a 32-byte base64 value.");
+        }
+
+        if (string.IsNullOrWhiteSpace(CompanyName) ||
+            string.IsNullOrWhiteSpace(AppName) ||
+            string.IsNullOrWhiteSpace(AppVersion) ||
+            string.IsNullOrWhiteSpace(RegistryPath))
+        {
+            throw new InvalidOperationException("WinSparkle application metadata and registry path are required.");
+        }
+
+        if (CheckIntervalSeconds < MinimumCheckIntervalSeconds)
+        {
+            throw new InvalidOperationException(
+                $"WinSparkle check interval must be at least {MinimumCheckIntervalSeconds} seconds.");
+        }
+    }
+
+    public static bool IsValidEd25519PublicKey(string? base64PublicKey)
+    {
+        if (string.IsNullOrWhiteSpace(base64PublicKey))
+        {
+            return false;
+        }
+
+        try
+        {
+            return Convert.FromBase64String(base64PublicKey.Trim()).Length == 32;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    public static string ReadCurrentVersion()
+    {
+        var version = typeof(WindowsUpdateManager).Assembly.GetName().Version;
+        if (version is null)
+        {
+            return "0.0.0";
+        }
+
+        return $"{Math.Max(0, version.Major)}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}";
+    }
+}
+
+internal sealed record WinSparkleCallbacks(
+    Func<bool> CanShutdown,
+    Action ShutdownRequested,
+    Action DidFindUpdate,
+    Action DidNotFindUpdate,
+    Action UpdateError,
+    Action UpdateCancelled,
+    Action UpdateSkipped,
+    Action UpdatePostponed,
+    Action UpdateDismissed);
+
+internal interface IWinSparkleBackend : IDisposable
+{
+    void Configure(WinSparkleConfiguration configuration, WinSparkleCallbacks callbacks);
+
+    void Initialize();
+
+    void SetAutomaticCheckForUpdates(bool enabled);
+
+    bool GetAutomaticCheckForUpdates();
+
+    void CheckForUpdatesWithUi();
+
+    void CheckForUpdatesWithoutUi();
+
+    void Cleanup();
+}
+
+internal sealed class NativeWinSparkleBackend : IWinSparkleBackend
+{
+    private readonly object lifecycleLock = new();
+    private bool initialized;
     private bool disposed;
 
-    public WindowsUpdateManager(
-        HttpClient? httpClient = null,
-        SemanticVersion? currentVersion = null,
-        string? executablePath = null,
-        string? updateRoot = null,
-        string? resultPath = null)
-    {
-        ownsHttpClient = httpClient is null;
-        this.httpClient = httpClient ?? CreateHttpClient();
-        this.executablePath = executablePath ?? Application.ExecutablePath;
-        this.updateRoot = updateRoot ?? WindowsProductIdentity.DefaultUpdateRoot;
-        this.resultPath = resultPath ?? UpdateResultStore.DefaultPath;
-        CurrentVersion = currentVersion ?? ReadCurrentVersion();
+    // Keep unmanaged delegate references alive for the full lifetime of WinSparkle.
+    private CanShutdownNativeCallback? canShutdownDelegate;
+    private VoidNativeCallback? shutdownRequestDelegate;
+    private VoidNativeCallback? didFindUpdateDelegate;
+    private VoidNativeCallback? didNotFindUpdateDelegate;
+    private VoidNativeCallback? errorDelegate;
+    private VoidNativeCallback? cancelledDelegate;
+    private VoidNativeCallback? skippedDelegate;
+    private VoidNativeCallback? postponedDelegate;
+    private VoidNativeCallback? dismissedDelegate;
 
-        var previousResult = UpdateResultStore.ReadAndDelete(this.resultPath);
-        State = previousResult switch
-        {
-            { Success: true } => new(
-                AppUpdateKind.UpToDate,
-                Message: $"已更新到 v{previousResult.Version}"),
-            { Success: false } => new(
-                AppUpdateKind.Failed,
-                Message: previousResult.Error ?? "上次更新失败，当前版本已恢复运行。"),
-            _ => AppUpdateState.Idle,
-        };
-        CleanupOldStagingDirectories();
-    }
+    public static bool TrySetEdDsaPublicKey(string publicKey) =>
+        NativeMethods.win_sparkle_set_eddsa_public_key(publicKey) != 0;
 
-    public event EventHandler<AppUpdateState>? StateChanged;
-
-    public SemanticVersion CurrentVersion { get; }
-
-    public AppUpdateState State { get; private set; }
-
-    public async Task CheckForUpdatesAsync(
-        bool manual = true,
-        CancellationToken cancellationToken = default)
+    public void Configure(WinSparkleConfiguration configuration, WinSparkleCallbacks callbacks)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        if (!await operationLock.WaitAsync(0, cancellationToken))
+        configuration.Validate();
+
+        NativeMethods.win_sparkle_set_appcast_url(configuration.AppcastFeedUri.AbsoluteUri);
+        if (NativeMethods.win_sparkle_set_eddsa_public_key(configuration.Ed25519PublicKey.Trim()) == 0)
         {
-            return;
+            throw new InvalidOperationException("WinSparkle rejected the configured Ed25519 public key.");
         }
 
-        statusReset?.Cancel();
-        var previousState = State;
-        SetState(new(AppUpdateKind.Checking));
-        try
+        NativeMethods.win_sparkle_set_app_details(
+            configuration.CompanyName,
+            configuration.AppName,
+            configuration.AppVersion);
+        NativeMethods.win_sparkle_set_app_build_version(configuration.AppVersion);
+        NativeMethods.win_sparkle_set_registry_path(configuration.RegistryPath);
+        NativeMethods.win_sparkle_set_update_check_interval(configuration.CheckIntervalSeconds);
+        NativeMethods.win_sparkle_set_automatic_check_for_updates(
+            configuration.AutomaticCheckForUpdates ? 1 : 0);
+
+        canShutdownDelegate = () => callbacks.CanShutdown() ? 1 : 0;
+        shutdownRequestDelegate = () => callbacks.ShutdownRequested();
+        didFindUpdateDelegate = () => callbacks.DidFindUpdate();
+        didNotFindUpdateDelegate = () => callbacks.DidNotFindUpdate();
+        errorDelegate = () => callbacks.UpdateError();
+        cancelledDelegate = () => callbacks.UpdateCancelled();
+        skippedDelegate = () => callbacks.UpdateSkipped();
+        postponedDelegate = () => callbacks.UpdatePostponed();
+        dismissedDelegate = () => callbacks.UpdateDismissed();
+
+        NativeMethods.win_sparkle_set_can_shutdown_callback(canShutdownDelegate);
+        NativeMethods.win_sparkle_set_shutdown_request_callback(shutdownRequestDelegate);
+        NativeMethods.win_sparkle_set_did_find_update_callback(didFindUpdateDelegate);
+        NativeMethods.win_sparkle_set_did_not_find_update_callback(didNotFindUpdateDelegate);
+        NativeMethods.win_sparkle_set_error_callback(errorDelegate);
+        NativeMethods.win_sparkle_set_update_cancelled_callback(cancelledDelegate);
+        NativeMethods.win_sparkle_set_update_skipped_callback(skippedDelegate);
+        NativeMethods.win_sparkle_set_update_postponed_callback(postponedDelegate);
+        NativeMethods.win_sparkle_set_update_dismissed_callback(dismissedDelegate);
+    }
+
+    public void Initialize()
+    {
+        lock (lifecycleLock)
         {
-            var release = await FetchLatestReleaseAsync(cancellationToken);
-            if (release.Version > CurrentVersion)
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (initialized)
             {
-                SetState(new(AppUpdateKind.Available, release));
+                return;
             }
-            else
-            {
-                SetState(new(AppUpdateKind.UpToDate, Message: "已是最新版本"));
-                ScheduleStatusReset(manual ? TimeSpan.FromSeconds(4) : TimeSpan.FromSeconds(2));
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            SetState(previousState);
-        }
-        catch (Exception error)
-        {
-            if (manual)
-            {
-                SetState(new(AppUpdateKind.Failed, Message: UserMessage(error)));
-                ScheduleStatusReset(TimeSpan.FromSeconds(8), previousState);
-            }
-            else
-            {
-                SetState(previousState);
-            }
-        }
-        finally
-        {
-            operationLock.Release();
+
+            NativeMethods.win_sparkle_init();
+            initialized = true;
         }
     }
 
-    public async Task<bool> InstallAvailableUpdateAsync(
-        CancellationToken cancellationToken = default)
+    public void SetAutomaticCheckForUpdates(bool enabled)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        if (State is not { Kind: AppUpdateKind.Available, Release: { } release } ||
-            !await operationLock.WaitAsync(0, cancellationToken))
+        NativeMethods.win_sparkle_set_automatic_check_for_updates(enabled ? 1 : 0);
+    }
+
+    public bool GetAutomaticCheckForUpdates()
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        return NativeMethods.win_sparkle_get_automatic_check_for_updates() != 0;
+    }
+
+    public void CheckForUpdatesWithUi()
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        NativeMethods.win_sparkle_check_update_with_ui();
+    }
+
+    public void CheckForUpdatesWithoutUi()
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        NativeMethods.win_sparkle_check_update_without_ui();
+    }
+
+    public void Cleanup()
+    {
+        lock (lifecycleLock)
         {
-            return false;
-        }
-
-        statusReset?.Cancel();
-        SetState(new(AppUpdateKind.Installing, release));
-        string? stagingDirectory = null;
-        try
-        {
-            stagingDirectory = Path.Combine(updateRoot, $"v{release.Version}-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(stagingDirectory);
-
-            var installerName = Path.GetFileName(release.InstallerUri.AbsolutePath);
-            var installerPath = Path.Combine(stagingDirectory, installerName);
-            var checksum = await DownloadTextAsync(release.ChecksumUri, cancellationToken);
-            var expectedSha256 = UpdatePackageVerifier.ParseExpectedSha256(checksum, installerName);
-            await DownloadFileAsync(release.InstallerUri, installerPath, cancellationToken);
-            await UpdatePackageVerifier.VerifyAsync(
-                installerPath,
-                expectedSha256,
-                cancellationToken);
-
-            var helperPath = Path.Combine(
-                stagingDirectory,
-                WindowsProductIdentity.UpdaterExecutableName);
-            File.Copy(executablePath, helperPath, overwrite: true);
-            var requestPath = Path.Combine(stagingDirectory, "update-request.json");
-            var request = new UpdateWorkerRequest
+            if (!initialized)
             {
-                ParentProcessId = Environment.ProcessId,
-                CurrentExecutablePath = Path.GetFullPath(executablePath),
-                InstallDirectory = Path.GetDirectoryName(Path.GetFullPath(executablePath))
-                    ?? throw new InvalidOperationException("无法确定当前安装目录。"),
-                InstallerPath = installerPath,
-                ExpectedSha256 = expectedSha256,
-                ExpectedVersion = release.Version.ToString(),
-                ResultPath = resultPath,
-                StagingDirectory = stagingDirectory,
-            };
-            request.Save(requestPath);
-
-            var helper = Process.Start(new ProcessStartInfo(helperPath)
-            {
-                UseShellExecute = false,
-                WorkingDirectory = stagingDirectory,
-                ArgumentList = { WindowsUpdateWorker.ApplyArgument, requestPath },
-            });
-            if (helper is null)
-            {
-                throw new InvalidOperationException("无法启动 Windows 更新助手。");
+                return;
             }
 
-            SetState(new(
-                AppUpdateKind.Restarting,
-                release,
-                "更新已验证，正在重新启动"));
-            return true;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            SetState(new(AppUpdateKind.Available, release));
-            CleanupDirectory(stagingDirectory);
-            return false;
-        }
-        catch (Exception error)
-        {
-            SetState(new(AppUpdateKind.Failed, release, UserMessage(error)));
-            CleanupDirectory(stagingDirectory);
-            return false;
-        }
-        finally
-        {
-            operationLock.Release();
+            NativeMethods.win_sparkle_cleanup();
+            NativeMethods.win_sparkle_set_can_shutdown_callback(null);
+            NativeMethods.win_sparkle_set_shutdown_request_callback(null);
+            NativeMethods.win_sparkle_set_did_find_update_callback(null);
+            NativeMethods.win_sparkle_set_did_not_find_update_callback(null);
+            NativeMethods.win_sparkle_set_error_callback(null);
+            NativeMethods.win_sparkle_set_update_cancelled_callback(null);
+            NativeMethods.win_sparkle_set_update_skipped_callback(null);
+            NativeMethods.win_sparkle_set_update_postponed_callback(null);
+            NativeMethods.win_sparkle_set_update_dismissed_callback(null);
+
+            canShutdownDelegate = null;
+            shutdownRequestDelegate = null;
+            didFindUpdateDelegate = null;
+            didNotFindUpdateDelegate = null;
+            errorDelegate = null;
+            cancelledDelegate = null;
+            skippedDelegate = null;
+            postponedDelegate = null;
+            dismissedDelegate = null;
+            initialized = false;
         }
     }
 
@@ -190,115 +271,401 @@ internal sealed class WindowsUpdateManager : IDisposable
             return;
         }
 
+        Cleanup();
         disposed = true;
+    }
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int CanShutdownNativeCallback();
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void VoidNativeCallback();
+
+    private static class NativeMethods
+    {
+        private const string DllName = WindowsProductIdentity.WinSparkleDllName;
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_init();
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_cleanup();
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_appcast_url(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string url);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern int win_sparkle_set_eddsa_public_key(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string pubkey);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_app_details(
+            [MarshalAs(UnmanagedType.LPWStr)] string companyName,
+            [MarshalAs(UnmanagedType.LPWStr)] string appName,
+            [MarshalAs(UnmanagedType.LPWStr)] string appVersion);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_app_build_version(
+            [MarshalAs(UnmanagedType.LPWStr)] string build);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_registry_path(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_automatic_check_for_updates(int state);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern int win_sparkle_get_automatic_check_for_updates();
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_update_check_interval(int interval);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_check_update_with_ui();
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_check_update_without_ui();
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_can_shutdown_callback(
+            CanShutdownNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_shutdown_request_callback(
+            VoidNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_did_find_update_callback(
+            VoidNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_did_not_find_update_callback(
+            VoidNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_error_callback(
+            VoidNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_update_cancelled_callback(
+            VoidNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_update_skipped_callback(
+            VoidNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_update_postponed_callback(
+            VoidNativeCallback? callback);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void win_sparkle_set_update_dismissed_callback(
+            VoidNativeCallback? callback);
+    }
+}
+
+internal sealed class WindowsUpdateManager : IDisposable
+{
+    private readonly IWinSparkleBackend backend;
+    private readonly object gate = new();
+    private CancellationTokenSource? statusReset;
+    private bool initialized;
+    private bool manualCheckActive;
+    private bool disposed;
+
+    public WindowsUpdateManager(
+        WinSparkleConfiguration? configuration = null,
+        IWinSparkleBackend? backend = null)
+    {
+        Configuration = configuration ?? WinSparkleConfiguration.CreateDefault();
+        Configuration.Validate();
+        this.backend = backend ?? new NativeWinSparkleBackend();
+    }
+
+    public event EventHandler<AppUpdateState>? StateChanged;
+
+    public event EventHandler? ShutdownRequested;
+
+    public WinSparkleConfiguration Configuration { get; private set; }
+
+    public AppUpdateState State { get; private set; } = AppUpdateState.Idle;
+
+    public bool IsAvailable { get; private set; }
+
+    public bool AutomaticCheckForUpdates => Configuration.AutomaticCheckForUpdates;
+
+    public void Start()
+    {
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (initialized)
+            {
+                return;
+            }
+
+            try
+            {
+                backend.Configure(Configuration, CreateCallbacks());
+                backend.Initialize();
+                initialized = true;
+                IsAvailable = true;
+            }
+            catch (Exception error) when (
+                error is DllNotFoundException or BadImageFormatException or EntryPointNotFoundException)
+            {
+                IsAvailable = false;
+                State = new(AppUpdateKind.Failed, "未能加载 WinSparkle.dll，应用内自动更新暂不可用。");
+            }
+        }
+
+        if (!IsAvailable)
+        {
+            StateChanged?.Invoke(this, State);
+        }
+    }
+
+    public void CheckForUpdatesWithUi()
+    {
+        Start();
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (!IsAvailable)
+            {
+                return;
+            }
+
+            CancelStatusResetLocked();
+            manualCheckActive = true;
+            State = new(AppUpdateKind.Checking);
+        }
+
+        StateChanged?.Invoke(this, State);
+        backend.CheckForUpdatesWithUi();
+    }
+
+    public void CheckForUpdatesInBackground()
+    {
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (!initialized || !IsAvailable)
+            {
+                return;
+            }
+
+            manualCheckActive = false;
+        }
+
+        backend.CheckForUpdatesWithoutUi();
+    }
+
+    public void SetAutomaticCheckForUpdates(bool enabled)
+    {
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            Configuration = Configuration with { AutomaticCheckForUpdates = enabled };
+            if (initialized && IsAvailable)
+            {
+                backend.SetAutomaticCheckForUpdates(enabled);
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            CancelStatusResetLocked();
+        }
+
+        backend.Dispose();
+    }
+
+    private WinSparkleCallbacks CreateCallbacks() => new(
+        CanShutdown: OnCanShutdown,
+        ShutdownRequested: OnShutdownRequested,
+        DidFindUpdate: OnDidFindUpdate,
+        DidNotFindUpdate: OnDidNotFindUpdate,
+        UpdateError: OnUpdateError,
+        UpdateCancelled: OnUpdateEnded,
+        UpdateSkipped: OnUpdateEnded,
+        UpdatePostponed: OnUpdateEnded,
+        UpdateDismissed: OnUpdateDismissed);
+
+    private bool OnCanShutdown()
+    {
+        lock (gate)
+        {
+            return !disposed;
+        }
+    }
+
+    private void OnShutdownRequested()
+    {
+        AppUpdateState next;
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            CancelStatusResetLocked();
+            manualCheckActive = false;
+            next = new(AppUpdateKind.Restarting, "更新已校验，正在启动安装程序");
+            State = next;
+        }
+
+        StateChanged?.Invoke(this, next);
+        ShutdownRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnDidFindUpdate()
+    {
+        AppUpdateState next;
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            CancelStatusResetLocked();
+            manualCheckActive = false;
+            next = new(AppUpdateKind.Available, "发现新版本，请在更新窗口中确认安装");
+            State = next;
+        }
+
+        StateChanged?.Invoke(this, next);
+    }
+
+    private void OnDidNotFindUpdate()
+    {
+        AppUpdateState? next = null;
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            var wasManual = manualCheckActive;
+            manualCheckActive = false;
+            if (wasManual)
+            {
+                next = new(AppUpdateKind.UpToDate, "已是最新版本");
+                State = next;
+                ScheduleStatusResetLocked(TimeSpan.FromSeconds(4));
+            }
+            else if (State.Kind == AppUpdateKind.Checking)
+            {
+                next = AppUpdateState.Idle;
+                State = next;
+            }
+        }
+
+        if (next is not null)
+        {
+            StateChanged?.Invoke(this, next);
+        }
+    }
+
+    private void OnUpdateError()
+    {
+        AppUpdateState? next = null;
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            var wasManual = manualCheckActive;
+            manualCheckActive = false;
+            if (wasManual)
+            {
+                next = new(AppUpdateKind.Failed, "检查更新失败，请确认网络连接。");
+                State = next;
+                ScheduleStatusResetLocked(TimeSpan.FromSeconds(8));
+            }
+            else if (State.Kind == AppUpdateKind.Checking)
+            {
+                next = AppUpdateState.Idle;
+                State = next;
+            }
+        }
+
+        if (next is not null)
+        {
+            StateChanged?.Invoke(this, next);
+        }
+    }
+
+    private void OnUpdateEnded()
+    {
+        AppUpdateState next;
+        lock (gate)
+        {
+            if (disposed || State.Kind == AppUpdateKind.Restarting)
+            {
+                return;
+            }
+
+            CancelStatusResetLocked();
+            manualCheckActive = false;
+            next = AppUpdateState.Idle;
+            State = next;
+        }
+
+        StateChanged?.Invoke(this, next);
+    }
+
+    private void OnUpdateDismissed()
+    {
+        AppUpdateState? next = null;
+        lock (gate)
+        {
+            if (disposed || State.Kind == AppUpdateKind.Restarting)
+            {
+                return;
+            }
+
+            CancelStatusResetLocked();
+            manualCheckActive = false;
+            if (State.Kind != AppUpdateKind.Available)
+            {
+                next = AppUpdateState.Idle;
+                State = next;
+            }
+        }
+
+        if (next is not null)
+        {
+            StateChanged?.Invoke(this, next);
+        }
+    }
+
+    private void CancelStatusResetLocked()
+    {
         statusReset?.Cancel();
         statusReset?.Dispose();
-        operationLock.Dispose();
-        if (ownsHttpClient)
-        {
-            httpClient.Dispose();
-        }
+        statusReset = null;
     }
 
-    private static HttpClient CreateHttpClient()
+    private void ScheduleStatusResetLocked(TimeSpan delay)
     {
-        var client = new HttpClient
-        {
-            Timeout = TimeSpan.FromMinutes(5),
-        };
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("OPL-Fleet-Agent", "1"));
-        client.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
-        return client;
-    }
-
-    private static SemanticVersion ReadCurrentVersion()
-    {
-        var assemblyVersion = Assembly.GetEntryAssembly()?.GetName().Version;
-        return assemblyVersion is null
-            ? default
-            : new SemanticVersion(
-                Math.Max(0, assemblyVersion.Major),
-                Math.Max(0, assemblyVersion.Minor),
-                Math.Max(0, assemblyVersion.Build));
-    }
-
-    private async Task<AppRelease> FetchLatestReleaseAsync(CancellationToken cancellationToken)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Head, LatestReleasePage);
-        using var response = await httpClient.SendAsync(
-            request,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return ReleaseFromPage(response.RequestMessage?.RequestUri);
-    }
-
-    private static AppRelease ReleaseFromPage(Uri? pageUri)
-    {
-        const string releasePagePrefix = "/gaofeng21cn/opl-fleet-agent/releases/tag/";
-        if (pageUri is null ||
-            pageUri.Scheme != Uri.UriSchemeHttps ||
-            !string.Equals(pageUri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
-            !pageUri.AbsolutePath.StartsWith(releasePagePrefix, StringComparison.Ordinal))
-        {
-            throw new InvalidDataException("GitHub 返回了无效的版本信息。");
-        }
-
-        var tagName = pageUri.AbsolutePath[releasePagePrefix.Length..];
-        if (tagName.Length == 0 ||
-            tagName.Contains('/') ||
-            !SemanticVersion.TryParse(tagName, out var version))
-        {
-            throw new InvalidDataException("GitHub 返回了无效的版本信息。");
-        }
-
-        var releaseRoot = new Uri(ReleaseDownloadRoot, $"{tagName}/");
-        const string installerName = WindowsProductIdentity.InstallerAssetName;
-        return new AppRelease(
-            tagName,
-            version,
-            new Uri(releaseRoot, installerName),
-            new Uri(releaseRoot, installerName + ".sha256"));
-    }
-
-    private async Task<string> DownloadTextAsync(
-        Uri uri,
-        CancellationToken cancellationToken)
-    {
-        using var response = await httpClient.GetAsync(uri, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(cancellationToken);
-    }
-
-    private async Task DownloadFileAsync(
-        Uri uri,
-        string destination,
-        CancellationToken cancellationToken)
-    {
-        using var response = await httpClient.GetAsync(
-            uri,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
-        response.EnsureSuccessStatusCode();
-        await using var source = await response.Content.ReadAsStreamAsync(cancellationToken);
-        await using var target = new FileStream(
-            destination,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            81_920,
-            useAsync: true);
-        await source.CopyToAsync(target, cancellationToken);
-        await target.FlushAsync(cancellationToken);
-    }
-
-    private void ScheduleStatusReset(
-        TimeSpan delay,
-        AppUpdateState? nextState = null)
-    {
-        statusReset?.Cancel();
-        statusReset?.Dispose();
+        CancelStatusResetLocked();
         statusReset = new CancellationTokenSource();
         var token = statusReset.Token;
         _ = Task.Run(async () =>
@@ -306,69 +673,24 @@ internal sealed class WindowsUpdateManager : IDisposable
             try
             {
                 await Task.Delay(delay, token);
-                if (!token.IsCancellationRequested && !disposed)
+                var notify = false;
+                lock (gate)
                 {
-                    SetState(nextState ?? AppUpdateState.Idle);
+                    if (!token.IsCancellationRequested && !disposed)
+                    {
+                        State = AppUpdateState.Idle;
+                        notify = true;
+                    }
+                }
+                if (notify)
+                {
+                    StateChanged?.Invoke(this, AppUpdateState.Idle);
                 }
             }
             catch (OperationCanceledException)
             {
-                // A newer status superseded this transient result.
+                // Superseded by a newer updater event.
             }
         }, token);
     }
-
-    private void SetState(AppUpdateState state)
-    {
-        State = state;
-        StateChanged?.Invoke(this, state);
-    }
-
-    private void CleanupOldStagingDirectories()
-    {
-        if (!Directory.Exists(updateRoot))
-        {
-            return;
-        }
-
-        foreach (var directory in Directory.EnumerateDirectories(updateRoot))
-        {
-            try
-            {
-                if (Directory.GetLastWriteTimeUtc(directory) <
-                    DateTime.UtcNow.Subtract(TimeSpan.FromDays(1)))
-                {
-                    Directory.Delete(directory, recursive: true);
-                }
-            }
-            catch
-            {
-                // Locked updater copies are retried on a later launch.
-            }
-        }
-    }
-
-    private static void CleanupDirectory(string? directory)
-    {
-        if (directory is null)
-        {
-            return;
-        }
-
-        try
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-        catch
-        {
-            // A failed cleanup must not hide the updater result.
-        }
-    }
-
-    private static string UserMessage(Exception error) => error switch
-    {
-        HttpRequestException => "检查更新失败，请确认网络连接。",
-        InvalidDataException invalidData => invalidData.Message,
-        _ => $"更新失败：{error.Message}",
-    };
 }

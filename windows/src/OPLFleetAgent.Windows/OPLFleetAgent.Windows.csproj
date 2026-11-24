@@ -27,4 +27,11 @@
     <EmbeddedResource Include="..\..\..\Resources\AppIcon.png"
                       LogicalName="OPLFleetAgent.AppIcon.png" />
   </ItemGroup>
+  <ItemGroup Condition="Exists('..\..\.winsparkle\0.9.4\win-x64\WinSparkle.dll')">
+    <Content Include="..\..\.winsparkle\0.9.4\win-x64\WinSparkle.dll"
+             Link="WinSparkle.dll"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest"
+             ExcludeFromSingleFile="true" />
+  </ItemGroup>
 </Project>

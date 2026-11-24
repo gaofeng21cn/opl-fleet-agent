@@ -28,6 +28,7 @@ internal sealed class SettingsForm : RoundedPopupForm
     private readonly TextBox machineName = TextInput();
     private readonly ToggleSwitch petEnabled = new();
     private readonly ToggleSwitch startWithWindows = new();
+    private readonly ToggleSwitch autoCheckForUpdates = new();
     private readonly ToolTip toolTip = new();
     private readonly TableLayoutPanel content = new();
     private readonly Panel manualUrlRow = new();
@@ -68,6 +69,8 @@ internal sealed class SettingsForm : RoundedPopupForm
         machineName.Text = settings.MachineName;
         petEnabled.Checked = settings.PetEnabled;
         startWithWindows.Checked = settings.StartWithWindows;
+        autoCheckForUpdates.Checked = settings.AutoCheckForUpdates;
+        autoCheckForUpdates.AccessibleName = "自动检查更新";
 
         var root = new TableLayoutPanel
         {
@@ -152,6 +155,11 @@ internal sealed class SettingsForm : RoundedPopupForm
 
         AddSection("系统");
         AddToggle("登录时启动", startWithWindows);
+        AddToggle("自动检查更新", autoCheckForUpdates);
+        var checkForUpdatesButton = CommandButton("检查更新", primary: false);
+        checkForUpdatesButton.AccessibleName = "检查更新";
+        checkForUpdatesButton.Click += (_, _) => CheckForUpdatesRequested?.Invoke(this, EventArgs.Empty);
+        AddField("软件更新", checkForUpdatesButton);
         AddWide(new Label
         {
             AutoSize = true,
@@ -170,6 +178,8 @@ internal sealed class SettingsForm : RoundedPopupForm
 
         root.Controls.Add(BuildFooter(), 0, 2);
     }
+
+    public event EventHandler? CheckForUpdatesRequested;
 
     public AppSettings? ResultSettings { get; private set; }
 
@@ -384,6 +394,7 @@ internal sealed class SettingsForm : RoundedPopupForm
                 MachineName = machineName.Text.Trim(),
                 PetEnabled = petEnabled.Checked,
                 StartWithWindows = startWithWindows.Checked,
+                AutoCheckForUpdates = autoCheckForUpdates.Checked,
                 RefreshSeconds = refreshSeconds,
             };
             DialogResult = DialogResult.OK;

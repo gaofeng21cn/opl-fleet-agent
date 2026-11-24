@@ -34,6 +34,10 @@ $executable = Join-Path $publishRoot "OPLFleetAgent.exe"
 if (-not (Test-Path $executable)) {
     throw "Published OPLFleetAgent.exe is missing."
 }
+$winSparkleDll = Join-Path $publishRoot "WinSparkle.dll"
+if (-not (Test-Path $winSparkleDll)) {
+    throw "Published WinSparkle.dll is missing."
+}
 $allowedExecutables = @("OPLFleetAgent.exe", "OPLFleetAgentProvider.exe")
 $unexpectedExecutables = Get-ChildItem $publishRoot -File -Filter "*.exe" |
     Where-Object { $_.Name -notin $allowedExecutables }

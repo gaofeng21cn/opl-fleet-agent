@@ -64,21 +64,26 @@ Start-Process $installer -Wait
 ```
 
 The standard installer is self-contained and does not require a separate .NET
-runtime. It installs for the current user under
+runtime. It installs `OPLFleetAgent.exe`, `OPLFleetAgentProvider.exe`, and
+`WinSparkle.dll` for the current user under
 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`, adds a Start-menu shortcut, supports
-in-place upgrades, and registers a normal Windows uninstaller. The executable is
-`OPLFleetAgent.exe`, settings live under `%LOCALAPPDATA%\OPL Fleet Agent`, and startup
-uses the `OPL Fleet Agent` registry value.
+in-place upgrades, and registers a normal Windows uninstaller. Settings live
+under `%LOCALAPPDATA%\OPL Fleet Agent`, WinSparkle state lives under
+`HKCU\Software\OPL Fleet Agent\WinSparkle`, and startup uses the
+`OPL Fleet Agent` registry value.
 
-After launch, the app checks the latest GitHub Release and repeats the check
-every six hours. It never installs silently without user confirmation. After
-**Update now** is selected, the app downloads the installer and published
-checksum, verifies SHA-256, copies a temporary updater, and exits. The updater
-waits for that exact old PID, verifies the package again, runs the current-user
-installer, reads back the installed file version, and launches a distinct new
-process. If the transaction fails, it writes a failure receipt and relaunches
-the still-usable installed executable. This mirrors the macOS user flow while
-keeping the platform-specific installation transaction native.
+In-app automatic updates are powered by **WinSparkle** using the Ed25519-signed
+`windows-appcast.xml` feed at
+`https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest/download/windows-appcast.xml`.
+Automatic checks run every six hours by default and can be toggled in Settings
+(**自动检查更新**); manual **Check for Updates** (**检查更新**) controls are
+available in the tray menu, dashboard header, and Settings. WinSparkle never
+installs without user confirmation: once you confirm an update, it downloads
+`OPL-Fleet-Agent-Windows-win-x64-Setup.exe`, cryptographically verifies its
+`sparkle:edSignature` against the embedded Ed25519 public key (matching macOS
+Sparkle 2), asks OPL Fleet Agent to shut down cleanly, and runs Inno Setup
+with `/SILENT /SP- /NOICONS /LAUNCHAFTERUPDATE=1` to upgrade in place and
+relaunch in the background.
 
 The Windows installer is not yet Authenticode-signed in the current packaging
 workflow. Windows can therefore show an unknown-publisher or SmartScreen warning

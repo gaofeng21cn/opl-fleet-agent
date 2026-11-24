@@ -24,6 +24,8 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "Version must use MAJOR.MINOR.PATCH format."
 }
 
+$winSparkle = & (Join-Path $PSScriptRoot "fetch-winsparkle.ps1") -Runtime $Runtime -PassThru
+
 dotnet restore $solution --locked-mode --nologo
 if ($LASTEXITCODE -ne 0) { throw "Locked dependency restore failed." }
 dotnet restore $appProject -r $Runtime --locked-mode --nologo
@@ -86,6 +88,12 @@ $unexpectedExecutables = Get-ChildItem $publishRoot -File -Filter "*.exe" |
     Where-Object { $_.Name -notin $allowedExecutables }
 if ($unexpectedExecutables) {
     throw "Published payload contains an unexpected executable: $($unexpectedExecutables.Name -join ', ')."
+}
+$publishedWinSparkle = Join-Path $publishRoot "WinSparkle.dll"
+Copy-Item -Force $winSparkle.DllPath $publishedWinSparkle
+$publishedWinSparkleHash = (Get-FileHash -Algorithm SHA256 $publishedWinSparkle).Hash.ToLowerInvariant()
+if ($publishedWinSparkleHash -ne $winSparkle.DllSha256) {
+    throw "Published WinSparkle.dll SHA-256 mismatch."
 }
 Copy-Item (Join-Path $repositoryRoot "LICENSE") (Join-Path $publishRoot "LICENSE.txt")
 Copy-Item (Join-Path $windowsRoot "THIRD-PARTY-NOTICES.md") $publishRoot

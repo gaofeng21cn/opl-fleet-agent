@@ -6,5 +6,6 @@ dist/
 windows/**/bin/
 windows/**/obj/
 windows/dist/
+windows/.winsparkle/
 windows/.vs/
 windows/**/*.user

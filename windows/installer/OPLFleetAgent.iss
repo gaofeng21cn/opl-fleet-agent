@@ -37,7 +37,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 CloseApplications=yes
-CloseApplicationsFilter=OPLFleetAgent.exe
+CloseApplicationsFilter=OPLFleetAgent.exe,OPLFleetAgentProvider.exe,WinSparkle.dll
 RestartApplications=no
 SetupLogging=yes
 LicenseFile={#SourceDir}\LICENSE.txt
@@ -49,7 +49,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\OPLFleetAgent.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\OPLFleetAgentProvider.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\WinSparkle.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "OPLFleetAgent.exe,OPLFleetAgentProvider.exe,WinSparkle.dll"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\OPL Fleet Agent"; Filename: "{app}\OPLFleetAgent.exe"; WorkingDir: "{app}"
@@ -57,8 +60,14 @@ Name: "{autodesktop}\OPL Fleet Agent"; Filename: "{app}\OPLFleetAgent.exe"; Work
 
 [Run]
 Filename: "{app}\OPLFleetAgent.exe"; Parameters: "--background"; Description: "{cm:LaunchProgram,OPL Fleet Agent}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\OPLFleetAgent.exe"; Parameters: "--background"; Flags: nowait skipifnotsilent; Check: LaunchAfterSilentUpdate
 
 [Code]
+function LaunchAfterSilentUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:LAUNCHAFTERUPDATE|0}') = '1';
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then

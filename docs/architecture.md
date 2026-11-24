@@ -150,7 +150,8 @@ OPL Fleet Cockpit owns display composition; its OPL Fleet Gateway receives and
 projects telemetry. Neither is a scheduler by virtue of this integration.
 Network use consists of the macOS Direct service, configured Gateway discovery,
 pairing, and pushes, and GitHub release metadata/assets for in-app updates on
-both macOS (Sparkle `appcast.xml` and DMG) and Windows.
+both macOS (Sparkle `appcast.xml` and DMG) and Windows (WinSparkle
+`windows-appcast.xml` and Inno Setup installer).
 
 ## Native distribution and updates
 
@@ -177,13 +178,27 @@ macOS uses a dual-track update model:
   with Sparkle in-app updates while users remain free to upgrade via Homebrew
   explicitly.
 
-The Windows desktop updater checks after launch and every six hours, then requires
-user confirmation before installation. Session collection is independent and no log
-content is attached to release requests. Windows uses an exact-process handoff,
-re-verifies the installer, reads back its installed version, and relaunches; its
-platform transaction is documented in [Windows installation](../windows/README.md).
+Windows uses a parallel in-app + standalone installer model:
 
-This repository owns release identity, Sparkle `appcast.xml` signatures, and
-assets. The Homebrew Tap is a downstream Cask projection. Public release trust
-and workflow boundaries belong to [development](development.md), not to
-historical build receipts.
+- **In-app automatic updates (WinSparkle)**: [WindowsUpdateManager](../windows/src/OPLFleetAgent.Windows/WindowsUpdateManager.cs)
+  loads pinned `WinSparkle.dll` alongside `OPLFleetAgent.exe`, checks the
+  Ed25519-signed `windows-appcast.xml` feed at
+  `releases/latest/download/windows-appcast.xml` every six hours (configurable
+  via the Settings auto-check toggle), and exposes native "Check for Updates"
+  controls in the tray menu, dashboard header, and Settings dialog. Before
+  launching the Inno Setup installer, WinSparkle verifies the downloaded
+  installer's `sparkle:edSignature` against the embedded Ed25519 public key
+  (matching macOS `SUPublicEDKey`), requires user confirmation, and invokes
+  clean shutdown callbacks before Inno Setup performs the silent in-place
+  upgrade and background relaunch.
+- **Distribution channels**: Standalone Inno Setup (`OPL-Fleet-Agent-Windows-win-x64-Setup.exe`)
+  and portable ZIP archives ship alongside `windows-appcast.xml`. Session
+  collection is independent and no log content is attached to update requests;
+  desktop installation and upgrade behavior is documented in
+  [Windows installation](../windows/README.md).
+
+This repository owns release identity, macOS Sparkle `appcast.xml` and Windows
+WinSparkle `windows-appcast.xml` Ed25519 signatures, and assets. The Homebrew
+Tap is a downstream Cask projection. Public release trust and workflow
+boundaries belong to [development](development.md), not to historical build
+receipts.
