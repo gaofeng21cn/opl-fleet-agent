@@ -107,9 +107,12 @@ grep -q '^Authority=Developer ID Application:' <<<"$SIGNATURE_DETAILS"
 grep -q 'flags=.*runtime' <<<"$SIGNATURE_DETAILS"
 grep -q '^Timestamp=' <<<"$SIGNATURE_DETAILS"
 spctl --assess --type execute --verbose=4 "$APP_PATH"
-lipo "$APP_PATH/Contents/MacOS/OPLFleetAgent" -verify_arch arm64 x86_64
-lipo "$PROVIDER_PATH" -verify_arch arm64 x86_64
-lipo "$SPARKLE_BIN" -verify_arch arm64 x86_64
+/usr/bin/lipo "$APP_PATH/Contents/MacOS/OPLFleetAgent" -verify_arch arm64
+/usr/bin/lipo "$APP_PATH/Contents/MacOS/OPLFleetAgent" -verify_arch x86_64
+/usr/bin/lipo "$PROVIDER_PATH" -verify_arch arm64
+/usr/bin/lipo "$PROVIDER_PATH" -verify_arch x86_64
+/usr/bin/lipo "$SPARKLE_BIN" -verify_arch arm64
+/usr/bin/lipo "$SPARKLE_BIN" -verify_arch x86_64
 
 if [[ "$REQUIRE_APPCAST" == "1" || -f "$APPCAST_PATH" ]]; then
   if [[ ! -f "$APPCAST_PATH" ]]; then

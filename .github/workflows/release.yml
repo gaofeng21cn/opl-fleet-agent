@@ -37,109 +37,29 @@ jobs:
   macos:
     needs: preflight
     if: needs.preflight.outputs.native_release == 'true'
-    runs-on: macos-latest
-    environment: release
-    env:
-      APPLE_TEAM_ID: SVVC4TA784
-      OPL_FLEET_AGENT_SIGNING_IDENTITY: "Developer ID Application: FENG GAO (SVVC4TA784)"
-      OPL_FLEET_AGENT_EXPECTED_TEAM_ID: SVVC4TA784
-      OPL_FLEET_AGENT_REQUIRE_DEVELOPER_ID: "1"
-      OPL_FLEET_AGENT_NOTARY_PROFILE: opl-fleet-agent-release
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Toolchain
-        run: |
-          sw_vers
-          xcodebuild -version
-          xcrun swift --version
-          xcrun --show-sdk-version
-      - name: Check tag version
-        run: |
-          version="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
-          [[ "$GITHUB_REF_NAME" == "v$version" ]]
-      - name: Lint
-        run: |
-          xcrun swift-format lint --recursive Sources Tests Package.swift
-          zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/generate-appcast.sh scripts/verify-release.sh
-          ./Tests/notarize-dmg.test.sh
-          ./Tests/user-visible-branding.test.sh
-      - name: Test
-        run: |
-          swift test
-          ./Tests/sparkle-updater-contract.test.sh
-
-      - name: Configure protected Apple credentials
-        env:
-          APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
-          APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
-          APPLE_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
-          APPLE_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          : "${APPLE_DEVELOPER_ID_P12_BASE64:?Missing Developer ID P12}"
-          : "${APPLE_DEVELOPER_ID_P12_PASSWORD:?Missing Developer ID P12 password}"
-          : "${APPLE_NOTARY_APPLE_ID:?Missing notarization Apple ID}"
-          : "${APPLE_NOTARY_PASSWORD:?Missing notarization app-specific password}"
-
-          keychain="$RUNNER_TEMP/opl-fleet-agent-release.keychain-db"
-          keychain_password="$(openssl rand -hex 24)"
-          p12_path="$RUNNER_TEMP/DeveloperIDApplication.p12"
-          printf '%s' "$APPLE_DEVELOPER_ID_P12_BASE64" | base64 --decode >"$p12_path"
-
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$p12_path" -k "$keychain" -P "$APPLE_DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
-          rm -f "$p12_path"
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
-          security list-keychains -d user -s "$keychain"
-          security default-keychain -d user -s "$keychain"
-
-          xcrun notarytool store-credentials "$OPL_FLEET_AGENT_NOTARY_PROFILE" \
-            --apple-id "$APPLE_NOTARY_APPLE_ID" \
-            --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_NOTARY_PASSWORD" \
-            --keychain "$keychain"
-
-          security find-identity -v -p codesigning "$keychain" | grep -F "$OPL_FLEET_AGENT_SIGNING_IDENTITY"
-          echo "OPL_FLEET_AGENT_NOTARY_KEYCHAIN=$keychain" >>"$GITHUB_ENV"
-
-      - name: Build signed universal app
-        run: OPL_FLEET_AGENT_ARCHS="arm64 x86_64" ./scripts/build-app.sh
-
-      - name: Notarize app and DMG, generate signed appcast, and verify release bytes
-        env:
-          OPL_FLEET_AGENT_EXPECTED_VERSION: ${{ github.ref_name }}
-          OPL_FLEET_AGENT_RELEASE_TAG: ${{ github.ref_name }}
-          OPL_FLEET_AGENT_REPOSITORY: ${{ github.repository }}
-          OPL_FLEET_AGENT_REQUIRE_SPARKLE_KEY_ENV: "1"
-          OPL_FLEET_AGENT_EXPECT_UNIVERSAL: "1"
-          OPL_FLEET_AGENT_REQUIRE_APPCAST: "1"
-          SPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.SPARKLE_ED25519_PRIVATE_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          export OPL_FLEET_AGENT_EXPECTED_VERSION="${OPL_FLEET_AGENT_EXPECTED_VERSION#v}"
-          ./scripts/notarize-dmg.sh
-          ./scripts/generate-appcast.sh dist/OPL-Fleet-Agent.dmg dist/appcast.xml
-          ./scripts/verify-release.sh dist/OPL-Fleet-Agent.dmg dist/OPL-Fleet-Agent.dmg.sha256 dist/appcast.xml
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-macos
-          path: |
-            dist/OPL-Fleet-Agent.dmg
-            dist/OPL-Fleet-Agent.dmg.sha256
-            dist/appcast.xml
-
-      - name: Remove temporary Apple credentials
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          if [[ -n "${OPL_FLEET_AGENT_NOTARY_KEYCHAIN:-}" ]]; then
-            security delete-keychain "$OPL_FLEET_AGENT_NOTARY_KEYCHAIN" || true
-          fi
+    uses: gaofeng21cn/one-person-lab/.github/workflows/reusable-macos-sparkle-release.yml@main
+    secrets: inherit
+    with:
+      release_tag: ${{ github.ref_name }}
+      app_name: "OPL Fleet Agent.app"
+      dmg_name: OPL-Fleet-Agent.dmg
+      volume_name: "OPL Fleet Agent"
+      bundle_id: io.github.gaofeng21cn.opl-fleet-agent
+      display_name: "OPL Fleet Agent"
+      expected_team_id: SVVC4TA784
+      signing_identity: "Developer ID Application: FENG GAO (SVVC4TA784)"
+      expected_feed_url: "https://github.com/gaofeng21cn/opl-fleet-agent/releases/latest/download/appcast.xml"
+      verify_binaries: "Contents/MacOS/OPLFleetAgent,Contents/MacOS/OPLFleetAgentProvider"
+      preflight_command: |
+        version="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
+        test "$RELEASE_TAG" = "v$version"
+        xcrun swift-format lint --recursive Sources Tests Package.swift
+        zsh -n scripts/build-app.sh scripts/build-dmg.sh scripts/notarize-dmg.sh scripts/generate-appcast.sh scripts/verify-release.sh
+        ./Tests/notarize-dmg.test.sh
+        ./Tests/user-visible-branding.test.sh
+        swift test
+        ./Tests/sparkle-updater-contract.test.sh
+      build_app_command: 'OPL_FLEET_AGENT_ARCHS="arm64 x86_64" ./scripts/build-app.sh'
 
   windows:
     needs: preflight

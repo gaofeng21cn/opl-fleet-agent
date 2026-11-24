@@ -55,8 +55,7 @@ grep -Fq 'Downloader.xpc' "$ROOT_DIR/scripts/build-app.sh"
 grep -Fq 'Autoupdate' "$ROOT_DIR/scripts/build-app.sh"
 grep -Fq 'Updater.app' "$ROOT_DIR/scripts/build-app.sh"
 grep -Fq 'Sparkle.framework' "$ROOT_DIR/scripts/verify-release.sh"
-grep -Fq 'generate-appcast.sh' "$ROOT_DIR/.github/workflows/release.yml"
-grep -Fq 'SPARKLE_ED25519_PRIVATE_KEY' "$ROOT_DIR/.github/workflows/release.yml"
+grep -Fq 'reusable-macos-sparkle-release.yml' "$ROOT_DIR/.github/workflows/release.yml"
 grep -Fq 'appcast.xml' "$ROOT_DIR/.github/workflows/release.yml"
 
 # 5. End-to-end appcast generation and cryptographic verification with an ephemeral Ed25519 key.

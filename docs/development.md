@@ -74,8 +74,11 @@ readback. Its Windows in-app updater transaction runs only on `main`.
 Unsigned development artifacts and a successful workflow are not public release
 or clean-machine acceptance.
 
-[Release](../.github/workflows/release.yml) owns release assets. macOS public
-assets must use Developer ID, hardened runtime, timestamping, Apple notarization,
+[Release](../.github/workflows/release.yml) owns release assets. Its macOS
+release job delegates signing, app/DMG notarization, Ed25519 `appcast.xml`
+generation, and release verification to the shared
+[reusable macOS Sparkle release workflow](https://github.com/gaofeng21cn/one-person-lab/blob/main/.github/workflows/reusable-macos-sparkle-release.yml).
+macOS public assets must use Developer ID, hardened runtime, timestamping, Apple notarization,
 a stapled ticket, and an Ed25519-signed Sparkle `appcast.xml` (`SPARKLE_ED25519_PRIVATE_KEY`
 matching `SUPublicEDKey` in `Resources/Info.plist`). The workflow fails closed
 without protected Apple credentials or the Sparkle Ed25519 signing key. macOS,
