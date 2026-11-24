@@ -115,6 +115,7 @@ public sealed class DashboardFormBehaviorTests
             form.CheckForUpdatesRequested += (_, _) => checkRequested = true;
 
             Assert.True(autoUpdateToggle.Checked);
+            form.Show();
             checkButton.PerformClick();
             Assert.True(checkRequested);
         });
