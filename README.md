@@ -59,7 +59,7 @@ already present in local session logs easier to see.
 - Requests per minute, active sessions, and cache ratio
 - Configurable refresh cadence (`5s`, `15s`, `30s`, or `1min` on macOS)
 - Remembered menu-bar window, manual refresh, session-folder access, and launch at login
-- Dual-track updates on macOS (in-app Sparkle 2 automatic updates plus Homebrew Cask) and user-confirmed verified updates on Windows
+- Ed25519-verified in-app automatic updates on both desktops (Sparkle 2 plus Homebrew Cask on macOS; WinSparkle plus standalone Inno Setup installer on Windows)
 - A JSON snapshot command for scripts and integrations
 - OPL Fleet Gateway Direct discovery on macOS, plus optional aggregate-only Gateway pushes
 
@@ -101,10 +101,15 @@ Download both files from the
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe`
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
-Installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent` and use `OPLFleetAgent.exe`.
-The installer is not yet Authenticode-signed, so Windows
+Installs target `%LOCALAPPDATA%\Programs\OPL Fleet Agent` (`OPLFleetAgent.exe`
+alongside `WinSparkle.dll`). Once installed, OPL Fleet Agent checks for
+Ed25519-signed updates automatically via WinSparkle (`windows-appcast.xml`),
+with manual "Check for Updates" controls in the tray menu, dashboard header,
+and Settings (plus an automatic-check toggle) and user confirmation before
+installation. The installer is not yet Authenticode-signed, so Windows
 may show an unknown-publisher or SmartScreen warning. GitHub Release provenance,
-SHA-256, and CI receipts do not replace Windows code-signing trust.
+Ed25519 appcast signatures, SHA-256, and CI receipts do not replace Windows
+code-signing trust.
 
 See [`windows/README.md`](windows/README.md) for checksum verification, portable
 installation, WSL paths, and current qualification boundaries.
@@ -172,8 +177,9 @@ read-only ownership boundaries.
 - Parses only structural events required for accounting and deduplication.
 - Reads log bytes but does not decode, retain, or render conversation bodies.
 - Uses the network for GitHub Release update checks (Sparkle `appcast.xml`/DMG on
-  macOS and verified release installers on Windows), the macOS aggregate-only local
-  Direct provider on the LAN, and optional Gateway discovery/pushes.
+  macOS and WinSparkle `windows-appcast.xml`/Inno Setup installer on Windows), the
+  macOS aggregate-only local Direct provider on the LAN, and optional Gateway
+  discovery/pushes.
 - Sends only allowlisted aggregates when OPL Fleet Gateway is enabled.
 - Includes no analytics SDK, account system, or cloud session synchronization.
 - Treats the Codex log format as an implementation dependency that may evolve.

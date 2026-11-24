@@ -59,12 +59,14 @@ jobs:
         ./Tests/user-visible-branding.test.sh
         swift test
         ./Tests/sparkle-updater-contract.test.sh
+        ./Tests/windows-winsparkle-contract.test.sh
       build_app_command: 'OPL_FLEET_AGENT_ARCHS="arm64 x86_64" ./scripts/build-app.sh'
 
   windows:
     needs: preflight
     if: needs.preflight.outputs.native_release == 'true'
     runs-on: windows-latest
+    environment: release
     timeout-minutes: 30
     defaults:
       run:
@@ -76,12 +78,17 @@ jobs:
           dotnet-version: 8.0.x
           cache: true
           cache-dependency-path: windows/**/packages.lock.json
-      - name: Check tag and toolchain
+      - name: Check tag, signing key, and toolchain
+        env:
+          SPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.SPARKLE_ED25519_PRIVATE_KEY }}
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
           [xml]$project = Get-Content "windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj"
           if ($project.Project.PropertyGroup.Version -ne $version) {
             throw "Tag version $version does not match Windows project version."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:SPARKLE_ED25519_PRIVATE_KEY)) {
+            throw "Missing SPARKLE_ED25519_PRIVATE_KEY secret for Windows appcast signing."
           }
           dotnet --info
           $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
@@ -93,6 +100,17 @@ jobs:
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
           ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version $version
+      - name: Generate and verify Ed25519-signed Windows appcast
+        env:
+          SPARKLE_ED25519_PRIVATE_KEY: ${{ secrets.SPARKLE_ED25519_PRIVATE_KEY }}
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          ./windows/scripts/generate-windows-appcast.ps1 `
+            -InstallerPath "./windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe" `
+            -Version $version `
+            -OutputPath "./windows/dist/windows-appcast.xml" `
+            -Repository $env:GITHUB_REPOSITORY `
+            -RequireSigningKey
       - name: Verify Windows release assets
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
@@ -122,6 +140,10 @@ jobs:
           if (-not $executable.VersionInfo.ProductVersion.StartsWith($version)) {
             throw "Expected installed version $version, got $($executable.VersionInfo.ProductVersion)."
           }
+          $winSparkleDll = Join-Path $install "WinSparkle.dll"
+          if (-not (Test-Path $winSparkleDll)) {
+            throw "WinSparkle.dll is missing from installed payload."
+          }
           Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
           $uninstaller = Join-Path $install "unins000.exe"
@@ -131,10 +153,11 @@ jobs:
             -PassThru
           if ($result.ExitCode -ne 0) { throw "Uninstaller exited with $($result.ExitCode)." }
           if (Test-Path $executable.FullName) { throw "OPLFleetAgent.exe remains after uninstall." }
+          if (Test-Path $winSparkleDll) { throw "WinSparkle.dll remains after uninstall." }
 
           $signature = Get-AuthenticodeSignature $installer
           Write-Output "Windows Authenticode status: $($signature.Status)"
-      - name: Verify Windows in-app updater handoff
+      - name: Verify Windows WinSparkle signing and silent update
         timeout-minutes: 8
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
@@ -147,6 +170,7 @@ jobs:
             windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip.sha256
             windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe
             windows/dist/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
+            windows/dist/windows-appcast.xml
 
   publish:
     needs:
@@ -175,7 +199,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           {
-            printf "## Distribution\n\nOPL Fleet Agent %s ships \`OPL-Fleet-Agent.dmg\` and Sparkle \`appcast.xml\` for macOS (supporting both in-app automatic updates and Homebrew Cask) and \`OPL-Fleet-Agent-Windows-*\` assets for Windows.\n\n" "$version"
+            printf "## Distribution\n\nOPL Fleet Agent %s ships \`OPL-Fleet-Agent.dmg\` and Ed25519-signed Sparkle \`appcast.xml\` for macOS (supporting both in-app automatic updates and Homebrew Cask) and \`OPL-Fleet-Agent-Windows-*\` plus Ed25519-signed WinSparkle \`windows-appcast.xml\` for Windows.\n\n" "$version"
             cat <<'EOF'
           The unified OPL Homebrew Tap projects the signed and notarized macOS release after independent checksum verification (with `auto_updates true` so in-app Sparkle updates and Homebrew coexist cleanly):
 
@@ -186,7 +210,7 @@ jobs:
 
           ## Agent
 
-          macOS restores native in-app automatic updates powered by Sparkle 2 alongside Homebrew Cask distribution, replaces the footer CLI upgrade hint with a native "Check for Updates" control and gentle update reminders, and enforces dual-track update checks in CI and release verification.
+          Both desktop platforms ship first-class Ed25519-verified in-app automatic updates (Sparkle 2 on macOS via `appcast.xml` alongside Homebrew Cask `auto_updates true`, and WinSparkle on Windows via `windows-appcast.xml` alongside the standalone Inno Setup installer).
           EOF
           } >release-notes.md
           gh release create "$GITHUB_REF_NAME" \
@@ -197,6 +221,7 @@ jobs:
             release-assets/OPL-Fleet-Agent-Windows-win-x64.zip.sha256 \
             release-assets/OPL-Fleet-Agent-Windows-win-x64-Setup.exe \
             release-assets/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256 \
+            release-assets/windows-appcast.xml \
             --repo "$GITHUB_REPOSITORY" \
             --title "OPL Fleet Agent $GITHUB_REF_NAME" \
             --notes-file release-notes.md \
@@ -258,11 +283,12 @@ jobs:
           OPL-Fleet-Agent.dmg
           OPL-Fleet-Agent.dmg.sha256
           appcast.xml
+          windows-appcast.xml
           EOF
           LC_ALL=C sort -o "$expected_names" "$expected_names"
           jq -r '.assets[].name' "$public_release" | LC_ALL=C sort > "$RUNNER_TEMP/actual-assets.txt"
           if ! diff -u "$expected_names" "$RUNNER_TEMP/actual-assets.txt"; then
-            echo "Public Release asset set differs from the canonical seven-asset set." >&2
+            echo "Public Release asset set differs from the canonical eight-asset set." >&2
             exit 1
           fi
 
@@ -284,15 +310,40 @@ jobs:
               OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256
           )
 
-          python3 - "$public_assets/appcast.xml" "$public_assets/OPL-Fleet-Agent.dmg" "$REPOSITORY" "$RELEASE_TAG" <<'PY'
+          python3 - "$public_assets/appcast.xml" "$public_assets/OPL-Fleet-Agent.dmg" "$public_assets/windows-appcast.xml" "$public_assets/OPL-Fleet-Agent-Windows-win-x64-Setup.exe" "$REPOSITORY" "$RELEASE_TAG" <<'PY'
+          import base64
           import os
+          import subprocess
           import sys
+          import tempfile
           import xml.etree.ElementTree as ET
 
-          appcast_path, dmg_path, repo, tag = sys.argv[1:5]
+          appcast_path, dmg_path, win_appcast_path, win_setup_path, repo, tag = sys.argv[1:7]
           version = tag.removeprefix("v")
           sparkle_ns = "http://www.andymatuschak.org/xml-namespaces/sparkle"
           ns = {"sparkle": sparkle_ns}
+          expected_ed25519_pub_b64 = "jejOvm5dBmhSxgZBYXbiz1LWqsDyb0l+pTchZIDBS48="
+
+          def verify_ed25519(file_path: str, sig_b64: str, label: str) -> None:
+              pub_raw = base64.b64decode(expected_ed25519_pub_b64, validate=True)
+              sig_raw = base64.b64decode(sig_b64, validate=True)
+              if len(pub_raw) != 32 or len(sig_raw) != 64:
+                  raise SystemExit(f"Invalid Ed25519 key or signature length for {label}")
+              spki_der = bytes.fromhex("302a300506032b6570032100") + pub_raw
+              with tempfile.TemporaryDirectory() as tmpdir:
+                  pub_path = os.path.join(tmpdir, "pub.der")
+                  sig_path = os.path.join(tmpdir, "sig.bin")
+                  with open(pub_path, "wb") as f:
+                      f.write(spki_der)
+                  with open(sig_path, "wb") as f:
+                      f.write(sig_raw)
+                  result = subprocess.run(
+                      ["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", pub_path, "-keyform", "DER", "-rawin", "-in", file_path, "-sigfile", sig_path],
+                      capture_output=True,
+                      text=True,
+                  )
+                  if result.returncode != 0:
+                      raise SystemExit(f"Ed25519 verification failed for {label}: {result.stderr.strip()}")
 
           root = ET.parse(appcast_path).getroot()
           items = root.findall("./channel/item")
@@ -315,8 +366,37 @@ jobs:
               raise SystemExit(f"Unexpected public appcast URL: {enclosure.attrib.get('url')}")
           if enclosure.attrib.get("length") != str(os.path.getsize(dmg_path)):
               raise SystemExit("Public appcast length does not match downloaded DMG")
-          if not enclosure.attrib.get(f"{{{sparkle_ns}}}edSignature"):
+          mac_sig = enclosure.attrib.get(f"{{{sparkle_ns}}}edSignature")
+          if not mac_sig:
               raise SystemExit("Public appcast missing sparkle:edSignature")
+          verify_ed25519(dmg_path, mac_sig, "OPL-Fleet-Agent.dmg")
+
+          win_root = ET.parse(win_appcast_path).getroot()
+          win_items = win_root.findall("./channel/item")
+          if len(win_items) != 1:
+              raise SystemExit(f"Expected 1 Windows appcast item, got {len(win_items)}")
+          win_item = win_items[0]
+          if win_item.findtext("sparkle:shortVersionString", namespaces=ns) != version:
+              raise SystemExit("Public Windows appcast shortVersionString mismatch")
+          if win_item.findtext("sparkle:version", namespaces=ns) != version:
+              raise SystemExit("Public Windows appcast sparkle:version mismatch")
+          win_enclosure = win_item.find("enclosure")
+          if win_enclosure is None:
+              raise SystemExit("Public Windows appcast missing enclosure")
+          expected_win_url = f"https://github.com/{repo}/releases/download/{tag}/OPL-Fleet-Agent-Windows-win-x64-Setup.exe"
+          if win_enclosure.attrib.get("url") != expected_win_url:
+              raise SystemExit(f"Unexpected public Windows appcast URL: {win_enclosure.attrib.get('url')}")
+          if win_enclosure.attrib.get("length") != str(os.path.getsize(win_setup_path)):
+              raise SystemExit("Public Windows appcast length does not match downloaded installer")
+          if win_enclosure.attrib.get(f"{{{sparkle_ns}}}os") != "windows-x64":
+              raise SystemExit("Public Windows appcast sparkle:os mismatch")
+          win_args = win_enclosure.attrib.get(f"{{{sparkle_ns}}}installerArguments", "")
+          if "/SILENT" not in win_args or "/LAUNCHAFTERUPDATE=1" not in win_args:
+              raise SystemExit(f"Unexpected Windows appcast installerArguments: {win_args!r}")
+          win_sig = win_enclosure.attrib.get(f"{{{sparkle_ns}}}edSignature")
+          if not win_sig:
+              raise SystemExit("Public Windows appcast missing sparkle:edSignature")
+          verify_ed25519(win_setup_path, win_sig, "OPL-Fleet-Agent-Windows-win-x64-Setup.exe")
           PY
 
           jq -n \

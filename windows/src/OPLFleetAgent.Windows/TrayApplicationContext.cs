@@ -7,7 +7,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly AppSettingsStore settingsStore = new();
     private readonly AmbientOpsCoordinator ambientOps = new();
-    private readonly WindowsUpdateManager updateManager = new();
+    private readonly WindowsUpdateManager updateManager;
     private readonly CancellationTokenSource cancellation = new();
     private readonly Icon applicationIcon;
     private readonly ContextMenuStrip trayMenu;
@@ -15,7 +15,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly NotifyIcon trayIcon;
     private readonly TaskbarReadoutForm taskbarReadout;
     private readonly System.Windows.Forms.Timer refreshTimer;
-    private readonly System.Windows.Forms.Timer updateTimer;
     private readonly DashboardFormSlot dashboard;
     private Icon? rateIcon;
     private AppSettings settings;
@@ -26,7 +25,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private bool refreshing;
     private bool exiting;
     private string? openedPairingUri;
-    private string? notifiedUpdateTag;
+    private bool notifiedUpdateAvailable;
 
     public TrayApplicationContext(bool showDashboard)
     {
@@ -45,6 +44,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             settings.StartWithWindows = false;
         }
+        updateManager = new WindowsUpdateManager(
+            WinSparkleConfiguration.CreateDefault(settings.AutoCheckForUpdates));
         scanner = CreateScanner(settings);
         dashboard = new DashboardFormSlot(CreateDashboard);
 
@@ -53,7 +54,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         trayMenu.Items.Add("刷新", null, async (_, _) => await RefreshAsync(forcePush: true));
         trayMenu.Items.Add("打开 Codex 会话目录", null, (_, _) => OpenSessionsDirectory());
         updateMenuItem = new ToolStripMenuItem("检查更新");
-        updateMenuItem.Click += async (_, _) => await RunUpdateActionAsync();
+        updateMenuItem.Click += (_, _) => updateManager.CheckForUpdatesWithUi();
         trayMenu.Items.Add(updateMenuItem);
         trayMenu.Items.Add("设置", null, (_, _) => ShowSettings());
         trayMenu.Items.Add(new ToolStripSeparator());
@@ -85,32 +86,24 @@ internal sealed class TrayApplicationContext : ApplicationContext
         };
         refreshTimer.Tick += async (_, _) => await RefreshAsync(forcePush: false);
         refreshTimer.Start();
-        updateTimer = new System.Windows.Forms.Timer
-        {
-            Interval = (int)TimeSpan.FromHours(6).TotalMilliseconds,
-        };
-        updateTimer.Tick += async (_, _) => await updateManager.CheckForUpdatesAsync(
-            manual: false,
-            cancellation.Token);
-        updateTimer.Start();
         updateManager.StateChanged += UpdateManagerOnStateChanged;
+        updateManager.ShutdownRequested += UpdateManagerOnShutdownRequested;
         Dashboard.SetRefreshCadence(settings.RefreshSeconds);
         Dashboard.SetStartupEnabled(settings.StartWithWindows);
         _ = Dashboard.Handle;
+        updateManager.Start();
         ApplyUpdateState(updateManager.State);
         if (showDashboard)
         {
             ShowDashboard();
         }
         _ = RefreshAsync(forcePush: true);
-        _ = updateManager.CheckForUpdatesAsync(manual: false, cancellation.Token);
     }
 
     protected override void ExitThreadCore()
     {
         exiting = true;
         refreshTimer.Stop();
-        updateTimer.Stop();
         cancellation.Cancel();
         taskbarReadout.Dispose();
         trayIcon.Visible = false;
@@ -120,8 +113,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         rateIcon?.Dispose();
         applicationIcon.Dispose();
         dashboard.Dispose();
-        updateTimer.Dispose();
         updateManager.StateChanged -= UpdateManagerOnStateChanged;
+        updateManager.ShutdownRequested -= UpdateManagerOnShutdownRequested;
         updateManager.Dispose();
         ambientOps.Dispose();
         cancellation.Dispose();
@@ -135,10 +128,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var form = new DashboardForm(scanner.SessionsRoot);
         form.SettingsRequested += (_, _) => ShowSettings();
         form.RefreshRequested += async (_, _) => await RefreshAsync(forcePush: true);
-        form.CheckForUpdatesRequested += async (_, _) => await updateManager.CheckForUpdatesAsync(
-            manual: true,
-            cancellation.Token);
-        form.InstallUpdateRequested += async (_, _) => await InstallAvailableUpdateAsync();
+        form.CheckForUpdatesRequested += (_, _) => updateManager.CheckForUpdatesWithUi();
+        form.InstallUpdateRequested += (_, _) => updateManager.CheckForUpdatesWithUi();
         form.ExitRequested += (_, _) => ExitThread();
         form.RefreshCadenceChanged += SetRefreshCadence;
         form.StartupChanged += SetStartupEnabled;
@@ -210,24 +201,28 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private async Task RunUpdateActionAsync()
+    private void UpdateManagerOnShutdownRequested(object? sender, EventArgs eventArgs)
     {
-        if (updateManager.State.Kind == AppUpdateKind.Available)
+        if (exiting)
         {
-            await InstallAvailableUpdateAsync();
+            return;
         }
-        else
-        {
-            await updateManager.CheckForUpdatesAsync(manual: true, cancellation.Token);
-        }
-    }
 
-    private async Task InstallAvailableUpdateAsync()
-    {
-        if (await updateManager.InstallAvailableUpdateAsync(cancellation.Token))
+        var form = Dashboard;
+        if (form.IsHandleCreated && form.InvokeRequired)
         {
-            ExitThread();
+            try
+            {
+                form.BeginInvoke(new Action(ExitThread));
+            }
+            catch (InvalidOperationException)
+            {
+                // The application is already closing.
+            }
+            return;
         }
+
+        ExitThread();
     }
 
     private void UpdateManagerOnStateChanged(object? sender, AppUpdateState state)
@@ -263,19 +258,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         Dashboard.SetUpdateState(state);
         updateMenuItem.Enabled = !state.IsBusy;
-        updateMenuItem.Text = state is { Kind: AppUpdateKind.Available, Release: { } release }
-            ? $"更新到 {release.TagName}"
+        updateMenuItem.Text = state.Kind == AppUpdateKind.Available
+            ? "查看新版本"
             : "检查更新";
 
-        if (state is { Kind: AppUpdateKind.Available, Release: { } available } &&
-            notifiedUpdateTag != available.TagName)
+        if (state.Kind == AppUpdateKind.Available && !notifiedUpdateAvailable)
         {
-            notifiedUpdateTag = available.TagName;
+            notifiedUpdateAvailable = true;
             trayIcon.ShowBalloonTip(
                 5_000,
                 "OPL Fleet Agent 有新版本",
-                $"已发现 {available.TagName}，打开面板即可更新。",
+                "已发现已签名的新版本，可在更新窗口中确认安装。",
                 ToolTipIcon.Info);
+        }
+        else if (state.Kind == AppUpdateKind.Idle)
+        {
+            notifiedUpdateAvailable = false;
         }
         else if (state is { Kind: AppUpdateKind.Failed, Message: { } message })
         {
@@ -311,6 +309,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         var owner = Dashboard;
         using var form = new SettingsForm(settings, ambientOps.Connection);
+        form.CheckForUpdatesRequested += (_, _) => updateManager.CheckForUpdatesWithUi();
         if (form.ShowDialog(owner) != DialogResult.OK || form.ResultSettings is not { } next)
         {
             return;
@@ -338,6 +337,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             refreshTimer.Interval = settings.RefreshSeconds * 1_000;
             Dashboard.SetRefreshCadence(settings.RefreshSeconds);
             Dashboard.SetStartupEnabled(settings.StartWithWindows);
+            updateManager.SetAutomaticCheckForUpdates(settings.AutoCheckForUpdates);
             _ = RefreshAsync(forcePush: true);
         }
         catch (Exception error)

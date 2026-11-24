@@ -26,6 +26,7 @@ jobs:
         run: |
           swift test
           ./Tests/sparkle-updater-contract.test.sh
+          ./Tests/windows-winsparkle-contract.test.sh
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
       - name: Package DMG and verify embedded Sparkle framework
         run: |
@@ -72,6 +73,9 @@ jobs:
           if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.42")) {
             throw "Expected Windows product version 0.2.42, got $($executable.VersionInfo.ProductVersion)."
           }
+          if (-not (Test-Path (Join-Path $install "WinSparkle.dll"))) {
+            throw "WinSparkle.dll is missing from portable install."
+          }
           Write-Output "Verified $($executable.FullName) $($executable.VersionInfo.ProductVersion)"
       - name: Verify Windows installer and uninstaller
         run: |
@@ -96,6 +100,10 @@ jobs:
           if (-not $executable.VersionInfo.ProductVersion.StartsWith("0.2.42")) {
             throw "Expected installed version 0.2.42, got $($executable.VersionInfo.ProductVersion)."
           }
+          $winSparkleDll = Join-Path $install "WinSparkle.dll"
+          if (-not (Test-Path $winSparkleDll)) {
+            throw "WinSparkle.dll is missing from standard install."
+          }
           Get-Process -Name "OPLFleetAgent" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
           $uninstaller = Join-Path $install "unins000.exe"
@@ -105,9 +113,9 @@ jobs:
             -PassThru
           if ($result.ExitCode -ne 0) { throw "Uninstaller exited with $($result.ExitCode)." }
           if (Test-Path $executable.FullName) { throw "OPLFleetAgent.exe remains after uninstall." }
-          Write-Output "Verified installer, version, checksum, and uninstall."
-      - name: Verify Windows in-app updater handoff
-        if: github.ref == 'refs/heads/main'
+          if (Test-Path $winSparkleDll) { throw "WinSparkle.dll remains after uninstall." }
+          Write-Output "Verified installer, WinSparkle.dll, version, checksum, and uninstall."
+      - name: Verify Windows WinSparkle signing and silent update
         run: ./windows/scripts/verify-updater.ps1 -Version 0.2.42
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

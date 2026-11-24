@@ -85,13 +85,7 @@ public sealed class DashboardFormBehaviorTests
 
             form.SetUpdateState(new AppUpdateState(
                 AppUpdateKind.Available,
-                new AppRelease(
-                    "v0.2.20",
-                    new SemanticVersion(0, 2, 20),
-                    new Uri(
-                        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/v0.2.20/OPL-Fleet-Agent-Windows-win-x64-Setup.exe"),
-                    new Uri(
-                        "https://github.com/gaofeng21cn/opl-fleet-agent/releases/download/v0.2.20/OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256"))));
+                "发现新版本，请在更新窗口中确认安装"));
             form.Show();
             check.PerformClick();
             install.PerformClick();
@@ -100,6 +94,29 @@ public sealed class DashboardFormBehaviorTests
             Assert.True(installRequested);
             Assert.True(install.Visible);
             Assert.Equal(BaseDashboardHeight + 43, form.ClientSize.Height);
+        });
+    }
+
+    [Fact]
+    public void SettingsFormExposesAutoUpdateToggleAndManualCheckControl()
+    {
+        RunOnStaThread(() =>
+        {
+            var settings = new AppSettings { AutoCheckForUpdates = true };
+            var connection = new AmbientOpsConnectionStatus(AmbientOpsConnectionKind.Disabled, "未启用");
+            using var form = new SettingsForm(settings, connection);
+
+            var autoUpdateToggle = Assert.IsAssignableFrom<ToggleSwitch>(
+                FindByAccessibleName(form, "自动检查更新"));
+            var checkButton = Assert.IsAssignableFrom<Button>(
+                FindByAccessibleName(form, "检查更新"));
+
+            var checkRequested = false;
+            form.CheckForUpdatesRequested += (_, _) => checkRequested = true;
+
+            Assert.True(autoUpdateToggle.Checked);
+            checkButton.PerformClick();
+            Assert.True(checkRequested);
         });
     }
 

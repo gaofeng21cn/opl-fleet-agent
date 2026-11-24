@@ -32,8 +32,14 @@
     <None Include="..\..\scripts\build-installer.ps1"
           Link="LaunchContracts\build-installer.ps1"
           CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\src\OPLFleetAgent.Windows\WindowsUpdateWorker.cs"
-          Link="LaunchContracts\WindowsUpdateWorker.cs"
+    <None Include="..\..\scripts\fetch-winsparkle.ps1"
+          Link="LaunchContracts\fetch-winsparkle.ps1"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\scripts\generate-windows-appcast.ps1"
+          Link="LaunchContracts\generate-windows-appcast.ps1"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\Resources\Info.plist"
+          Link="LaunchContracts\Info.plist"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

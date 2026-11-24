@@ -29,5 +29,42 @@ jobs:
           bash Tests/release-tag-eligibility.test.sh
           swift test
           ./Tests/sparkle-updater-contract.test.sh
+          ./Tests/windows-winsparkle-contract.test.sh
           node --test plugins/opl-fleet-agent/tests/adapter.test.mjs
           node --test plugins/opl-fleet-agent/tests/native-provider-integration.test.mjs
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: windows/**/packages.lock.json
+      - name: Toolchain and WinSparkle fetch
+        run: |
+          dotnet --info
+          $compiler = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            throw "Inno Setup 6 is missing from the Windows runner."
+          }
+          Write-Output "Inno Setup $((Get-Item $compiler).VersionInfo.FileVersion)"
+          ./windows/scripts/fetch-winsparkle.ps1 -Runtime win-x64
+      - name: Test and build Windows packages
+        run: |
+          [xml]$project = Get-Content "windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj"
+          $version = $project.Project.PropertyGroup.Version.Trim()
+          ./windows/scripts/build-installer.ps1 -Runtime win-x64 -Version $version
+      - name: Verify WinSparkle signing and Inno Setup silent update
+        timeout-minutes: 8
+        run: |
+          [xml]$project = Get-Content "windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj"
+          $version = $project.Project.PropertyGroup.Version.Trim()
+          ./windows/scripts/verify-updater.ps1 -Version $version

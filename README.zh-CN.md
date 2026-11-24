@@ -58,7 +58,7 @@ OPL Fleet Agent 是一个本机优先的桌面小工具。它增量读取本机 
 - 每分钟请求数、活跃会话数和缓存占比
 - 可配置刷新频率（macOS 为 `5 秒 / 15 秒 / 30 秒 / 1 分钟`）
 - 菜单栏统计区间记忆、手动刷新、会话目录快捷入口和登录时启动
-- macOS 支持双轨更新（应用内 Sparkle 2 自动检查与确认更新 + Homebrew Cask），Windows 支持用户确认后的校验更新
+- 双桌面均支持 Ed25519 验签的应用内自动更新（macOS 为 Sparkle 2 + Homebrew Cask，Windows 为 WinSparkle + 独立 Inno Setup 安装器）
 - 面向脚本和自动化的 JSON 快照命令
 - macOS 的 Direct 局域网发现，以及可选的 OPL Fleet Gateway 汇总指标上报
 
@@ -95,9 +95,10 @@ Windows 版是基于 .NET 8 WinForms 的 Windows 11 原生系统托盘应用。�
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe`
 - `OPL-Fleet-Agent-Windows-win-x64-Setup.exe.sha256`
 
-安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`，主程序为 `OPLFleetAgent.exe`；
+安装会写入 `%LOCALAPPDATA%\Programs\OPL Fleet Agent`（包含 `OPLFleetAgent.exe` 与 `WinSparkle.dll`）。
+安装完成后，Windows 端通过 **WinSparkle** 自动检查 Ed25519 签名的 `windows-appcast.xml` 更新，托盘菜单、主面板顶栏与设置页均提供手动「检查更新」与「自动检查更新」开关，安装前需用户确认并完成公钥验签。
 当前安装器尚未使用 Authenticode 签名，因此 Windows 可能显示未知发布者
-或 SmartScreen 提示；发布页、SHA-256 和持续集成记录可以证明仓库来源，但不能替代
+或 SmartScreen 提示；发布页、Ed25519 appcast 签名、SHA-256 和持续集成记录可以证明仓库来源，但不能替代
 Windows 代码签名信任。
 
 完整校验、便携版安装、WSL 目录选择和当前验证边界见
@@ -157,7 +158,7 @@ macOS 私钥保存在 Keychain，Windows 私钥只以当前用户 DPAPI 密文�
 ### 隐私边界
 
 - 只解析统计和去重所需的结构化事件；扫描器读取日志字节，但不解码、保留或展示对话正文。
-- 网络访问仅用于检查和下载 GitHub 发布版本（macOS 的 Sparkle `appcast.xml`/DMG 更新与 Windows 校验更新）、macOS 局域网只含汇总数据的 Direct 服务，以及可选的 Gateway 发现和上报。
+- 网络访问仅用于检查和下载 GitHub 发布版本（macOS 的 Sparkle `appcast.xml`/DMG 更新与 Windows 的 WinSparkle `windows-appcast.xml`/安装器更新）、macOS 局域网只含汇总数据的 Direct 服务，以及可选的 Gateway 发现和上报。
 - 启用 OPL Fleet Gateway 后，只在用户选择的局域网服务端上报允许清单内的汇总指标。
 - 没有分析 SDK、账户系统或云端会话同步。
 - 本机日志格式属于实现依赖；未来 Codex 版本变化可能需要更新解析器。

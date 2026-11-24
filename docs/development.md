@@ -42,8 +42,12 @@ Install the .NET 8 SDK and PowerShell 7. Run from the repository root:
 pwsh ./windows/scripts/build.ps1 -Runtime win-x64
 ```
 
-The script restores locked dependencies, runs both Core and Windows UI tests,
-and publishes self-contained native UI and provider executables. It emits
+The script fetches and SHA-256-verifies pinned WinSparkle `0.9.4`
+(`WinSparkle.dll` and `winsparkle-tool.exe` via
+[fetch-winsparkle.ps1](../windows/scripts/fetch-winsparkle.ps1)), restores
+locked dependencies, runs both Core and Windows UI tests (including native
+WinSparkle Ed25519 key loading), and publishes self-contained native UI and
+provider executables alongside `WinSparkle.dll`. It emits
 `windows/dist/OPL-Fleet-Agent-Windows-win-x64.zip` and the sibling `.sha256`.
 
 Install Inno Setup 6 to build the current-user installer:
@@ -52,27 +56,35 @@ Install Inno Setup 6 to build the current-user installer:
 pwsh ./windows/scripts/build-installer.ps1 -Runtime win-x64
 ```
 
-This also emits `OPL-Fleet-Agent-Windows-win-x64-Setup.exe` and its checksum in
-`windows/dist`. The scripts own the default source version; release automation
-passes the version being qualified explicitly. `win-x64` is the current build
-target. Windows on Arm can use OS x64 emulation; a native Arm64 build is not a
-qualified target.
+This also emits `OPL-Fleet-Agent-Windows-win-x64-Setup.exe` (explicitly
+packaging `WinSparkle.dll`) and its checksum in `windows/dist`.
+[generate-windows-appcast.ps1](../windows/scripts/generate-windows-appcast.ps1)
+uses verified `winsparkle-tool.exe` and `SPARKLE_ED25519_PRIVATE_KEY` to sign
+and verify `windows-appcast.xml` for WinSparkle. The scripts own the default
+source version; release automation passes the version being qualified
+explicitly. `win-x64` is the current build target. Windows on Arm can use OS
+x64 emulation; a native Arm64 build is not a qualified target.
 
 ## Workflow boundaries
 
-[CI](../.github/workflows/ci.yml) runs Swift lint/tests, focused shell checks
+[CI](../.github/workflows/ci.yml) runs on push and pull request across two jobs:
+`source` on `macos-latest` runs Swift lint/tests, focused shell checks
 (including [sparkle-updater-contract.test.sh](../Tests/sparkle-updater-contract.test.sh)
-to enforce the macOS in-app updater contract and signed `appcast.xml` generation),
-and Package adapter tests on push and pull request. It does not build or
-qualify the Windows installer.
+and [windows-winsparkle-contract.test.sh](../Tests/windows-winsparkle-contract.test.sh)
+to enforce both desktop in-app updater contracts), and Package adapter tests;
+`windows` on `windows-latest` verifies pinned WinSparkle `0.9.4`, runs all
+Windows Core/UI tests (including native `WinSparkle.dll` checks), builds the
+Inno Setup installer, and runs [verify-updater.ps1](../windows/scripts/verify-updater.ps1)
+to test ephemeral Ed25519 `windows-appcast.xml` signing, tamper rejection, and
+silent Inno Setup upgrade/relaunch.
 
 The manually dispatched [Qualification workflow](../.github/workflows/qualification.yml)
 owns universal development packaging (including verifying embedded universal
-`Sparkle.framework`), plus Windows packaging,
-portable installation, installer/uninstaller checks, and installed-version
-readback. Its Windows in-app updater transaction runs only on `main`.
-Unsigned development artifacts and a successful workflow are not public release
-or clean-machine acceptance.
+`Sparkle.framework`), plus Windows packaging, portable installation,
+installer/uninstaller checks (`WinSparkle.dll` included), installed-version
+readback, and WinSparkle signing/relaunch verification. Unsigned development
+artifacts and a successful workflow are not public release or clean-machine
+acceptance.
 
 [Release](../.github/workflows/release.yml) owns release assets. Its macOS
 release job delegates signing, app/DMG notarization, Ed25519 `appcast.xml`
@@ -80,8 +92,10 @@ generation, and release verification to the shared
 [reusable macOS Sparkle release workflow](https://github.com/gaofeng21cn/one-person-lab/blob/main/.github/workflows/reusable-macos-sparkle-release.yml).
 macOS public assets must use Developer ID, hardened runtime, timestamping, Apple notarization,
 a stapled ticket, and an Ed25519-signed Sparkle `appcast.xml` (`SPARKLE_ED25519_PRIVATE_KEY`
-matching `SUPublicEDKey` in `Resources/Info.plist`). The workflow fails closed
-without protected Apple credentials or the Sparkle Ed25519 signing key. macOS,
+matching `SUPublicEDKey` in `Resources/Info.plist`). The Windows release job runs
+in the same `release` environment, signs `windows-appcast.xml` against
+`OPL-Fleet-Agent-Windows-win-x64-Setup.exe` with the same Ed25519 private key,
+and fails closed without `SPARKLE_ED25519_PRIVATE_KEY`. macOS,
 Windows and the optional OPL integration share one product
 version and one annotated tag. The daily Package publisher updates these
 declarations together, waits for this tag's native release workflow, and then
@@ -89,7 +103,8 @@ publishes the same-version OCI Package. [verify-release.sh](../scripts/verify-re
 checks final notarized bytes, embedded `Sparkle.framework` signatures,
 architectures, Team ID `SVVC4TA784`, checksum, and `appcast.xml` consistency,
 and the `readback` job in [Release](../.github/workflows/release.yml) verifies
-public release assets (including `appcast.xml`) and checksums anonymously after
+all eight public release assets (including Ed25519 signatures for both
+`appcast.xml` and `windows-appcast.xml`) and checksums anonymously after
 publication. The Homebrew Tap consumes this release with `auto_updates true`;
 it must not independently define version, checksum, or asset truth.
 

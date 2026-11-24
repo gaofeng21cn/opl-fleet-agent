@@ -34,6 +34,10 @@ try {
     if (-not (Test-Path $executable)) {
         throw "OPLFleetAgent.exe is missing from the archive."
     }
+    $winSparkleDll = Join-Path $stage "WinSparkle.dll"
+    if (-not (Test-Path $winSparkleDll)) {
+        throw "WinSparkle.dll is missing from the archive."
+    }
     $allowedExecutables = @("OPLFleetAgent.exe", "OPLFleetAgentProvider.exe")
     $unexpectedExecutables = Get-ChildItem $stage -File -Filter "*.exe" |
         Where-Object { $_.Name -notin $allowedExecutables }

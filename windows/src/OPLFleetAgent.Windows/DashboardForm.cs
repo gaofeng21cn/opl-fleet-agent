@@ -249,17 +249,15 @@ internal sealed class DashboardForm : RoundedPopupForm
         {
             AppUpdateKind.Checking => "正在检查更新",
             AppUpdateKind.UpToDate => state.Message ?? "已是最新版本",
-            AppUpdateKind.Available when state.Release is { } release =>
-                $"发现新版本 {release.TagName}",
-            AppUpdateKind.Installing => "正在下载并校验更新",
+            AppUpdateKind.Available => state.Message ?? "发现新版本",
             AppUpdateKind.Restarting => state.Message ?? "正在安装，应用将重新启动",
             AppUpdateKind.Failed => state.Message ?? "更新失败，请稍后重试",
             _ => string.Empty,
         };
         toolTip.SetToolTip(
             updateHeaderButton,
-            state.Kind == AppUpdateKind.Available && state.Release is { } available
-                ? $"安装 {available.TagName}"
+            state.Kind == AppUpdateKind.Available
+                ? "查看并安装更新"
                 : "检查更新");
 
         SetUpdateRowVisible(state.Kind != AppUpdateKind.Idle);
