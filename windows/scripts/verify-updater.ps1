@@ -118,6 +118,7 @@ try {
     if ($LASTEXITCODE -eq 0) {
         throw "winsparkle-tool verify unexpectedly accepted a tampered installer."
     }
+    $global:LASTEXITCODE = 0
 
     # 4. Verify Inno Setup silent update handoff packages WinSparkle.dll and relaunches in background.
     $installArguments = @(
