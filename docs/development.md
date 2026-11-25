@@ -98,8 +98,10 @@ in the same `release` environment, signs `windows-appcast.xml` against
 and fails closed without `SPARKLE_ED25519_PRIVATE_KEY`. macOS,
 Windows and the optional OPL integration share one product
 version and one annotated tag. The daily Package publisher updates these
-declarations together, waits for this tag's native release workflow, and then
-publishes the same-version OCI Package. [verify-release.sh](../scripts/verify-release.sh)
+declarations together. The owner preparation hook copies the release version
+into the macOS and Windows provider fallbacks and their shared telemetry fixture.
+The publisher waits for the tag's native release workflow before publishing
+the same-version OCI Package. [verify-release.sh](../scripts/verify-release.sh)
 checks final notarized bytes, embedded `Sparkle.framework` signatures,
 architectures, Team ID `SVVC4TA784`, checksum, and `appcast.xml` consistency,
 and the `readback` job in [Release](../.github/workflows/release.yml) verifies
