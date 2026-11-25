@@ -210,7 +210,30 @@ public static class OplFleetAgentProtocol
     public const string ProductName = "OPL Fleet Agent";
     public const string GatewayProductName = "OPL Fleet Gateway";
     public const string GatewayShortName = "Fleet Gateway";
-    public const string AgentVersion = "0.2.46";
+    public const string DefaultAgentVersion = "0.2.54";
+    public static string AgentVersion => ResolveAgentVersion();
+
+    public static string ResolveAgentVersion(
+        System.Reflection.Assembly? entryAssembly = null,
+        string fallback = DefaultAgentVersion)
+    {
+        var assembly = entryAssembly ?? System.Reflection.Assembly.GetEntryAssembly();
+        var infoVersion = assembly?
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?
+            .InformationalVersion?
+            .Split('+', 2)[0]
+            .Trim();
+        if (!string.IsNullOrEmpty(infoVersion)
+            && Version.TryParse(infoVersion, out _)
+            && string.Equals(assembly?.GetName().Name, "OPLFleetAgent", StringComparison.OrdinalIgnoreCase))
+        {
+            return infoVersion;
+        }
+        return fallback;
+    }
+
     public static readonly string[] Modes = ["local", "direct", "fleet"];
     public static readonly string[] Capabilities =
     [

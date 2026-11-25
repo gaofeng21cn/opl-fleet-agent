@@ -52,6 +52,69 @@ final class FleetAgentProviderTests: XCTestCase {
       ])
   }
 
+  func testDefaultAgentVersionMatchesInfoPlistShortVersion() throws {
+    let infoPlistURL = repositoryRoot().appendingPathComponent("Resources/Info.plist")
+    let data = try Data(contentsOf: infoPlistURL)
+    let plist = try XCTUnwrap(
+      PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+        as? [String: Any]
+    )
+    let bundleVersion = try XCTUnwrap(plist["CFBundleShortVersionString"] as? String)
+    XCTAssertEqual(OPLFleetAgentProtocol.defaultAgentVersion, bundleVersion)
+    XCTAssertEqual(OPLFleetAgentProtocol.agentVersion, bundleVersion)
+  }
+
+  func testResolveAgentVersionPrefersBundleThenSiblingInfoPlistThenFallback() throws {
+    XCTAssertEqual(
+      OPLFleetAgentProtocol.resolveAgentVersion(
+        bundleInfo: [
+          "CFBundleIdentifier": OPLFleetAgentProtocol.bundleIdentifier,
+          "CFBundleShortVersionString": "0.9.1",
+        ],
+        executableURL: nil,
+        fallback: "0.0.0"
+      ),
+      "0.9.1"
+    )
+    XCTAssertEqual(
+      OPLFleetAgentProtocol.resolveAgentVersion(
+        bundleInfo: [
+          "CFBundleIdentifier": "com.apple.dt.xctest.tool",
+          "CFBundleShortVersionString": "16.0",
+        ],
+        executableURL: nil,
+        fallback: "0.2.54"
+      ),
+      "0.2.54"
+    )
+
+    let tempRoot = FileManager.default.temporaryDirectory
+      .appendingPathComponent("opl-fleet-agent-version-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: tempRoot) }
+    let contentsDir = tempRoot.appendingPathComponent("Contents")
+    let macosDir = contentsDir.appendingPathComponent("MacOS")
+    try FileManager.default.createDirectory(at: macosDir, withIntermediateDirectories: true)
+    let executableURL = macosDir.appendingPathComponent("OPLFleetAgentProvider")
+    FileManager.default.createFile(atPath: executableURL.path, contents: Data())
+    let plistData = try PropertyListSerialization.data(
+      fromPropertyList: [
+        "CFBundleIdentifier": OPLFleetAgentProtocol.bundleIdentifier,
+        "CFBundleShortVersionString": "0.2.55",
+      ],
+      format: .xml,
+      options: 0
+    )
+    try plistData.write(to: contentsDir.appendingPathComponent("Info.plist"))
+    XCTAssertEqual(
+      OPLFleetAgentProtocol.resolveAgentVersion(
+        bundleInfo: nil,
+        executableURL: executableURL,
+        fallback: "0.0.0"
+      ),
+      "0.2.55"
+    )
+  }
+
   func testProjectsFreshAggregateTelemetryWithoutAuthorityVerdicts() throws {
     let projection = OPLFleetAgentProvider.telemetry(
       usage: usage(at: observedAt),
