@@ -1,6 +1,6 @@
 {
   "strategy": "daily_patch",
-  "prepare": [],
+  "prepare": [["python3", "scripts/sync-provider-release-version.py"]],
   "verify": [],
   "release_workflows": ["release.yml"],
   "release_paths": [
