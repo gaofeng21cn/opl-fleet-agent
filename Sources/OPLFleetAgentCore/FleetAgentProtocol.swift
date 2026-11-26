@@ -10,7 +10,7 @@ public enum OPLFleetAgentProtocol {
   public static let productName = "OPL Fleet Agent"
   public static let gatewayProductName = "OPL Fleet Gateway"
   public static let gatewayShortName = "Fleet Gateway"
-  public static let defaultAgentVersion = "0.2.54"
+  public static let defaultAgentVersion = "0.2.55"
   public static let agentVersion = resolveAgentVersion()
   public static let modes = ["local", "direct", "fleet"]
   public static let capabilities = [
