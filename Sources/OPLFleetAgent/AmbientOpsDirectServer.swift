@@ -4,11 +4,12 @@ import OPLFleetAgentCore
 
 final class AmbientOpsDirectServer: @unchecked Sendable {
   private let observationStore: AmbientOpsMachineObservationStore
-  private let identity: AmbientOpsMachineIdentity
+  private var identity: AmbientOpsMachineIdentity
   private let serverVersion: String
   private let queue = DispatchQueue(label: "io.github.gaofeng21cn.opl-fleet-agent.direct")
   private var listener: NWListener?
   private var service: NetService?
+  private var publishedPort: NWEndpoint.Port?
   private var networkTelemetryTask: Task<Void, Never>?
 
   init(
@@ -70,15 +71,43 @@ final class AmbientOpsDirectServer: @unchecked Sendable {
   }
 
   func stop() {
-    service?.stop()
-    service = nil
     listener?.cancel()
     listener = nil
     networkTelemetryTask?.cancel()
     networkTelemetryTask = nil
+    let teardownService: @Sendable () -> Void = { [weak self] in
+      self?.service?.stop()
+      self?.service = nil
+      self?.publishedPort = nil
+    }
+    if Thread.isMainThread {
+      teardownService()
+    } else {
+      DispatchQueue.main.async(execute: teardownService)
+    }
+  }
+
+  func updateIdentity(_ newIdentity: AmbientOpsMachineIdentity) {
+    let apply: @Sendable () -> Void = { [weak self] in
+      guard let self else { return }
+      guard
+        newIdentity.machineID != identity.machineID
+          || newIdentity.machineName != identity.machineName
+      else { return }
+      identity = newIdentity
+      if let publishedPort {
+        publishService(port: publishedPort)
+      }
+    }
+    if Thread.isMainThread {
+      apply()
+    } else {
+      DispatchQueue.main.async(execute: apply)
+    }
   }
 
   private func publishService(port: NWEndpoint.Port) {
+    publishedPort = port
     service?.stop()
     let service = NetService(
       domain: "local.",

@@ -64,6 +64,71 @@ final class MonitorStoreSourceTests: XCTestCase {
     XCTAssertFalse(reloaded.antigravityEnabled)
   }
 
+  func testMigratedHardwareFingerprintUpdatesMachineIDAndRotatesDeviceKey() throws {
+    let suiteName = "opl-fleet-agent-migration-tests-\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("opl-fleet-migration-tests-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    defaults.set("gaofeng-mbp-m4max", forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
+    defaults.set(
+      "old-mbp-fingerprint",
+      forKey: AmbientOpsMachineIdentity.hardwareFingerprintDefaultsKey
+    )
+    defaults.set(false, forKey: "ambientOpsEnabled")
+
+    let backend = MigrationFakeKeychainBackend()
+    let keychain = AmbientOpsKeychain(backend: backend)
+
+    let store = MonitorStore(
+      codexHome: root.appendingPathComponent("codex", isDirectory: true),
+      antigravityBrainRoots: [root.appendingPathComponent("agy/brain", isDirectory: true)],
+      userDefaults: defaults,
+      enableGatewayIntegration: true,
+      hardwareFingerprint: "new-mini-fingerprint",
+      hostNameProvider: { "Gaofeng-Mini" },
+      ambientKeychain: keychain
+    )
+
+    XCTAssertEqual(store.ambientMachineID, "gaofeng-mini")
+    XCTAssertEqual(
+      defaults.string(forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey),
+      "gaofeng-mini"
+    )
+    XCTAssertEqual(
+      defaults.string(forKey: AmbientOpsMachineIdentity.hardwareFingerprintDefaultsKey),
+      "new-mini-fingerprint"
+    )
+    XCTAssertEqual(backend.deletedServices, [AmbientOpsKeychain.deviceKeyService])
+
+    // Manual override followed by resetAmbientMachineID restores host-derived ID and rotates key.
+    defaults.set("custom-alias", forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
+    let customStore = MonitorStore(
+      codexHome: root.appendingPathComponent("codex", isDirectory: true),
+      antigravityBrainRoots: [root.appendingPathComponent("agy/brain", isDirectory: true)],
+      userDefaults: defaults,
+      enableGatewayIntegration: true,
+      hardwareFingerprint: "new-mini-fingerprint",
+      hostNameProvider: { "Gaofeng-Mini" },
+      ambientKeychain: keychain
+    )
+    XCTAssertEqual(customStore.ambientMachineID, "custom-alias")
+    XCTAssertEqual(customStore.defaultAmbientMachineID, "gaofeng-mini")
+    customStore.resetAmbientMachineID()
+    XCTAssertEqual(customStore.ambientMachineID, "gaofeng-mini")
+    XCTAssertEqual(
+      defaults.string(forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey),
+      "gaofeng-mini"
+    )
+    XCTAssertEqual(
+      backend.deletedServices,
+      [AmbientOpsKeychain.deviceKeyService, AmbientOpsKeychain.deviceKeyService]
+    )
+  }
+
   private func writeCodexLog(in codexHome: URL, now: Date, total: Int64) throws {
     let sessions = codexHome.appendingPathComponent("sessions", isDirectory: true)
     try FileManager.default.createDirectory(at: sessions, withIntermediateDirectories: true)
@@ -98,5 +163,22 @@ final class MonitorStoreSourceTests: XCTestCase {
     let transcript = logs.appendingPathComponent("transcript.jsonl")
     try Data(line.utf8).write(to: transcript)
     try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: transcript.path)
+  }
+}
+
+private final class MigrationFakeKeychainBackend: AmbientOpsKeychainBackend {
+  private(set) var deletedServices: [String] = []
+
+  func read(service: String, account: String) -> AmbientOpsKeychainRead {
+    AmbientOpsKeychainRead(status: errSecItemNotFound, data: nil)
+  }
+
+  func add(service: String, account: String, data: Data) -> OSStatus {
+    errSecSuccess
+  }
+
+  func delete(service: String, account: String) -> OSStatus {
+    deletedServices.append(service)
+    return errSecSuccess
   }
 }

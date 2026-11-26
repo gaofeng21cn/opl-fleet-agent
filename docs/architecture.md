@@ -95,11 +95,20 @@ The Package also exposes both results as conversational MCP App views for
 Agent-led inspection. Those views are read-only and do not move the native menu
 bar, tray, or dashboard into the conversation surface.
 The native provider resolves the saved desktop node identity before deriving a
-default hostname identity. On macOS it also reads the desktop's saved source
-toggles (`Codex` and `Antigravity`); Windows reads the desktop's selected Codex
-home. Explicit provider environment options take precedence. This keeps a paired
-or renamed desktop from appearing as a different node in Agent reads. No pairing
-token or device key is loaded by this identity read.
+default hostname identity. On macOS, desktop settings bind the saved node ID to
+an irreversible SHA-256 hardware fingerprint derived from `IOPlatformUUID`
+(`ambientOpsMachineHardwareFingerprint`); when preferences are migrated or
+cloned to different hardware, both the desktop app and the native provider
+automatically resolve a fresh host-derived node ID (disambiguating identical
+hostnames with a short hardware-fingerprint suffix) and the desktop app rotates
+its per-device Keychain pairing key without touching shared bearer tokens. On
+macOS it also reads the desktop's saved source toggles (`Codex` and
+`Antigravity`); Windows reads the desktop's selected Codex home. Explicit
+provider environment options take precedence. This keeps a paired or renamed
+desktop from appearing as a different node in Agent reads while preventing
+cross-machine preference migrations from impersonating the source machine. No
+pairing token, device key, or raw hardware UUID is loaded or exposed by this
+identity read.
 `observed_at` is the provider response time, while
 `freshness.last_observed_at` identifies the actual sample. Compare the latter
 with `node.stable_node_id` and `node.agent_version` when correlating a view with
@@ -124,8 +133,10 @@ receipts, or task completion. Those decisions remain with their external owners.
 
 On macOS, [AmbientOpsDirectServer](../Sources/OPLFleetAgent/AmbientOpsDirectServer.swift)
 publishes `_opl-fleet-agent._tcp` and serves read-only aggregate status and pet
-assets on the LAN, independently of Gateway push settings. Windows has Direct
-status models but does not publish a Direct server. The Direct projection
+assets on the LAN, independently of Gateway push settings. When the macOS host
+name or resolved node ID changes at runtime, the Direct server dynamically
+republishes its Bonjour service name and TXT metadata (`id`, `name`). Windows has
+Direct status models but does not publish a Direct server. The Direct projection
 includes token rates, session count, available host CPU/network telemetry, and
 the selected pet. It has no persistent network history or dispatch endpoint.
 
@@ -134,8 +145,14 @@ Discovery uses `_ambient-ops._tcp`; desktop pairing
 generates a per-device P-256 key, displays a six-digit code, and requires visible
 approval. macOS stores the private key in Keychain; Windows uses current-user
 DPAPI. Signed requests bind method, path, timestamp, nonce, and body hash.
-The headless command currently uses bearer authentication, which also remains
-implemented in desktop settings. Configuration belongs in [operations](operations.md).
+On macOS, the desktop client also periodically cross-checks
+`GET /api/v1/status?view=summary` against its last accepted `generatedAt`
+timestamp to detect concurrent writers sharing the same `machineId`: a host whose
+ID does not match its local hostname yields first to its clean local default ID
+(or a disambiguated hardware-fingerprint suffix if already occupied), while a
+matching-hostname host backs off after sustained collisions. The headless command
+currently uses bearer authentication, which also remains implemented in desktop
+settings. Configuration belongs in [operations](operations.md).
 
 [AmbientOpsPush.swift](../Sources/OPLFleetAgentCore/AmbientOpsPush.swift) and its
 Windows equivalent define the outbound fields: stable machine identity and

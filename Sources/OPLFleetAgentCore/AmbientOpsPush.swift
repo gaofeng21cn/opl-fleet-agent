@@ -22,9 +22,12 @@ public struct AmbientOpsMachineIdentity: Equatable, Sendable {
   public static func defaultLocalMachineID(
     hostName: String = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
   ) -> String {
-    hostName.split(separator: ".").first.map(String.init)?.lowercased()
+    let raw =
+      hostName.split(separator: ".").first.map(String.init)?.lowercased()
       .replacingOccurrences(of: #"[^a-z0-9._-]"#, with: "-", options: .regularExpression)
       ?? "mac"
+    let trimmed = raw.isEmpty ? "mac" : String(raw.prefix(80))
+    return trimmed
   }
 
   public static func localMachine(machineID: String) throws -> AmbientOpsMachineIdentity {
@@ -38,14 +41,36 @@ public struct AmbientOpsMachineIdentity: Equatable, Sendable {
   /// The provider reads the native app's saved identity without writing its settings.
   /// Explicit command environments can select a different node for isolated operation.
   public static func providerIdentity(
-    environment: [String: String] = ProcessInfo.processInfo.environment,
-    savedMachineID: String? = UserDefaults.standard.persistentDomain(forName: defaultsDomain)?[
-      machineIDDefaultsKey] as? String,
+    environment: [String: String] = ProcessInfo.processInfo.environment
+  ) throws -> AmbientOpsMachineIdentity {
+    let domain = UserDefaults.standard.persistentDomain(forName: defaultsDomain)
+    return try providerIdentity(
+      environment: environment,
+      savedMachineID: domain?[machineIDDefaultsKey] as? String,
+      savedHardwareFingerprint: domain?[hardwareFingerprintDefaultsKey] as? String,
+      currentHardwareFingerprint: currentHardwareFingerprint()
+    )
+  }
+
+  public static func providerIdentity(
+    environment: [String: String] = [:],
+    savedMachineID: String?,
+    savedHardwareFingerprint: String? = nil,
+    currentHardwareFingerprint: String? = nil,
     hostName: String = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
   ) throws -> AmbientOpsMachineIdentity {
-    let machineID =
-      environment["OPL_FLEET_AGENT_MACHINE_ID"]
-      ?? savedMachineID ?? defaultLocalMachineID(hostName: hostName)
+    let machineID: String
+    if let explicitMachineID = environment["OPL_FLEET_AGENT_MACHINE_ID"] {
+      machineID = explicitMachineID
+    } else {
+      machineID =
+        resolvePersistedMachineID(
+          savedMachineID: savedMachineID,
+          savedHardwareFingerprint: savedHardwareFingerprint,
+          currentHardwareFingerprint: currentHardwareFingerprint,
+          hostName: hostName
+        ).machineID
+    }
     return try AmbientOpsMachineIdentity(
       machineID: machineID,
       machineName: environment["OPL_FLEET_AGENT_MACHINE_NAME"] ?? hostName,

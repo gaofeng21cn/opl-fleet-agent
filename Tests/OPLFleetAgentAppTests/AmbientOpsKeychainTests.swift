@@ -97,6 +97,50 @@ final class AmbientOpsKeychainTests: XCTestCase {
     }
   }
 
+  func testResetDeviceKeyClearsCacheAndDeletesOnlyDeviceKeyItem() throws {
+    let firstKey = AmbientOpsDeviceKey()
+    let secondKey = AmbientOpsDeviceKey()
+    let backend = FakeKeychainBackend(
+      reads: [
+        AmbientOpsKeychainRead(status: errSecSuccess, data: firstKey.rawRepresentation),
+        AmbientOpsKeychainRead(status: errSecItemNotFound, data: nil),
+        AmbientOpsKeychainRead(status: errSecSuccess, data: secondKey.rawRepresentation),
+      ],
+      addStatuses: [errSecSuccess],
+      deleteStatuses: [errSecSuccess, errSecItemNotFound]
+    )
+    let keychain = AmbientOpsKeychain(backend: backend)
+
+    XCTAssertEqual(
+      try keychain.deviceKey(account: "tester").rawRepresentation, firstKey.rawRepresentation)
+    try keychain.resetDeviceKey(account: "tester")
+    XCTAssertEqual(backend.deletedServices, [AmbientOpsKeychain.deviceKeyService])
+
+    // Missing item on delete remains idempotent; cached key was cleared so a fresh read occurs.
+    try keychain.resetDeviceKey(account: "tester")
+    let rotated = try keychain.deviceKey(account: "tester")
+    XCTAssertNotEqual(rotated.rawRepresentation, firstKey.rawRepresentation)
+    XCTAssertEqual(backend.readCount, 2)
+    XCTAssertEqual(backend.addCount, 1)
+  }
+
+  func testResetDeviceKeyPropagatesUnexpectedDeleteErrors() {
+    let denied = OSStatus(-2_147_415_840)
+    let backend = FakeKeychainBackend(
+      reads: [],
+      deleteStatuses: [denied]
+    )
+
+    XCTAssertThrowsError(
+      try AmbientOpsKeychain(backend: backend).resetDeviceKey(account: "tester")
+    ) {
+      XCTAssertEqual(
+        $0 as? AmbientOpsKeychainError,
+        .writeFailed(service: AmbientOpsKeychain.deviceKeyService, status: denied)
+      )
+    }
+  }
+
   func testCredentialFailuresRetryCurrentEndpointWithoutRediscovery() {
     XCTAssertEqual(
       AmbientOpsRetryBehavior.behavior(
@@ -243,15 +287,20 @@ final class AmbientOpsKeychainTests: XCTestCase {
 private final class FakeKeychainBackend: AmbientOpsKeychainBackend {
   private var reads: [AmbientOpsKeychainRead]
   private var addStatuses: [OSStatus]
+  private var deleteStatuses: [OSStatus]
   private(set) var readCount = 0
   private(set) var addCount = 0
+  private(set) var deleteCount = 0
+  private(set) var deletedServices: [String] = []
 
   init(
     reads: [AmbientOpsKeychainRead],
-    addStatuses: [OSStatus] = []
+    addStatuses: [OSStatus] = [],
+    deleteStatuses: [OSStatus] = []
   ) {
     self.reads = reads
     self.addStatuses = addStatuses
+    self.deleteStatuses = deleteStatuses
   }
 
   func read(service: String, account: String) -> AmbientOpsKeychainRead {
@@ -262,5 +311,11 @@ private final class FakeKeychainBackend: AmbientOpsKeychainBackend {
   func add(service: String, account: String, data: Data) -> OSStatus {
     addCount += 1
     return addStatuses.removeFirst()
+  }
+
+  func delete(service: String, account: String) -> OSStatus {
+    deleteCount += 1
+    deletedServices.append(service)
+    return deleteStatuses.isEmpty ? errSecSuccess : deleteStatuses.removeFirst()
   }
 }
