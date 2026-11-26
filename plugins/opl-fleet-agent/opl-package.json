@@ -3,7 +3,7 @@
   "package_id": "opl-fleet-agent",
   "display_name": "OPL Fleet Agent Integration",
   "publisher": "one-person-lab",
-  "version": "0.2.55",
+  "version": "0.2.56",
   "source": "first_party",
   "package_role": "capability_package",
   "management_scope": "local_component",
@@ -37,7 +37,7 @@
       "skills/opl-fleet-agent/SKILL.md",
       "skills/opl-fleet-agent/agents/openai.yaml"
     ],
-    "digest": "sha256:86acd9ca0162c9f48764047ed63814de2a49081ca35eb4a100358f3dc9218718"
+    "digest": "sha256:a94e4705345fb02522ae642285cbc5de75dec3c46be59abe7190f6dd83dad06b"
   },
   "codex_surface": {
     "plugin_id": "opl-fleet-agent",
