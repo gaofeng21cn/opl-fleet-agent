@@ -18,6 +18,7 @@ final class MonitorStore: ObservableObject {
   @Published private(set) var ambientAutoDiscover: Bool
   @Published private(set) var ambientManualURL: String
   @Published private(set) var ambientPet: AmbientOpsPetChoice
+  @Published private(set) var ambientMachineID: String
   @Published private(set) var ambientConnection: AmbientOpsConnectionState = .disabled
 
   let sessionsURL: URL
@@ -27,10 +28,14 @@ final class MonitorStore: ObservableObject {
   private let enableGatewayIntegration: Bool
   private let scanner: MultiSourceSessionScanner
   private let ambientPetCatalog: AmbientOpsPetAssetCatalog
-  private let ambientMachineID: String
+  private let hardwareFingerprint: String?
+  private let hostNameProvider: @Sendable () -> String
   private let observationStore = AmbientOpsMachineObservationStore()
   private let ambientDiscovery = AmbientOpsDiscovery()
-  private let ambientKeychain = AmbientOpsKeychain()
+  private let ambientKeychain: AmbientOpsKeychain
+  private let gatewayStatusClient: AmbientOpsGatewayStatusClient
+  private var ambientConflictDetector = AmbientOpsIdentityConflictDetector()
+  private var runtimeIdentityMigrationCount = 0
   private var pendingRefresh = false
   private var refreshLoop: Task<Void, Never>?
   private var ambientPushTask: Task<Void, Never>?
@@ -58,10 +63,21 @@ final class MonitorStore: ObservableObject {
     codexHome: URL = SessionScanner.defaultCodexHome(),
     antigravityBrainRoots: [URL] = AntigravitySessionScanner.defaultBrainRoots(),
     userDefaults: UserDefaults = .standard,
-    enableGatewayIntegration: Bool = true
+    enableGatewayIntegration: Bool = true,
+    hardwareFingerprint: String? = AmbientOpsMachineIdentity.currentHardwareFingerprint(),
+    hostNameProvider: @escaping @Sendable () -> String = {
+      Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+    },
+    ambientKeychain: AmbientOpsKeychain? = nil,
+    gatewayStatusClient: AmbientOpsGatewayStatusClient = AmbientOpsGatewayStatusClient()
   ) {
     self.userDefaults = userDefaults
     self.enableGatewayIntegration = enableGatewayIntegration
+    self.hardwareFingerprint = hardwareFingerprint
+    self.hostNameProvider = hostNameProvider
+    let resolvedKeychain = ambientKeychain ?? AmbientOpsKeychain()
+    self.ambientKeychain = resolvedKeychain
+    self.gatewayStatusClient = gatewayStatusClient
     let savedWindow = userDefaults.string(forKey: Self.selectedWindowDefaultsKey)
     let savedCadence = userDefaults.double(forKey: Self.refreshCadenceDefaultsKey)
     selectedWindow = savedWindow.flatMap(MetricWindow.init(rawValue:)) ?? .oneMinute
@@ -82,11 +98,25 @@ final class MonitorStore: ObservableObject {
       userDefaults.string(forKey: Self.ambientManualURLDefaultsKey) ?? ""
     ambientPet = AmbientOpsPetChoice(
       savedValue: userDefaults.string(forKey: Self.ambientPetDefaultsKey))
-    ambientMachineID =
-      userDefaults.string(forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
-      ?? AmbientOpsMachineIdentity.defaultLocalMachineID()
-    userDefaults.set(
-      ambientMachineID, forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
+    let identityResolution = AmbientOpsMachineIdentity.resolvePersistedMachineID(
+      savedMachineID: userDefaults.string(forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey),
+      savedHardwareFingerprint: userDefaults.string(
+        forKey: AmbientOpsMachineIdentity.hardwareFingerprintDefaultsKey),
+      currentHardwareFingerprint: hardwareFingerprint,
+      hostName: hostNameProvider()
+    )
+    ambientMachineID = identityResolution.machineID
+    if identityResolution.shouldPersist {
+      userDefaults.set(
+        identityResolution.machineID, forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
+      if let fingerprint = identityResolution.hardwareFingerprint {
+        userDefaults.set(
+          fingerprint, forKey: AmbientOpsMachineIdentity.hardwareFingerprintDefaultsKey)
+      }
+    }
+    if identityResolution.migratedFromAnotherHost, enableGatewayIntegration {
+      try? resolvedKeychain.resetDeviceKey()
+    }
     let configuration = UsageSourceConfiguration(
       codexEnabled: initialCodexEnabled,
       antigravityEnabled: initialAntigravityEnabled,
@@ -105,8 +135,15 @@ final class MonitorStore: ObservableObject {
     )
     snapshot = initialMulti.combined
     sourceBreakdowns = initialMulti.sources
+    let resolvedHostName = hostNameProvider()
+    let initialMachineName =
+      resolvedHostName.isEmpty ? identityResolution.machineID : resolvedHostName
     if enableGatewayIntegration,
-      let identity = try? AmbientOpsMachineIdentity.localMachine(machineID: ambientMachineID)
+      let identity = try? AmbientOpsMachineIdentity(
+        machineID: identityResolution.machineID,
+        machineName: initialMachineName,
+        platform: "macOS"
+      )
     {
       directServer = AmbientOpsDirectServer(
         observationStore: observationStore,
@@ -118,6 +155,20 @@ final class MonitorStore: ObservableObject {
       refreshLaunchAtLoginStatus()
       configureAmbientDiscovery()
     }
+  }
+
+  var defaultAmbientMachineID: String {
+    AmbientOpsMachineIdentity.defaultLocalMachineID(hostName: hostNameProvider())
+  }
+
+  private func currentLocalIdentity(for machineID: String? = nil) -> AmbientOpsMachineIdentity? {
+    let resolvedID = machineID ?? ambientMachineID
+    let hostName = hostNameProvider()
+    return try? AmbientOpsMachineIdentity(
+      machineID: resolvedID,
+      machineName: hostName.isEmpty ? resolvedID : hostName,
+      platform: "macOS"
+    )
   }
 
   var menuBarTitle: String {
@@ -203,8 +254,9 @@ final class MonitorStore: ObservableObject {
       snapshot = multi.combined
       sourceBreakdowns = multi.sources
       guard enableGatewayIntegration,
-        let identity = try? AmbientOpsMachineIdentity.localMachine(machineID: ambientMachineID)
+        let identity = currentLocalIdentity()
       else { continue }
+      directServer?.updateIdentity(identity)
       let petAsset = ambientPet == .localCodex ? await ambientPetCatalog.currentAsset() : nil
       let pet = petAsset.map {
         ambientPetTracker.snapshot(definition: $0.definition, usage: multi.combined)
@@ -237,6 +289,7 @@ final class MonitorStore: ObservableObject {
     userDefaults.set(enabled, forKey: Self.ambientEnabledDefaultsKey)
     resetAmbientPairing()
     resetAmbientEndpointFailures()
+    ambientConflictDetector.reset()
     refreshAmbientConfiguration()
     if enabled {
       Task { await refresh() }
@@ -249,6 +302,7 @@ final class MonitorStore: ObservableObject {
     ambientService = nil
     resetAmbientPairing()
     resetAmbientEndpointFailures()
+    ambientConflictDetector.reset()
     refreshAmbientConfiguration()
     Task { await refresh() }
   }
@@ -259,6 +313,7 @@ final class MonitorStore: ObservableObject {
     guard !ambientAutoDiscover else { return }
     resetAmbientPairing()
     resetAmbientEndpointFailures()
+    ambientConflictDetector.reset()
     refreshAmbientConfiguration()
   }
 
@@ -275,8 +330,36 @@ final class MonitorStore: ObservableObject {
     ambientService = nil
     resetAmbientPairing()
     resetAmbientEndpointFailures()
+    ambientConflictDetector.reset()
     ambientDiscovery.stop()
     refreshAmbientConfiguration()
+  }
+
+  func resetAmbientMachineID() {
+    applyAmbientMachineID(defaultAmbientMachineID, rotateDeviceKey: true)
+  }
+
+  private func applyAmbientMachineID(_ newMachineID: String, rotateDeviceKey: Bool) {
+    guard AmbientOpsMachineIdentity.isValidMachineID(newMachineID) else { return }
+    let changed = newMachineID != ambientMachineID
+    ambientMachineID = newMachineID
+    userDefaults.set(newMachineID, forKey: AmbientOpsMachineIdentity.machineIDDefaultsKey)
+    if let hardwareFingerprint {
+      userDefaults.set(
+        hardwareFingerprint, forKey: AmbientOpsMachineIdentity.hardwareFingerprintDefaultsKey)
+    }
+    guard changed else { return }
+    if rotateDeviceKey, enableGatewayIntegration {
+      try? ambientKeychain.resetDeviceKey()
+    }
+    resetAmbientPairing()
+    resetAmbientRetry()
+    ambientBearerTokenRejected = false
+    ambientConflictDetector.reset()
+    if let identity = currentLocalIdentity(for: newMachineID) {
+      directServer?.updateIdentity(identity)
+    }
+    Task { await refresh() }
   }
 
   func openAmbientPairingApproval() {
@@ -339,6 +422,7 @@ final class MonitorStore: ObservableObject {
       if ambientService?.endpoint != service.endpoint {
         resetAmbientPairing()
         ambientBearerTokenRejected = false
+        ambientConflictDetector.reset()
       }
       ambientService = service
       userDefaults.set(service.instanceID, forKey: Self.ambientInstanceIDDefaultsKey)
@@ -418,6 +502,29 @@ final class MonitorStore: ObservableObject {
         let identity = observation.identity
         let payload = observation.snapshot
         let petAsset = observation.petAsset
+        if runtimeIdentityMigrationCount < 2,
+          ambientConflictDetector.shouldCheck(
+            endpoint: endpoint,
+            identity: identity,
+            now: Date()
+          ),
+          let machines = await gatewayStatusClient.fetchMachines(endpoint: endpoint)
+        {
+          try Task.checkCancellation()
+          if ambientMachineID == identity.machineID,
+            case .migrate(let newMachineID) = ambientConflictDetector.evaluate(
+              machines: machines,
+              currentIdentity: identity,
+              defaultLocalMachineID: defaultAmbientMachineID,
+              hardwareFingerprint: hardwareFingerprint,
+              now: Date()
+            )
+          {
+            runtimeIdentityMigrationCount += 1
+            applyAmbientMachineID(newMachineID, rotateDeviceKey: true)
+            return
+          }
+        }
         if let token {
           let request = try AmbientOpsPushRequest(
             endpoint: endpoint,
@@ -453,6 +560,11 @@ final class MonitorStore: ObservableObject {
         }
         resetAmbientRetry()
         resetAmbientEndpointFailures()
+        ambientConflictDetector.recordAcceptedPush(
+          endpoint: endpoint,
+          identity: identity,
+          generatedAt: payload.generatedAt
+        )
         ambientConnection = .live(name: name, endpoint: endpoint, pushedAt: Date())
       } catch is CancellationError {
         return

@@ -433,6 +433,27 @@ struct MonitorPanel: View {
         .controlSize(.small)
       }
       .disabled(!store.ambientEnabled)
+
+      HStack(spacing: 8) {
+        Label("节点 ID", systemImage: "tag")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        Spacer()
+        Text(store.ambientMachineID)
+          .font(.caption2.monospaced())
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .truncationMode(.middle)
+          .textSelection(.enabled)
+        if store.ambientMachineID != store.defaultAmbientMachineID {
+          Button("同步") {
+            store.resetAmbientMachineID()
+          }
+          .buttonStyle(.borderless)
+          .controlSize(.mini)
+          .help("同步为当前本机名（\(store.defaultAmbientMachineID)）")
+        }
+      }
     }
   }
 

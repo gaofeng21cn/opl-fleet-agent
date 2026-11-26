@@ -43,13 +43,17 @@ is retained evidence, not renewed collection.
 
 ## Connect a desktop to Fleet Gateway
 
-Gateway integration and discovery are enabled by default on both desktops.
-Use Settings to disable them or choose an endpoint, and complete visible device
-approval before signed pushes can be accepted. An operator can trigger
-rediscovery and help verify the displayed six-digit code; do not approve an
-unknown device or extract its private key.
-Disable integration from Settings to stop pushes. macOS Direct availability
-is a separate transport, described in [architecture](architecture.md).
+Desktop Gateway integration and discovery are enabled by default on both
+desktops. On macOS, the Settings section displays the active node ID and offers a
+one-click sync action whenever it differs from the current hostname, and
+cross-hardware migrations (such as macOS Migration Assistant) automatically adapt
+the node ID and rotate the per-device pairing key without editing plist files.
+Use Settings to disable Gateway integration or choose an endpoint, and complete
+visible device approval before signed pushes can be accepted. An operator can
+trigger rediscovery and help verify the displayed six-digit code; do not approve
+an unknown device or extract its private key. Disable integration from Settings
+to stop pushes. macOS Direct availability is a separate transport, described in
+[architecture](architecture.md).
 
 For a manual connection, macOS accepts a hostname or IP without a scheme. Local
 addresses default to HTTP on port `8787`; non-local hosts default to HTTPS.

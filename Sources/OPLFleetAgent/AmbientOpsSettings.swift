@@ -162,6 +162,7 @@ struct AmbientOpsKeychainRead {
 protocol AmbientOpsKeychainBackend {
   func read(service: String, account: String) -> AmbientOpsKeychainRead
   func add(service: String, account: String, data: Data) -> OSStatus
+  func delete(service: String, account: String) -> OSStatus
 }
 
 struct SystemAmbientOpsKeychainBackend: AmbientOpsKeychainBackend {
@@ -187,6 +188,15 @@ struct SystemAmbientOpsKeychainBackend: AmbientOpsKeychainBackend {
       kSecValueData: data,
     ]
     return SecItemAdd(attributes as CFDictionary, nil)
+  }
+
+  func delete(service: String, account: String) -> OSStatus {
+    let query: [CFString: Any] = [
+      kSecClass: kSecClassGenericPassword,
+      kSecAttrService: service,
+      kSecAttrAccount: account,
+    ]
+    return SecItemDelete(query as CFDictionary)
   }
 }
 
@@ -257,6 +267,17 @@ final class AmbientOpsKeychain {
       }
     }
     throw AmbientOpsKeychainError.writeFailed(service: Self.deviceKeyService, status: status)
+  }
+
+  func resetDeviceKey(account: String = NSUserName()) throws {
+    cachedDeviceKeys.removeValue(forKey: account)
+    let status = backend.delete(service: Self.deviceKeyService, account: account)
+    guard status == errSecSuccess || status == errSecItemNotFound else {
+      throw AmbientOpsKeychainError.writeFailed(
+        service: Self.deviceKeyService,
+        status: status
+      )
+    }
   }
 
   private func data(service: String, account: String) throws -> Data? {
