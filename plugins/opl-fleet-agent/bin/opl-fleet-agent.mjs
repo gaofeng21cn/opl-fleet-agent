@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 const REQUEST_SCHEMA = 'opl-package-app-contribution-request.v1';
 const RESPONSE_SCHEMA = 'opl-package-app-contribution-response.v1';
 const PROVIDER_SCHEMA = 'opl_fleet_agent_provider.v1';
+const PACKAGE_ID = 'opl-fleet-agent';
 const CAPABILITY_ID = 'opl-fleet-agent.capabilities';
 const CAPABILITY_VERSION = '1.0.0';
 
@@ -47,9 +48,12 @@ export async function handleRequest(request, environment = process.env) {
   try {
     assertObject(request, 'request');
     ref = typeof request.ref === 'string' ? request.ref : null;
-    assertKeys(request, ['schema_version', 'operation', 'ref', 'input'], 'request', true);
+    assertKeys(request, ['schema_version', 'operation', 'package_id', 'ref', 'input'], 'request', true);
     if (request.schema_version !== REQUEST_SCHEMA) {
       throw new RequestError(`schema_version must be ${REQUEST_SCHEMA}`);
+    }
+    if (request.package_id !== undefined && request.package_id !== PACKAGE_ID) {
+      throw new RequestError(`package_id must be ${PACKAGE_ID}`);
     }
     if (request.operation !== 'read' && request.operation !== 'describe') {
       throw new RequestError('operation must be read or describe');

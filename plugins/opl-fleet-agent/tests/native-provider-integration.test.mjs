@@ -41,19 +41,23 @@ test('relocated Package reads the same isolated native node and preserves last-k
     OPL_FLEET_AGENT_PLATFORM: 'macOS',
   };
   const descriptor = JSON.parse(await readFile(path.join(carrier, 'opl-package.json'), 'utf8'));
-  assert.equal(
-    descriptor.codex_surface.configured_codex_plugin_carrier.publication_ref,
-    'ghcr.io/gaofeng21cn/one-person-lab-packages/opl-fleet-agent:latest-stable',
-  );
-  const adapter = JSON.parse(await readFile(path.join(carrier, 'app-contribution-adapter.json'), 'utf8'));
-  assert.deepEqual(adapter.actions, {});
-  const read = (ref) => {
-    const entry = adapter.reads[ref];
-    const execution = spawnSync(process.execPath, entry.argv.slice(1), {
+  const handler = descriptor.provides.contribution_handler;
+  assert.equal(handler.kind, 'cli');
+  assert.equal(handler.transport, 'stdin_json_stdout_json');
+  const [command, ...args] = handler.argv;
+  const read = (viewId) => {
+    const view = descriptor.ui.declarative.views.find(({ id }) => id === viewId);
+    assert.ok(view, `Missing declared view: ${viewId}`);
+    const ref = view.data_ref;
+    const execution = spawnSync(command, args, {
       cwd: carrier,
       env: environment,
       input: JSON.stringify({
-        schema_version: 'opl-package-app-contribution-request.v1', operation: 'read', ref, input: {},
+        schema_version: 'opl-package-app-contribution-request.v1',
+        package_id: descriptor.identity.id,
+        operation: 'read',
+        ref,
+        input: {},
       }),
       encoding: 'utf8',
     });
@@ -63,13 +67,13 @@ test('relocated Package reads the same isolated native node and preserves last-k
     assert.equal(response.ref, ref);
     return response.result;
   };
-  const first = read('fleet.agent.telemetry.v1#local');
+  const first = read('fleet.agent.telemetry');
   assert.equal(first.node.stable_node_id, 'isolated-node');
   assert.equal(first.freshness.state, 'fresh');
   assert.equal(first.payload.windows.one_minute.token_rate_per_second, 2);
   await rm(sessions, { recursive: true });
-  const stale = read('fleet.agent.telemetry.v1#local');
-  const doctor = read('fleet.agent.doctor.v1#current');
+  const stale = read('fleet.agent.telemetry');
+  const doctor = read('fleet.agent.doctor');
   for (const projection of [stale, doctor]) {
     assert.deepEqual(projection.node, first.node);
     assert.equal(projection.freshness.state, 'stale');
@@ -80,7 +84,7 @@ test('relocated Package reads the same isolated native node and preserves last-k
   }
   assert.deepEqual(stale.payload, { ...first.payload, collection_status: 'degraded' });
   await rm(environment.OPL_FLEET_AGENT_PROVIDER_CACHE);
-  const unavailable = read('fleet.agent.telemetry.v1#local');
+  const unavailable = read('fleet.agent.telemetry');
   assert.equal(unavailable.freshness.state, 'unavailable');
   assert.equal(unavailable.freshness.last_observed_at, null);
   assert.equal(unavailable.payload.windows.one_minute.token_rate_per_second, null);

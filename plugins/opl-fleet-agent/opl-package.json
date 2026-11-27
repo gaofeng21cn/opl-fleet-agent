@@ -1,137 +1,106 @@
 {
-  "surface_kind": "opl_capability_package_manifest.v2",
-  "package_id": "opl-fleet-agent",
-  "display_name": "OPL Fleet Agent Integration",
-  "publisher": "one-person-lab",
-  "version": "0.2.56",
-  "source": "first_party",
-  "package_role": "capability_package",
-  "management_scope": "local_component",
-  "source_repo": "https://github.com/gaofeng21cn/opl-fleet-agent.git",
-  "machine_boundary": "This optional read-only adapter projects sanitized node-local observations from the installed native OPL Fleet Agent. It is not a dependency of installing or running the native OPL Fleet Agent.app. It does not own native installation, collection, upgrade, fleet admission, leases, dispatch, task completion, execution constraints, receipts, or Cordis Host truth.",
-  "capability_abi": {
-    "id": "opl-fleet-agent.capabilities",
-    "version": "1.0.0",
-    "compatibility_policy": "same_major"
+  "schema_version": "opl.package.v2",
+  "identity": {
+    "id": "opl-fleet-agent",
+    "version": "0.2.56",
+    "intent": "extension",
+    "name": {
+      "zh-CN": "OPL Fleet Agent Integration",
+      "en-US": "OPL Fleet Agent Integration"
+    },
+    "summary": {
+      "zh-CN": "检查本机 Fleet Agent 的运行健康状态和遥测信息。",
+      "en-US": "Inspect local Fleet Agent health and telemetry."
+    },
+    "description": {
+      "zh-CN": "读取本机 OPL Fleet Agent 的脱敏遥测和限定范围的诊断结果，保护会话内容和 Fleet 权限决策。",
+      "en-US": "Read sanitized node-local OPL Fleet Agent telemetry and bounded doctor results without exposing conversation content or fleet authority decisions."
+    },
+    "publisher": "one-person-lab",
+    "license": "Apache-2.0",
+    "repository": "https://github.com/gaofeng21cn/opl-fleet-agent.git",
+    "keywords": [
+      "fleet",
+      "telemetry",
+      "doctor",
+      "opl"
+    ]
   },
-  "exports": {
-    "core_skill_ids": [
-      "opl-fleet-agent"
-    ],
-    "core_module_ids": [
+  "dependencies": {
+    "opl_base": "^2.0.0"
+  },
+  "provides": {
+    "module_ids": [
       "fleet.agent.telemetry.v1",
       "fleet.agent.doctor.v1"
     ],
-    "optional_skill_policy_ref": "opl-package.json#/exports",
-    "optional_skills_installed_by_default": true,
-    "default_materialization_policy": "all_exported_skills"
-  },
-  "content_lock": {
-    "algorithm": "sha256",
-    "canonicalization": "ordered_path_length_file_length_bytes",
-    "paths": [
-      ".codex-plugin/plugin.json",
-      "app-contribution-adapter.json",
-      "bin/opl-fleet-agent.mjs",
-      "plugin.json",
-      "skills/opl-fleet-agent/SKILL.md",
-      "skills/opl-fleet-agent/agents/openai.yaml"
+    "skills": [
+      {
+        "id": "opl-fleet-agent",
+        "path": "./skills/opl-fleet-agent",
+        "exposure": "default"
+      }
     ],
-    "digest": "sha256:a94e4705345fb02522ae642285cbc5de75dec3c46be59abe7190f6dd83dad06b"
-  },
-  "codex_surface": {
-    "plugin_id": "opl-fleet-agent",
-    "plugin_source_path": ".",
-    "codex_default_exposure": false,
-    "interaction_mode": "headless_internal",
-    "configured_codex_plugin_carrier": {
-      "kind": "codex_plugin_manager",
-      "plugin_selector": "opl-fleet-agent@opl-fleet-agent",
-      "executor_route": "codex_cli",
-      "marketplace_source": "gaofeng21cn/opl-fleet-agent",
-      "publication_ref": "ghcr.io/gaofeng21cn/one-person-lab-packages/opl-fleet-agent:latest-stable"
-    },
-    "optional_install_policy": "all_exported_skills",
-    "app_contribution_abi": {
-      "schema_version": "opl-package-app-contribution-cli.v1",
-      "transport": "stdin_json_stdout_json",
+    "contribution_handler": {
+      "kind": "cli",
       "argv": [
         "node",
         "./bin/opl-fleet-agent.mjs"
       ],
-      "request_schema": "opl-package-app-contribution-request.v1",
-      "response_schema": "opl-package-app-contribution-response.v1"
-    },
-    "app_contribution_adapter": {
-      "manifest": "app-contribution-adapter.json"
+      "transport": "stdin_json_stdout_json"
     }
   },
-  "app_contributions": {
-    "schema_version": "opl-app-contributions.v1",
-    "views": [
-      {
-        "view_id": "fleet.agent.telemetry",
-        "view_type": "activity_log",
-        "title_i18n": {
-          "zh-CN": "本机 Fleet Agent 遥测",
-          "en-US": "Local Fleet Agent telemetry"
+  "ui": {
+    "declarative": {
+      "views": [
+        {
+          "id": "fleet.agent.telemetry",
+          "view_type": "activity_log",
+          "slot": "settings.section",
+          "settings_destination": "resources",
+          "title": {
+            "zh-CN": "本机 Fleet Agent 遥测",
+            "en-US": "Local Fleet Agent telemetry"
+          },
+          "data_ref": "fleet.agent.telemetry.v1#local",
+          "empty_state": {
+            "zh-CN": "本机 Fleet Agent 暂无可用遥测",
+            "en-US": "Local Fleet Agent telemetry is unavailable"
+          },
+          "sort_order": 1300
         },
-        "data_ref": "fleet.agent.telemetry.v1#local",
-        "badge_ids": [
-          "fleet.agent.health"
-        ],
-        "empty_state_i18n": {
-          "zh-CN": "本机 Fleet Agent 暂无可用遥测",
-          "en-US": "Local Fleet Agent telemetry is unavailable"
+        {
+          "id": "fleet.agent.doctor",
+          "view_type": "activity_log",
+          "slot": "settings.section",
+          "settings_destination": "resources",
+          "title": {
+            "zh-CN": "本机 Fleet Agent 诊断",
+            "en-US": "Local Fleet Agent doctor"
+          },
+          "data_ref": "fleet.agent.doctor.v1#current",
+          "empty_state": {
+            "zh-CN": "本机 Fleet Agent 诊断不可用",
+            "en-US": "Local Fleet Agent doctor is unavailable"
+          },
+          "sort_order": 1301
         }
-      },
-      {
-        "view_id": "fleet.agent.doctor",
-        "view_type": "activity_log",
-        "title_i18n": {
-          "zh-CN": "本机 Fleet Agent 诊断",
-          "en-US": "Local Fleet Agent doctor"
-        },
-        "data_ref": "fleet.agent.doctor.v1#current",
-        "badge_ids": [
-          "fleet.agent.health"
-        ],
-        "empty_state_i18n": {
-          "zh-CN": "本机 Fleet Agent 诊断不可用",
-          "en-US": "Local Fleet Agent doctor is unavailable"
-        }
-      }
-    ],
-    "badges": [
-      {
-        "badge_id": "fleet.agent.health",
-        "label_i18n": {
-          "zh-CN": "本机 Agent",
-          "en-US": "Local agent"
-        },
-        "data_ref": "fleet.agent.doctor.v1#current",
-        "tone": "neutral"
-      }
-    ],
-    "ui": [
-      {
-        "contribution_id": "fleet.agent.telemetry",
-        "slot": "settings.section",
-        "contribution_kind": "view",
-        "trust_tier": "declarative",
-        "scope": "root",
-        "sort_order": 1300,
-        "view_id": "fleet.agent.telemetry"
-      },
-      {
-        "contribution_id": "fleet.agent.doctor",
-        "slot": "settings.section",
-        "contribution_kind": "view",
-        "trust_tier": "declarative",
-        "scope": "root",
-        "sort_order": 1301,
-        "view_id": "fleet.agent.doctor"
-      }
-    ]
+      ]
+    }
+  },
+  "distribution": {
+    "oci": "ghcr.io/gaofeng21cn/one-person-lab-packages/opl-fleet-agent",
+    "visibility": "public"
+  },
+  "host_hints": {
+    "codex": {
+      "sync_enabled": false,
+      "plugin_name": "opl-fleet-agent",
+      "category": "Productivity",
+      "capabilities": [
+        "Local telemetry",
+        "Node doctor"
+      ]
+    }
   }
 }

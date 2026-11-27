@@ -16,26 +16,34 @@ cat > "$TMP_DIR/OPLFleetAgent.Windows.csproj" <<'EOF'
 <Project><PropertyGroup><Version>0.2.47</Version></PropertyGroup></Project>
 EOF
 cat > "$TMP_DIR/opl-package.json" <<'EOF'
-{"version":"0.2.47"}
+{"schema_version":"opl.package.v2","identity":{"id":"opl-fleet-agent","version":"0.2.47"}}
 EOF
 
 [[ "$(python3 "$SCRIPT" v0.2.47 "$TMP_DIR/Info.plist" "$TMP_DIR/OPLFleetAgent.Windows.csproj" "$TMP_DIR/opl-package.json")" == native ]]
 
-printf '%s\n' '{"version":"0.2.48"}' > "$TMP_DIR/opl-package.json"
+printf '%s\n' '{"schema_version":"opl.package.v2","identity":{"version":"0.2.48"},"version":"0.2.47"}' > "$TMP_DIR/opl-package.json"
 if python3 "$SCRIPT" v0.2.47 "$TMP_DIR/Info.plist" "$TMP_DIR/OPLFleetAgent.Windows.csproj" "$TMP_DIR/opl-package.json" >/dev/null 2>&1; then
-  echo "Expected Package and native version drift to fail." >&2
+  echo "Expected the v2 Package version to take precedence over the legacy field." >&2
   exit 1
 fi
+
+printf '%s\n' '{"version":"0.2.48"}' > "$TMP_DIR/opl-package.json"
+if python3 "$SCRIPT" v0.2.47 "$TMP_DIR/Info.plist" "$TMP_DIR/OPLFleetAgent.Windows.csproj" "$TMP_DIR/opl-package.json" >/dev/null 2>&1; then
+  echo "Expected legacy Package and native version drift to fail." >&2
+  exit 1
+fi
+
 printf '%s\n' '{"version":"0.2.47"}' > "$TMP_DIR/opl-package.json"
+[[ "$(python3 "$SCRIPT" v0.2.47 "$TMP_DIR/Info.plist" "$TMP_DIR/OPLFleetAgent.Windows.csproj" "$TMP_DIR/opl-package.json")" == native ]]
+
+if python3 "$SCRIPT" v0.2.48 "$TMP_DIR/Info.plist" "$TMP_DIR/OPLFleetAgent.Windows.csproj" "$TMP_DIR/opl-package.json" >/dev/null 2>&1; then
+  echo "Expected unknown tag to fail." >&2
+  exit 1
+fi
 
 sed -i '' 's/0.2.47/0.2.46/' "$TMP_DIR/OPLFleetAgent.Windows.csproj" 2>/dev/null || sed -i 's/0.2.47/0.2.46/' "$TMP_DIR/OPLFleetAgent.Windows.csproj"
 if python3 "$SCRIPT" v0.2.47 "$TMP_DIR/Info.plist" "$TMP_DIR/OPLFleetAgent.Windows.csproj" "$TMP_DIR/opl-package.json" >/dev/null 2>&1; then
   echo "Expected mismatched native versions to fail." >&2
-  exit 1
-fi
-
-if python3 "$SCRIPT" v0.2.48 "$TMP_DIR/Info.plist" "$TMP_DIR/OPLFleetAgent.Windows.csproj" "$TMP_DIR/opl-package.json" >/dev/null 2>&1; then
-  echo "Expected unknown tag to fail." >&2
   exit 1
 fi
 

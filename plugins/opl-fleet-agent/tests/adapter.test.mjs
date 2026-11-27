@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -12,6 +11,7 @@ const repositoryRoot = path.resolve(pluginRoot, '..', '..');
 
 const request = (ref) => ({
   schema_version: 'opl-package-app-contribution-request.v1',
+  package_id: 'opl-fleet-agent',
   operation: 'read',
   ref,
   input: {},
@@ -22,51 +22,51 @@ test('keeps Agent Plugins 1.0 authority aligned with the Codex compatibility man
   const compatibility = JSON.parse(
     await readFile(path.join(pluginRoot, '.codex-plugin', 'plugin.json'), 'utf8'),
   );
+  const descriptor = JSON.parse(await readFile(path.join(pluginRoot, 'opl-package.json'), 'utf8'));
 
   assert.equal(authority.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
   assert.equal(authority.name, compatibility.name);
   assert.equal(authority.version, compatibility.version);
+  assert.equal(descriptor.identity.version, authority.version);
   assert.deepEqual(authority.extensions?.['com.openai']?.interface, compatibility.interface);
   assert.equal('skills' in authority, false);
   assert.equal('interface' in authority, false);
 });
 
-test('describes an optional read-only integration with conversational Package views', async () => {
+test('declares the read-only integration and its Framework v2 contributions', async () => {
   const descriptor = JSON.parse(await readFile(path.join(pluginRoot, 'opl-package.json'), 'utf8'));
-  const displayName = 'OPL Fleet Agent Integration';
-
-  assert.equal(descriptor.display_name, displayName);
-  assert.match(descriptor.machine_boundary, /optional read-only adapter/);
-  assert.match(descriptor.machine_boundary, /not a dependency of installing or running/);
-  assert.deepEqual(
-    descriptor.app_contributions.ui.map(({ view_id, slot }) => ({ view_id, slot })),
-    [
-      { view_id: 'fleet.agent.telemetry', slot: 'settings.section' },
-      { view_id: 'fleet.agent.doctor', slot: 'settings.section' },
-    ],
-  );
-  assert.equal(
-    descriptor.codex_surface.app_contribution_adapter.manifest,
-    'app-contribution-adapter.json',
-  );
-  const adapter = JSON.parse(
-    await readFile(path.join(pluginRoot, 'app-contribution-adapter.json'), 'utf8'),
-  );
-  assert.deepEqual(Object.keys(adapter.reads), [
-    'fleet.agent.telemetry.v1#local',
-    'fleet.agent.doctor.v1#current',
+  assert.equal(descriptor.schema_version, 'opl.package.v2');
+  assert.equal(descriptor.identity.id, 'opl-fleet-agent');
+  assert.equal(descriptor.identity.publisher, 'one-person-lab');
+  assert.equal(descriptor.dependencies.opl_base, '^2.0.0');
+  assert.deepEqual(descriptor.provides.module_ids, [
+    'fleet.agent.telemetry.v1',
+    'fleet.agent.doctor.v1',
   ]);
-  assert.deepEqual(adapter.actions, {});
+  assert.deepEqual(descriptor.provides.contribution_handler, {
+    kind: 'cli',
+    argv: ['node', './bin/opl-fleet-agent.mjs'],
+    transport: 'stdin_json_stdout_json',
+  });
   assert.deepEqual(
-    descriptor.app_contributions.views.map(({ view_id, data_ref }) => ({ view_id, data_ref })),
+    descriptor.ui.declarative.views.map(({ id, slot, data_ref, sort_order }) => ({
+      id,
+      slot,
+      data_ref,
+      sort_order,
+    })),
     [
       {
-        view_id: 'fleet.agent.telemetry',
+        id: 'fleet.agent.telemetry',
+        slot: 'settings.section',
         data_ref: 'fleet.agent.telemetry.v1#local',
+        sort_order: 1300,
       },
       {
-        view_id: 'fleet.agent.doctor',
+        id: 'fleet.agent.doctor',
+        slot: 'settings.section',
         data_ref: 'fleet.agent.doctor.v1#current',
+        sort_order: 1301,
       },
     ],
   );
@@ -95,28 +95,21 @@ test('exposes one configured native Codex marketplace carrier', async () => {
     path.resolve(repositoryRoot, marketplace.plugins[0].source.path),
     pluginRoot,
   );
-  assert.deepEqual(descriptor.codex_surface.configured_codex_plugin_carrier, {
-    kind: 'codex_plugin_manager',
-    plugin_selector: 'opl-fleet-agent@opl-fleet-agent',
-    executor_route: 'codex_cli',
-    marketplace_source: 'gaofeng21cn/opl-fleet-agent',
-    publication_ref: 'ghcr.io/gaofeng21cn/one-person-lab-packages/opl-fleet-agent:latest-stable',
-  });
+  assert.equal(descriptor.host_hints.codex.plugin_name, 'opl-fleet-agent');
 });
 
-test('keeps the Package content lock bound to the ordered carrier bytes', async () => {
+test('uses the OPL registry and preserves Codex host metadata', async () => {
   const descriptor = JSON.parse(await readFile(path.join(pluginRoot, 'opl-package.json'), 'utf8'));
-  const digest = createHash('sha256');
-  for (const relativePath of descriptor.content_lock.paths) {
-    const pathBytes = Buffer.from(relativePath, 'utf8');
-    const fileBytes = await readFile(path.join(pluginRoot, relativePath));
-    const pathLength = Buffer.alloc(8);
-    const fileLength = Buffer.alloc(8);
-    pathLength.writeBigUInt64BE(BigInt(pathBytes.length));
-    fileLength.writeBigUInt64BE(BigInt(fileBytes.length));
-    digest.update(pathLength).update(pathBytes).update(fileLength).update(fileBytes);
-  }
-  assert.equal(descriptor.content_lock.digest, `sha256:${digest.digest('hex')}`);
+  assert.deepEqual(descriptor.distribution, {
+    oci: 'ghcr.io/gaofeng21cn/one-person-lab-packages/opl-fleet-agent',
+    visibility: 'public',
+  });
+  assert.deepEqual(descriptor.host_hints.codex, {
+    sync_enabled: false,
+    plugin_name: 'opl-fleet-agent',
+    category: 'Productivity',
+    capabilities: ['Local telemetry', 'Node doctor'],
+  });
 });
 
 test('rejects unknown refs without invoking native code', async () => {
@@ -125,6 +118,17 @@ test('rejects unknown refs without invoking native code', async () => {
   assert.equal(response.code, 2);
   assert.equal(response.payload.ok, false);
   assert.match(response.payload.error.message, /not declared/);
+});
+
+test('rejects a contribution request for a different Package identity', async () => {
+  const response = await handleRequest({
+    ...request('fleet.agent.telemetry.v1#local'),
+    package_id: 'another-package',
+  }, {});
+
+  assert.equal(response.code, 2);
+  assert.equal(response.payload.ok, false);
+  assert.match(response.payload.error.message, /package_id must be opl-fleet-agent/);
 });
 
 test('returns a valid unavailable projection when the optional native helper is absent', async () => {
