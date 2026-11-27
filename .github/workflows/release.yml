@@ -37,9 +37,11 @@ jobs:
   macos:
     needs: preflight
     if: needs.preflight.outputs.native_release == 'true'
-    uses: gaofeng21cn/one-person-lab/.github/workflows/reusable-macos-sparkle-release.yml@main
+    uses: gaofeng21cn/opl-release/.github/workflows/reusable-macos-sparkle-release.yml@v1
     secrets: inherit
     with:
+      subject_id: opl-fleet-agent
+      lane: macos-sparkle
       release_tag: ${{ github.ref_name }}
       app_name: "OPL Fleet Agent.app"
       dmg_name: OPL-Fleet-Agent.dmg
