@@ -34,12 +34,20 @@ def main():
         for path, pattern in declarations.items()
     }
 
-    fixture = root / "plugins/opl-fleet-agent/tests/fixtures/provider-telemetry.json"
-    original = fixture.read_text(encoding="utf-8")
-    telemetry = json.loads(original)
-    if telemetry["node"]["agent_version"] != version:
-        telemetry["node"]["agent_version"] = version
-        updates[fixture] = original, json.dumps(telemetry, indent=2) + "\n"
+    json_targets = (
+        (root / "plugins/opl-fleet-agent/plugin.json", ("version",)),
+        (root / "plugins/opl-fleet-agent/.codex-plugin/plugin.json", ("version",)),
+        (root / "plugins/opl-fleet-agent/tests/fixtures/provider-telemetry.json", ("node", "agent_version")),
+    )
+    for target_path, key_path in json_targets:
+        original = target_path.read_text(encoding="utf-8")
+        payload = json.loads(original)
+        node = payload
+        for key in key_path[:-1]:
+            node = node[key]
+        if node[key_path[-1]] != version:
+            node[key_path[-1]] = version
+            updates[target_path] = original, json.dumps(payload, indent=2) + "\n"
 
     for path, (original, updated) in updates.items():
         if updated != original:
