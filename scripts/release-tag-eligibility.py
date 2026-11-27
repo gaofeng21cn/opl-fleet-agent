@@ -25,11 +25,14 @@ def main() -> int:
         macos_version = plistlib.load(source).get("CFBundleShortVersionString")
     windows_version = ET.parse(project_path).findtext(".//Version")
     package_manifest = Path(package_path)
-    package_version = (
-        json.loads(package_manifest.read_text(encoding="utf-8")).get("version")
-        if package_manifest.is_file()
-        else None
-    )
+    package_version = None
+    if package_manifest.is_file():
+        package_data = json.loads(package_manifest.read_text(encoding="utf-8"))
+        identity = package_data.get("identity")
+        if isinstance(identity, dict):
+            package_version = identity.get("version")
+        if package_version is None:
+            package_version = package_data.get("version")
 
     versions = {"macOS": macos_version, "Windows": windows_version, "Package": package_version}
     for owner, version in versions.items():

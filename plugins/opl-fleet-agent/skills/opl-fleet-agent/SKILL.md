@@ -9,26 +9,28 @@ Use the Framework-owned broker so installed Package discovery and the native car
 
 ## Read telemetry
 
-Run:
+Call Framework `opld`'s `app.contribution.read` RPC (backed by `provides.contribution_handler`) with:
 
-```bash
-opl app contribution read \
-  --package-id opl-fleet-agent \
-  --ref fleet.agent.telemetry.v1#local \
-  --input '{}'
+```json
+{
+  "package_id": "opl-fleet-agent",
+  "ref": "fleet.agent.telemetry.v1#local",
+  "input": {}
+}
 ```
 
 Report carrier availability, freshness, one-minute and five-minute rates, active conversation count, and aggregate host metrics. Label last-known values as stale; do not present them as current.
 
 ## Run doctor
 
-Run:
+Call Framework `opld`'s `app.contribution.read` RPC (backed by `provides.contribution_handler`) with:
 
-```bash
-opl app contribution read \
-  --package-id opl-fleet-agent \
-  --ref fleet.agent.doctor.v1#current \
-  --input '{}'
+```json
+{
+  "package_id": "opl-fleet-agent",
+  "ref": "fleet.agent.doctor.v1#current",
+  "input": {}
+}
 ```
 
 Summarize only structured check IDs, states, and reason codes. Treat an absent native helper as an optional carrier being unavailable, not as a Cordis Host failure.
