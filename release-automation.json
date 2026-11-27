@@ -18,6 +18,14 @@
     {
       "path": "windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj",
       "kind": "xml_project"
+    },
+    {
+      "path": "plugins/opl-fleet-agent/plugin.json",
+      "kind": "json"
+    },
+    {
+      "path": "plugins/opl-fleet-agent/.codex-plugin/plugin.json",
+      "kind": "json"
     }
   ]
 }
