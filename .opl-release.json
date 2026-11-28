@@ -1,0 +1,45 @@
+{
+  "schema_version": "opl.release.v1",
+  "subject_id": "opl-fleet-agent",
+  "kind": "product",
+  "repository": "gaofeng21cn/opl-fleet-agent",
+  "schedule": "manual",
+  "trigger": "tag",
+  "tag_prefix": "v",
+  "delivery_paths": [
+    "Resources",
+    "Sources",
+    "windows",
+    "Package.swift",
+    "scripts",
+    ".github/workflows/release.yml"
+  ],
+  "version_files": [
+    {
+      "path": "Resources/Info.plist",
+      "kind": "plist_bundle"
+    },
+    {
+      "path": "windows/src/OPLFleetAgent.Windows/OPLFleetAgent.Windows.csproj",
+      "kind": "xml_project"
+    }
+  ],
+  "lanes": [
+    {
+      "lane": "stable",
+      "workflow": "release.yml",
+      "primary": true,
+      "match": "tag",
+      "channel": {
+        "kind": "github_release",
+        "asset_pattern": "OPL-Fleet-Agent\\.dmg"
+      }
+    },
+    {
+      "lane": "macos-sparkle",
+      "workflow": "release.yml",
+      "primary": false,
+      "match": "tag"
+    }
+  ]
+}
